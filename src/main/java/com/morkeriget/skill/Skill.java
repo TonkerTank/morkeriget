@@ -8,7 +8,9 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public enum Skill {
     WHIRLWIND("Hvirvelvind", Config.WHIRLWIND_MANA, Config.WHIRLWIND_COOLDOWN),
     FROST_NOVA("Frostnova", Config.FROST_NOVA_MANA, Config.FROST_NOVA_COOLDOWN),
-    BLINK("Blink", Config.BLINK_MANA, Config.BLINK_COOLDOWN);
+    BLINK("Blink", Config.BLINK_MANA, Config.BLINK_COOLDOWN),
+    CHAIN_LIGHTNING("Kædelyn", Config.CHAIN_LIGHTNING_MANA, Config.CHAIN_LIGHTNING_COOLDOWN),
+    BATTLE_CRY("Krigsråb", Config.BATTLE_CRY_MANA, Config.BATTLE_CRY_COOLDOWN);
 
     public final String displayName;
     private final ModConfigSpec.DoubleValue manaCost;

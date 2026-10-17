@@ -11,8 +11,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 // The screen opened with K: level, XP and a + button for each upgrade. Client only
 public class SkillScreen extends Screen {
-    private static final int WIDTH = 240;
+    private static final int WIDTH = 440;
     private static final int ROW_HEIGHT = 28;
+    // The upgrades are shown in two columns with a gap between them
+    private static final int COLUMN_WIDTH = 210;
 
     public SkillScreen() {
         super(Component.literal("Skills og level"));
@@ -26,6 +28,14 @@ public class SkillScreen extends Screen {
         return height / 2 - 100;
     }
 
+    private int columnLeft(Upgrade upgrade) {
+        return left() + (upgrade.ordinal() % 2) * (WIDTH - COLUMN_WIDTH);
+    }
+
+    private int rowTop(Upgrade upgrade) {
+        return top() + 56 + (upgrade.ordinal() / 2) * ROW_HEIGHT;
+    }
+
     @Override
     protected void init() {
         // Menus are opened by the server, so ask it to open the jewelry slots
@@ -35,9 +45,8 @@ public class SkillScreen extends Screen {
 
         ProgressPayload progress = ClientProgress.get();
         for (Upgrade upgrade : Upgrade.values()) {
-            int y = top() + 56 + upgrade.ordinal() * ROW_HEIGHT;
             Button button = Button.builder(Component.literal("+"), pressed -> PacketDistributor.sendToServer(new UpgradePayload(upgrade)))
-                    .bounds(left() + WIDTH - 20, y + 2, 20, 20)
+                    .bounds(columnLeft(upgrade) + COLUMN_WIDTH - 20, rowTop(upgrade) + 2, 20, 20)
                     .build();
             button.active = progress.points() > 0 && progress.rank(upgrade) < Upgrade.MAX_RANK;
             addRenderableWidget(button);
@@ -73,11 +82,12 @@ public class SkillScreen extends Screen {
         graphics.drawCenteredString(font, "Skill-points: " + progress.points(), center, top + 38, pointsColor);
 
         for (Upgrade upgrade : Upgrade.values()) {
-            int y = top + 56 + upgrade.ordinal() * ROW_HEIGHT;
+            int x = columnLeft(upgrade);
+            int y = rowTop(upgrade);
             int rank = progress.rank(upgrade);
             int nameColor = rank >= Upgrade.MAX_RANK ? 0xFFD700 : 0xFFFFFF;
-            graphics.drawString(font, upgrade.displayName + "  " + rank + "/" + Upgrade.MAX_RANK, left, y + 3, nameColor);
-            graphics.drawString(font, upgrade.description, left, y + 14, 0x888888);
+            graphics.drawString(font, upgrade.displayName + "  " + rank + "/" + Upgrade.MAX_RANK, x, y + 3, nameColor);
+            graphics.drawString(font, upgrade.description, x, y + 14, 0x888888);
         }
     }
 

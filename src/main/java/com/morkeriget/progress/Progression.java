@@ -34,8 +34,9 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
 // Levels: killing monsters gives XP, every level gives a skill point, and points are spent on upgrades
 public final class Progression {
-    public static final int MAX_LEVEL = 50;
+    public static final int MAX_LEVEL = 100;
     private static final ResourceLocation VITALITY_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "vitality");
+    private static final ResourceLocation STRENGTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "strength");
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
     private static final Supplier<AttachmentType<PlayerProgress>> PROGRESS = ATTACHMENTS.register("progress",
@@ -119,30 +120,35 @@ public final class Progression {
             return;
         }
         player.setData(PROGRESS, progress.withUpgrade(payload.upgrade()));
-        applyVitality(player);
+        applyPassives(player);
         player.playNotifySound(SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.PLAYERS, 0.6f, 1.2f);
         sync(player);
     }
 
-    // The extra health isn't saved with the player, so it is put on again when they log in or respawn
-    private static void applyVitality(ServerPlayer player) {
+    // The extra health and damage aren't saved with the player, so they are put on again when they log in or respawn
+    private static void applyPassives(ServerPlayer player) {
         AttributeInstance health = player.getAttribute(Attributes.MAX_HEALTH);
         if (health != null) {
             int rank = rank(player, Upgrade.VITALITY);
             health.addOrUpdateTransientModifier(new AttributeModifier(VITALITY_ID, rank * 2, AttributeModifier.Operation.ADD_VALUE));
         }
+        AttributeInstance damage = player.getAttribute(Attributes.ATTACK_DAMAGE);
+        if (damage != null) {
+            int rank = rank(player, Upgrade.STRENGTH);
+            damage.addOrUpdateTransientModifier(new AttributeModifier(STRENGTH_ID, rank * 0.05, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
     }
 
     private static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            applyVitality(player);
+            applyPassives(player);
             sync(player);
         }
     }
 
     private static void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            applyVitality(player);
+            applyPassives(player);
             player.setHealth(player.getMaxHealth());
             sync(player);
         }

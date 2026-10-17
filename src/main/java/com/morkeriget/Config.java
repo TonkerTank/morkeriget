@@ -23,6 +23,10 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue FROST_NOVA_COOLDOWN;
     public static final ModConfigSpec.DoubleValue BLINK_MANA;
     public static final ModConfigSpec.DoubleValue BLINK_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue CHAIN_LIGHTNING_MANA;
+    public static final ModConfigSpec.DoubleValue CHAIN_LIGHTNING_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue BATTLE_CRY_MANA;
+    public static final ModConfigSpec.DoubleValue BATTLE_CRY_COOLDOWN;
     public static final ModConfigSpec.DoubleValue XP_MULTIPLIER;
     public static final ModConfigSpec.BooleanValue MONSTER_LEVELS;
     public static final ModConfigSpec.IntValue MONSTER_LEVEL_SPREAD;
@@ -46,7 +50,7 @@ public final class Config {
         ELITE_HEALTH = BUILDER.comment("Hvor mange gange mere liv en elite har end et almindeligt monster")
                 .defineInRange("healthMultiplier", 3.0, 1, 100);
         ELITE_DAMAGE = BUILDER.comment("Hvor mange gange mere skade en elite gør end et almindeligt monster")
-                .defineInRange("damageMultiplier", 1.5, 1, 100);
+                .defineInRange("damageMultiplier", 1.35, 1, 100);
         BUILDER.pop();
 
         BUILDER.push("bosses");
@@ -55,7 +59,7 @@ public final class Config {
         BOSS_HEALTH = BUILDER.comment("Hvor mange gange mere liv en boss har end et almindeligt monster")
                 .defineInRange("healthMultiplier", 4.0, 1, 100);
         BOSS_DAMAGE = BUILDER.comment("Hvor mange gange mere skade en boss gør end et almindeligt monster")
-                .defineInRange("damageMultiplier", 2.25, 1, 100);
+                .defineInRange("damageMultiplier", 2.0, 1, 100);
         BUILDER.pop();
 
         BUILDER.push("skills");
@@ -67,6 +71,10 @@ public final class Config {
         FROST_NOVA_COOLDOWN = BUILDER.comment("Frostnova: cooldown i sekunder").defineInRange("frostNovaCooldown", 8.0, 0, 600);
         BLINK_MANA = BUILDER.comment("Blink: mana det koster").defineInRange("blinkMana", 20.0, 0, 100);
         BLINK_COOLDOWN = BUILDER.comment("Blink: cooldown i sekunder").defineInRange("blinkCooldown", 3.0, 0, 600);
+        CHAIN_LIGHTNING_MANA = BUILDER.comment("Kædelyn: mana det koster").defineInRange("chainLightningMana", 35.0, 0, 100);
+        CHAIN_LIGHTNING_COOLDOWN = BUILDER.comment("Kædelyn: cooldown i sekunder").defineInRange("chainLightningCooldown", 4.0, 0, 600);
+        BATTLE_CRY_MANA = BUILDER.comment("Krigsråb: mana det koster").defineInRange("battleCryMana", 50.0, 0, 100);
+        BATTLE_CRY_COOLDOWN = BUILDER.comment("Krigsråb: cooldown i sekunder").defineInRange("battleCryCooldown", 20.0, 0, 600);
         BUILDER.pop();
 
         BUILDER.push("levels");

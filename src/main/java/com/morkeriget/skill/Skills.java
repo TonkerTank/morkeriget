@@ -1,5 +1,8 @@
 package com.morkeriget.skill;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 
@@ -28,6 +31,12 @@ public final class Skills {
     // 20 ticks is one second
     private static final int FROST_NOVA_DURATION = 3 * 20;
     private static final double BLINK_DISTANCE = 8.0;
+    // Chain Lightning hits the first monster within this range and then jumps this many times to monsters close by
+    private static final double CHAIN_LIGHTNING_RANGE = 12.0;
+    private static final double CHAIN_LIGHTNING_JUMP_RANGE = 6.0;
+    private static final int CHAIN_LIGHTNING_JUMPS = 3;
+    private static final double BATTLE_CRY_RADIUS = 8.0;
+    private static final int BATTLE_CRY_DURATION = 6 * 20;
 
     private Skills() {
     }
@@ -61,6 +70,8 @@ public final class Skills {
             case WHIRLWIND -> whirlwind(player);
             case FROST_NOVA -> frostNova(player);
             case BLINK -> blink(player);
+            case CHAIN_LIGHTNING -> chainLightning(player);
+            case BATTLE_CRY -> battleCry(player);
         };
         if (used) {
             Mana.spend(player, skill.manaCost());
@@ -93,9 +104,9 @@ public final class Skills {
     // A ring of ice that hurts and freezes every monster around you, so they can barely move for a few seconds
     private static boolean frostNova(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        // Each Frost Nova upgrade rank adds 1 block of radius and half a second of freezing
+        // Each Frost Nova upgrade rank adds half a block of radius and half a second of freezing
         int rank = Progression.rank(player, Upgrade.FROST_NOVA);
-        double radius = FROST_NOVA_RADIUS + rank;
+        double radius = FROST_NOVA_RADIUS + rank * 0.5;
         int duration = FROST_NOVA_DURATION + rank * 10;
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(radius),
@@ -147,5 +158,78 @@ public final class Skills {
         }
         player.displayClientMessage(Component.literal("Ingen plads at blinke til"), true);
         return false;
+    }
+
+    // Lightning hits the closest monster and jumps on to the next one close to it, never hitting the same one twice
+    private static boolean chainLightning(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        // Each Chain Lightning upgrade rank adds 15% damage and one more jump
+        int rank = Progression.rank(player, Upgrade.CHAIN_LIGHTNING);
+        int jumps = CHAIN_LIGHTNING_JUMPS + rank;
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.2 * (1 + 0.15 * rank));
+        List<LivingEntity> hit = new ArrayList<>();
+        LivingEntity target = closestEnemy(level, player, CHAIN_LIGHTNING_RANGE, hit);
+        if (target == null) {
+            player.displayClientMessage(Component.literal("Ingen fjender i nærheden"), true);
+            return false;
+        }
+        Vec3 from = player.position().add(0, player.getBbHeight() * 0.6, 0);
+        while (target != null && hit.size() <= jumps) {
+            hit.add(target);
+            Vec3 to = target.position().add(0, target.getBbHeight() / 2, 0);
+            sparks(level, from, to);
+            target.hurt(player.damageSources().playerAttack(player), damage);
+            from = to;
+            target = closestEnemy(level, target, CHAIN_LIGHTNING_JUMP_RANGE, hit);
+        }
+        level.playSound(null, player.blockPosition(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.0f, 1.6f);
+        return true;
+    }
+
+    // The closest living monster around the entity that it can see and that isn't in the list
+    private static LivingEntity closestEnemy(ServerLevel level, LivingEntity center, double range, List<LivingEntity> skip) {
+        LivingEntity closest = null;
+        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, center.getBoundingBox().inflate(range),
+                entity -> entity instanceof Enemy && entity.isAlive() && !skip.contains(entity)
+                        && entity.distanceTo(center) <= range && center.hasLineOfSight(entity))) {
+            if (closest == null || entity.distanceToSqr(center) < closest.distanceToSqr(center)) {
+                closest = entity;
+            }
+        }
+        return closest;
+    }
+
+    // A line of electric sparks between two points
+    private static void sparks(ServerLevel level, Vec3 from, Vec3 to) {
+        Vec3 step = to.subtract(from);
+        int count = (int) Math.ceil(step.length() / 0.4);
+        for (int i = 0; i <= count; i++) {
+            Vec3 point = from.add(step.scale((double) i / count));
+            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0);
+        }
+    }
+
+    // A roar that makes you stronger and tougher for a while and weakens the monsters around you
+    private static boolean battleCry(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        // Each Battle Cry upgrade rank makes it last one second longer
+        int duration = BATTLE_CRY_DURATION + 20 * Progression.rank(player, Upgrade.BATTLE_CRY);
+        player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, duration, 0));
+        player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, duration, 0));
+        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(BATTLE_CRY_RADIUS),
+                entity -> entity instanceof Enemy && entity.isAlive())) {
+            target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0));
+            level.sendParticles(ParticleTypes.ANGRY_VILLAGER, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(),
+                    3, 0.3, 0.2, 0.3, 0);
+        }
+
+        for (int i = 0; i < 24; i++) {
+            double angle = Math.PI * 2 * i / 24;
+            level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1, player.getZ(),
+                    0, Math.cos(angle), 0.1, Math.sin(angle), 0.8);
+        }
+        level.playSound(null, player.blockPosition(), SoundEvents.POLAR_BEAR_WARNING, SoundSource.PLAYERS, 1.0f, 0.9f);
+        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.0f, 0.6f);
+        return true;
     }
 }

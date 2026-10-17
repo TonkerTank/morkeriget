@@ -25,6 +25,10 @@ public final class SkillKeys {
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.morkeriget");
     public static final KeyMapping BLINK = new KeyMapping("key.morkeriget.blink",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.morkeriget");
+    public static final KeyMapping CHAIN_LIGHTNING = new KeyMapping("key.morkeriget.chain_lightning",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, "key.categories.morkeriget");
+    public static final KeyMapping BATTLE_CRY = new KeyMapping("key.morkeriget.battle_cry",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, "key.categories.morkeriget");
     public static final KeyMapping SKILLS = new KeyMapping("key.morkeriget.skills",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.morkeriget");
 
@@ -40,6 +44,8 @@ public final class SkillKeys {
         event.register(WHIRLWIND);
         event.register(FROST_NOVA);
         event.register(BLINK);
+        event.register(CHAIN_LIGHTNING);
+        event.register(BATTLE_CRY);
         event.register(SKILLS);
     }
 
@@ -62,6 +68,12 @@ public final class SkillKeys {
         }
         while (BLINK.consumeClick()) {
             PacketDistributor.sendToServer(new SkillPayload(Skill.BLINK));
+        }
+        while (CHAIN_LIGHTNING.consumeClick()) {
+            PacketDistributor.sendToServer(new SkillPayload(Skill.CHAIN_LIGHTNING));
+        }
+        while (BATTLE_CRY.consumeClick()) {
+            PacketDistributor.sendToServer(new SkillPayload(Skill.BATTLE_CRY));
         }
         while (SKILLS.consumeClick()) {
             Minecraft.getInstance().setScreen(new SkillScreen());

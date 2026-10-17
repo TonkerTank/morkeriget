@@ -18,9 +18,9 @@ public record PlayerProgress(int level, int xp, int points, Map<String, Integer>
             Codec.unboundedMap(Codec.STRING, Codec.INT).fieldOf("ranks").forGetter(PlayerProgress::ranks)
     ).apply(instance, PlayerProgress::new));
 
-    // XP needed to go from this level to the next. Level 1 needs 100, level 2 needs 150, and so on
+    // XP needed to go from this level to the next. Level 1 needs 70, level 2 needs 100, and so on
     public static int xpForNextLevel(int level) {
-        return 50 + 50 * level;
+        return 40 + 30 * level;
     }
 
     public int rank(Upgrade upgrade) {
