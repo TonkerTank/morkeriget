@@ -23,6 +23,10 @@ public final class ManaBar {
         mana = payload.mana();
     }
 
+    static float mana() {
+        return mana;
+    }
+
     public static void register(RegisterGuiLayersEvent event) {
         event.registerAbove(VanillaGuiLayers.HOTBAR, ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "mana_bar"), ManaBar::render);
     }

@@ -22,6 +22,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
 // Skills the player can use. They run on the server so monsters really take the damage
@@ -50,7 +51,8 @@ public final class Skills {
         event.registrar("1")
                 .playToServer(SkillPayload.TYPE, SkillPayload.STREAM_CODEC, SkillPayload::handle)
                 // The lambda keeps ManaBar (client only) from being loaded on a dedicated server
-                .playToClient(ManaPayload.TYPE, ManaPayload.STREAM_CODEC, (payload, context) -> ManaBar.set(payload));
+                .playToClient(ManaPayload.TYPE, ManaPayload.STREAM_CODEC, (payload, context) -> ManaBar.set(payload))
+                .playToClient(CooldownPayload.TYPE, CooldownPayload.STREAM_CODEC, (payload, context) -> SkillBar.set(payload));
     }
 
     public static void use(ServerPlayer player, Skill skill) {
@@ -76,6 +78,7 @@ public final class Skills {
         if (used) {
             Mana.spend(player, skill.manaCost());
             player.getPersistentData().putLong(readyTag, now + skill.cooldown());
+            PacketDistributor.sendToPlayer(player, new CooldownPayload(skill, skill.cooldown()));
         }
     }
 

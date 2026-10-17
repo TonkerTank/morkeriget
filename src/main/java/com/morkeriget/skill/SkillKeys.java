@@ -1,5 +1,7 @@
 package com.morkeriget.skill;
 
+import java.util.List;
+
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
@@ -19,24 +21,31 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class SkillKeys {
     public static final KeyMapping DODGE = new KeyMapping("key.morkeriget.dodge",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, "key.categories.morkeriget");
+    // The skills are on 1-5 like in Diablo. Those keys also pick hotbar slots, which onClientTickPre stops
     public static final KeyMapping WHIRLWIND = new KeyMapping("key.morkeriget.whirlwind",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.morkeriget");
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_1, "key.categories.morkeriget");
     public static final KeyMapping FROST_NOVA = new KeyMapping("key.morkeriget.frost_nova",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.morkeriget");
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_2, "key.categories.morkeriget");
     public static final KeyMapping BLINK = new KeyMapping("key.morkeriget.blink",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.morkeriget");
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_3, "key.categories.morkeriget");
     public static final KeyMapping CHAIN_LIGHTNING = new KeyMapping("key.morkeriget.chain_lightning",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, "key.categories.morkeriget");
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_4, "key.categories.morkeriget");
     public static final KeyMapping BATTLE_CRY = new KeyMapping("key.morkeriget.battle_cry",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, "key.categories.morkeriget");
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_5, "key.categories.morkeriget");
+    private static final List<KeyMapping> SKILL_KEYS = List.of(WHIRLWIND, FROST_NOVA, BLINK, CHAIN_LIGHTNING, BATTLE_CRY);
     public static final KeyMapping SKILLS = new KeyMapping("key.morkeriget.skills",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.morkeriget");
 
     // 20 ticks is one second
-    private static final int DODGE_COOLDOWN = 2 * 20;
+    static final int DODGE_COOLDOWN = 2 * 20;
     private static int dodgeCooldown;
 
     private SkillKeys() {
+    }
+
+    // Ticks left before you can dodge again, for the skill bar
+    static int dodgeCooldown() {
+        return dodgeCooldown;
     }
 
     public static void register(RegisterKeyMappingsEvent event) {
@@ -47,6 +56,19 @@ public final class SkillKeys {
         event.register(CHAIN_LIGHTNING);
         event.register(BATTLE_CRY);
         event.register(SKILLS);
+    }
+
+    // A hotbar key that is also a skill key would switch item every time you use the skill, so its presses are thrown
+    // away before the game handles them. The skill key still gets them, since every key mapping counts its own presses.
+    // Other hotbar keys, the scroll wheel and the number keys in the inventory still work
+    public static void onClientTickPre(ClientTickEvent.Pre event) {
+        for (KeyMapping hotbar : Minecraft.getInstance().options.keyHotbarSlots) {
+            if (SKILL_KEYS.stream().anyMatch(skill -> skill.getKey().equals(hotbar.getKey()))) {
+                while (hotbar.consumeClick()) {
+                    // Nothing, the press belongs to the skill
+                }
+            }
+        }
     }
 
     public static void onClientTick(ClientTickEvent.Post event) {

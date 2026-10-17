@@ -6,6 +6,7 @@ import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.LootBeams;
 import com.morkeriget.skill.ManaBar;
+import com.morkeriget.skill.SkillBar;
 import com.morkeriget.skill.SkillKeys;
 
 import net.neoforged.api.distmarker.Dist;
@@ -23,9 +24,13 @@ public class MorkerigetClient {
         NeoForge.EVENT_BUS.addListener(LootBeams::onEntityTick);
         // Keys for dodging and skills
         modEventBus.addListener(SkillKeys::register);
+        NeoForge.EVENT_BUS.addListener(SkillKeys::onClientTickPre);
         NeoForge.EVENT_BUS.addListener(SkillKeys::onClientTick);
         // Mana bar next to the hotbar
         modEventBus.addListener(ManaBar::register);
+        // Skill icons with keys and cooldowns next to the mana bar
+        modEventBus.addListener(SkillBar::register);
+        NeoForge.EVENT_BUS.addListener(SkillBar::onClientTick);
         // Damage numbers that float up from monsters you hit
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onClientTick);
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onRenderLevel);
