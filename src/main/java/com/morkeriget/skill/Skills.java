@@ -3,6 +3,7 @@ package com.morkeriget.skill;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.Config;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.Progression;
@@ -76,11 +77,14 @@ public final class Skills {
             case BLINK -> blink(player);
             case CHAIN_LIGHTNING -> chainLightning(player);
             case BATTLE_CRY -> battleCry(player);
+            case HEALTH_POTION -> healthPotion(player);
+            case MANA_POTION -> manaPotion(player);
         };
         if (used) {
             Mana.spend(player, skill.manaCost());
-            // Four Stormcaller pieces make cooldowns 30% shorter
-            int cooldown = SetBonuses.has(player, ItemSet.STORMCALLER, 4) ? Math.round(skill.cooldown() * 0.7f) : skill.cooldown();
+            // Four Stormcaller pieces make skill cooldowns 30% shorter (not the potions)
+            boolean shorter = !skill.isPotion() && SetBonuses.has(player, ItemSet.STORMCALLER, 4);
+            int cooldown = shorter ? Math.round(skill.cooldown() * 0.7f) : skill.cooldown();
             player.getPersistentData().putLong(readyTag, now + cooldown);
             PacketDistributor.sendToPlayer(player, new CooldownPayload(skill, cooldown));
         }
@@ -214,6 +218,32 @@ public final class Skills {
             Vec3 point = from.add(step.scale((double) i / count));
             level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0);
         }
+    }
+
+    // Gives back part of your max health at once. Not used up if you already have full health
+    private static boolean healthPotion(ServerPlayer player) {
+        if (player.getHealth() >= player.getMaxHealth()) {
+            player.displayClientMessage(Component.literal("Du har fuldt liv"), true);
+            return false;
+        }
+        player.heal(player.getMaxHealth() * Config.HEALTH_POTION_HEAL.get().floatValue());
+        ServerLevel level = player.serverLevel();
+        level.sendParticles(ParticleTypes.HEART, player.getX(), player.getY() + 1.8, player.getZ(), 6, 0.4, 0.3, 0.4, 0);
+        level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0f, 1.0f);
+        return true;
+    }
+
+    // Gives mana at once. Not used up if your mana is already full
+    private static boolean manaPotion(ServerPlayer player) {
+        if (Mana.get(player) >= Mana.MAX) {
+            player.displayClientMessage(Component.literal("Du har fuld mana"), true);
+            return false;
+        }
+        Mana.add(player, Config.MANA_POTION_MANA.get().floatValue());
+        ServerLevel level = player.serverLevel();
+        level.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1, player.getZ(), 30, 0.4, 0.6, 0.4, 0.5);
+        level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0f, 1.3f);
+        return true;
     }
 
     // A roar that makes you stronger and tougher for a while and weakens the monsters around you

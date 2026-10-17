@@ -29,6 +29,10 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue CHAIN_LIGHTNING_COOLDOWN;
     public static final ModConfigSpec.DoubleValue BATTLE_CRY_MANA;
     public static final ModConfigSpec.DoubleValue BATTLE_CRY_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue HEALTH_POTION_HEAL;
+    public static final ModConfigSpec.DoubleValue HEALTH_POTION_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue MANA_POTION_MANA;
+    public static final ModConfigSpec.DoubleValue MANA_POTION_COOLDOWN;
     public static final ModConfigSpec.DoubleValue XP_MULTIPLIER;
     public static final ModConfigSpec.BooleanValue MONSTER_LEVELS;
     public static final ModConfigSpec.IntValue MONSTER_LEVEL_SPREAD;
@@ -81,6 +85,12 @@ public final class Config {
         CHAIN_LIGHTNING_COOLDOWN = BUILDER.comment("Kædelyn: cooldown i sekunder").defineInRange("chainLightningCooldown", 4.0, 0, 600);
         BATTLE_CRY_MANA = BUILDER.comment("Krigsråb: mana det koster").defineInRange("battleCryMana", 50.0, 0, 100);
         BATTLE_CRY_COOLDOWN = BUILDER.comment("Krigsråb: cooldown i sekunder").defineInRange("battleCryCooldown", 20.0, 0, 600);
+        HEALTH_POTION_HEAL = BUILDER.comment("Livsdrik: hvor meget af dit max liv den giver tilbage (0.4 = 40 %)")
+                .defineInRange("healthPotionHeal", 0.4, 0, 1);
+        HEALTH_POTION_COOLDOWN = BUILDER.comment("Livsdrik: cooldown i sekunder").defineInRange("healthPotionCooldown", 20.0, 0, 600);
+        MANA_POTION_MANA = BUILDER.comment("Manadrik: hvor meget mana den giver (max er 100)")
+                .defineInRange("manaPotionMana", 50.0, 0, 100);
+        MANA_POTION_COOLDOWN = BUILDER.comment("Manadrik: cooldown i sekunder").defineInRange("manaPotionCooldown", 20.0, 0, 600);
         BUILDER.pop();
 
         BUILDER.push("levels");

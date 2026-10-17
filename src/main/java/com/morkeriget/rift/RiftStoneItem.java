@@ -13,7 +13,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
-// Right-click to open a rift where you stand. The stone is only used up if the rift really opens
+// Right-click to open a rift of the stone's tier where you stand. The stone is only used up if the rift really opens
 public class RiftStoneItem extends Item {
     public RiftStoneItem(Properties properties) {
         super(properties);
@@ -23,7 +23,7 @@ public class RiftStoneItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (player instanceof ServerPlayer serverPlayer) {
-            if (!Rifts.start(serverPlayer)) {
+            if (!Rifts.start(serverPlayer, Rifts.tier(stack))) {
                 return InteractionResultHolder.fail(stack);
             }
             stack.consume(1, player);
@@ -31,10 +31,24 @@ public class RiftStoneItem extends Item {
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
 
+    // "Riftsten III"
+    @Override
+    public Component getName(ItemStack stack) {
+        return Component.translatable(getDescriptionId(stack)).append(" " + Rifts.roman(Rifts.tier(stack)));
+    }
+
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
+        int tier = Rifts.tier(stack);
         lines.add(Component.literal("Højreklik for at åbne en rift").withStyle(ChatFormatting.LIGHT_PURPLE));
         lines.add(Component.literal("Overlev " + Rifts.WAVES + " bølger og dræb riftens vogter").withStyle(ChatFormatting.GRAY));
         lines.add(Component.literal("for en sæt-genstand, ekstra loot, essens og XP").withStyle(ChatFormatting.GRAY));
+        if (tier > 1) {
+            lines.add(Component.literal("Niveau " + Rifts.roman(tier) + ": monstre +" + (tier - 1) + " level, flere fjender og bedre loot")
+                    .withStyle(ChatFormatting.DARK_PURPLE));
+        }
+        if (tier < Rifts.MAX_TIER) {
+            lines.add(Component.literal("Luk riften for at få en riftsten " + Rifts.roman(tier + 1)).withStyle(ChatFormatting.DARK_GRAY));
+        }
     }
 }

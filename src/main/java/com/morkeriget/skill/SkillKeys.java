@@ -32,7 +32,12 @@ public final class SkillKeys {
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_4, "key.categories.morkeriget");
     public static final KeyMapping BATTLE_CRY = new KeyMapping("key.morkeriget.battle_cry",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_5, "key.categories.morkeriget");
-    private static final List<KeyMapping> SKILL_KEYS = List.of(WHIRLWIND, FROST_NOVA, BLINK, CHAIN_LIGHTNING, BATTLE_CRY);
+    public static final KeyMapping HEALTH_POTION = new KeyMapping("key.morkeriget.health_potion",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.morkeriget");
+    public static final KeyMapping MANA_POTION = new KeyMapping("key.morkeriget.mana_potion",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.morkeriget");
+    private static final List<KeyMapping> SKILL_KEYS = List.of(WHIRLWIND, FROST_NOVA, BLINK, CHAIN_LIGHTNING, BATTLE_CRY,
+            HEALTH_POTION, MANA_POTION);
     public static final KeyMapping SKILLS = new KeyMapping("key.morkeriget.skills",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.morkeriget");
 
@@ -55,6 +60,8 @@ public final class SkillKeys {
         event.register(BLINK);
         event.register(CHAIN_LIGHTNING);
         event.register(BATTLE_CRY);
+        event.register(HEALTH_POTION);
+        event.register(MANA_POTION);
         event.register(SKILLS);
     }
 
@@ -96,6 +103,12 @@ public final class SkillKeys {
         }
         while (BATTLE_CRY.consumeClick()) {
             PacketDistributor.sendToServer(new SkillPayload(Skill.BATTLE_CRY));
+        }
+        while (HEALTH_POTION.consumeClick()) {
+            PacketDistributor.sendToServer(new SkillPayload(Skill.HEALTH_POTION));
+        }
+        while (MANA_POTION.consumeClick()) {
+            PacketDistributor.sendToServer(new SkillPayload(Skill.MANA_POTION));
         }
         while (SKILLS.consumeClick()) {
             Minecraft.getInstance().setScreen(new SkillScreen());

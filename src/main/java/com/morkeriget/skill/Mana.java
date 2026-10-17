@@ -28,6 +28,10 @@ public final class Mana {
         set(player, get(player) - amount);
     }
 
+    public static void add(ServerPlayer player, float amount) {
+        set(player, Math.min(MAX, get(player) + amount));
+    }
+
     private static void set(ServerPlayer player, float mana) {
         player.getPersistentData().putFloat(MANA_TAG, mana);
         PacketDistributor.sendToPlayer(player, new ManaPayload(mana));

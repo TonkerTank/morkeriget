@@ -1,5 +1,8 @@
 package com.morkeriget.skill;
 
+import java.util.List;
+import java.util.Optional;
+
 import com.morkeriget.Morkeriget;
 
 import net.minecraft.client.DeltaTracker;
@@ -7,15 +10,18 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 
 // A row of skill icons to the right of the mana bar, with the key, the cooldown counting down, and a blue tint
-// when there isn't enough mana. Dodge is first, then the skills in order. Client only
+// when there isn't enough mana. Dodge is first, then the skills in order. The potions are on the other side of the hotbar.
+// Client only
 public final class SkillBar {
     // One slot is a 16x16 icon with a 1 pixel border that is shared with the next slot
     private static final int SLOT = 17;
@@ -50,13 +56,22 @@ public final class SkillBar {
     }
 
     private static ItemStack icon(Skill skill) {
-        return new ItemStack(switch (skill) {
-            case WHIRLWIND -> Items.IRON_SWORD;
-            case FROST_NOVA -> Items.BLUE_ICE;
-            case BLINK -> Items.ENDER_PEARL;
-            case CHAIN_LIGHTNING -> Items.LIGHTNING_ROD;
-            case BATTLE_CRY -> Items.GOAT_HORN;
-        });
+        return switch (skill) {
+            case WHIRLWIND -> new ItemStack(Items.IRON_SWORD);
+            case FROST_NOVA -> new ItemStack(Items.BLUE_ICE);
+            case BLINK -> new ItemStack(Items.ENDER_PEARL);
+            case CHAIN_LIGHTNING -> new ItemStack(Items.LIGHTNING_ROD);
+            case BATTLE_CRY -> new ItemStack(Items.GOAT_HORN);
+            case HEALTH_POTION -> potion(0xE02020);
+            case MANA_POTION -> potion(0x3060FF);
+        };
+    }
+
+    // A potion bottle in red or blue
+    private static ItemStack potion(int color) {
+        ItemStack stack = new ItemStack(Items.POTION);
+        stack.set(DataComponents.POTION_CONTENTS, new PotionContents(Optional.empty(), Optional.of(color), List.of()));
+        return stack;
     }
 
     private static KeyMapping key(Skill skill) {
@@ -66,6 +81,8 @@ public final class SkillBar {
             case BLINK -> SkillKeys.BLINK;
             case CHAIN_LIGHTNING -> SkillKeys.CHAIN_LIGHTNING;
             case BATTLE_CRY -> SkillKeys.BATTLE_CRY;
+            case HEALTH_POTION -> SkillKeys.HEALTH_POTION;
+            case MANA_POTION -> SkillKeys.MANA_POTION;
         };
     }
 
@@ -74,15 +91,24 @@ public final class SkillBar {
         if (minecraft.options.hideGui || minecraft.player == null || minecraft.player.isSpectator()) {
             return;
         }
-        // Just right of the mana bar, centered on the hotbar's height
+        // The skills go just right of the mana bar, centered on the hotbar's height. The potions go on the left of the
+        // hotbar, past the off hand slot, so the bar doesn't run off small screens
         int x = graphics.guiWidth() / 2 + 91 + 4 + 6 + 6;
+        int potionX = graphics.guiWidth() / 2 - 91 - 29 - 4 - SLOT;
         int y = graphics.guiHeight() - 19;
 
         slot(graphics, minecraft.font, x, y, DODGE_ICON, SkillKeys.DODGE, SkillKeys.dodgeCooldown(), SkillKeys.DODGE_COOLDOWN, false);
         for (Skill skill : Skill.values()) {
-            x += SLOT;
             int i = skill.ordinal();
-            slot(graphics, minecraft.font, x, y, icon(skill), key(skill), remaining[i], total[i], ManaBar.mana() < skill.manaCost());
+            int slotX;
+            if (skill.isPotion()) {
+                slotX = potionX;
+                potionX -= SLOT;
+            } else {
+                x += SLOT;
+                slotX = x;
+            }
+            slot(graphics, minecraft.font, slotX, y, icon(skill), key(skill), remaining[i], total[i], ManaBar.mana() < skill.manaCost());
         }
     }
 
