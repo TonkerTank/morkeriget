@@ -2,6 +2,7 @@ package com.morkeriget;
 
 import com.morkeriget.combat.DamageNumbers;
 import com.morkeriget.loot.LootBeams;
+import com.morkeriget.skill.ManaBar;
 import com.morkeriget.skill.SkillKeys;
 
 import net.neoforged.api.distmarker.Dist;
@@ -19,6 +20,8 @@ public class MorkerigetClient {
         // Keys for dodging and skills
         modEventBus.addListener(SkillKeys::register);
         NeoForge.EVENT_BUS.addListener(SkillKeys::onClientTick);
+        // Mana bar next to the hotbar
+        modEventBus.addListener(ManaBar::register);
         // Damage numbers that float up from monsters you hit
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onClientTick);
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onRenderLevel);

@@ -20,6 +20,10 @@ public final class SkillKeys {
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, "key.categories.morkeriget");
     public static final KeyMapping WHIRLWIND = new KeyMapping("key.morkeriget.whirlwind",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.morkeriget");
+    public static final KeyMapping FROST_NOVA = new KeyMapping("key.morkeriget.frost_nova",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.morkeriget");
+    public static final KeyMapping BLINK = new KeyMapping("key.morkeriget.blink",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.morkeriget");
 
     // 20 ticks is one second
     private static final int DODGE_COOLDOWN = 2 * 20;
@@ -31,6 +35,8 @@ public final class SkillKeys {
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(DODGE);
         event.register(WHIRLWIND);
+        event.register(FROST_NOVA);
+        event.register(BLINK);
     }
 
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -45,7 +51,13 @@ public final class SkillKeys {
             dodge(player);
         }
         while (WHIRLWIND.consumeClick()) {
-            PacketDistributor.sendToServer(WhirlwindPayload.INSTANCE);
+            PacketDistributor.sendToServer(new SkillPayload(Skill.WHIRLWIND));
+        }
+        while (FROST_NOVA.consumeClick()) {
+            PacketDistributor.sendToServer(new SkillPayload(Skill.FROST_NOVA));
+        }
+        while (BLINK.consumeClick()) {
+            PacketDistributor.sendToServer(new SkillPayload(Skill.BLINK));
         }
     }
 
