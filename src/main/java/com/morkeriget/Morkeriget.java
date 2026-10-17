@@ -1,0 +1,28 @@
+package com.morkeriget;
+
+import org.slf4j.Logger;
+
+import com.morkeriget.elite.Elites;
+import com.morkeriget.loot.Loot;
+import com.morkeriget.skill.Skills;
+import com.mojang.logging.LogUtils;
+
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+
+// The value here should match an entry in the META-INF/neoforge.mods.toml file
+@Mod(Morkeriget.MODID)
+public class Morkeriget {
+    public static final String MODID = "morkeriget";
+    public static final Logger LOGGER = LogUtils.getLogger();
+
+    public Morkeriget(IEventBus modEventBus, ModContainer modContainer) {
+        // Monsters drop weapons and armour with a rarity and random bonuses
+        Loot.register(modEventBus);
+        // Some monsters spawn as stronger elites that always drop good loot
+        Elites.register(modEventBus);
+        // Skills on keys, like Whirlwind
+        Skills.register(modEventBus);
+    }
+}
