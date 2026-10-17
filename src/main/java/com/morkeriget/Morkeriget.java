@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.morkeriget.combat.PlayerHits;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.progress.Progression;
 import com.morkeriget.skill.Skills;
 import com.mojang.logging.LogUtils;
 
@@ -30,5 +31,7 @@ public class Morkeriget {
         Skills.register(modEventBus);
         // Special weapon affixes and damage numbers when the player hits something
         PlayerHits.register(modEventBus);
+        // Levels, XP and skill points
+        Progression.register(modEventBus);
     }
 }

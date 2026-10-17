@@ -1,6 +1,7 @@
 package com.morkeriget.skill;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.progress.ClientProgress;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -40,5 +41,9 @@ public final class ManaBar {
         graphics.fill(x, bottom - filled, x + WIDTH, bottom, 0xFF3366FF);
         // A lighter stripe on the left edge makes it look a little less flat
         graphics.fill(x, bottom - filled, x + 1, bottom, 0xFF6F93FF);
+
+        // The player's level just above the bar
+        String level = String.valueOf(ClientProgress.get().level());
+        graphics.drawString(minecraft.font, level, x + WIDTH / 2 - minecraft.font.width(level) / 2, top - 10, 0xFFB080FF);
     }
 }

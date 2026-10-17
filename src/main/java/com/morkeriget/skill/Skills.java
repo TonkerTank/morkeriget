@@ -1,5 +1,8 @@
 package com.morkeriget.skill;
 
+import com.morkeriget.progress.Progression;
+import com.morkeriget.progress.Upgrade;
+
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -68,7 +71,9 @@ public final class Skills {
     // Spins around and hits every monster close to you
     private static boolean whirlwind(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.5);
+        // Each Whirlwind upgrade rank adds 20% damage
+        double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.WHIRLWIND);
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.5 * upgrade);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(WHIRLWIND_RADIUS),
                 entity -> entity instanceof Enemy && entity.isAlive())) {
             target.hurt(player.damageSources().playerAttack(player), damage);
@@ -88,13 +93,17 @@ public final class Skills {
     // A ring of ice that hurts and freezes every monster around you, so they can barely move for a few seconds
     private static boolean frostNova(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
+        // Each Frost Nova upgrade rank adds 1 block of radius and half a second of freezing
+        int rank = Progression.rank(player, Upgrade.FROST_NOVA);
+        double radius = FROST_NOVA_RADIUS + rank;
+        int duration = FROST_NOVA_DURATION + rank * 10;
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5);
-        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(FROST_NOVA_RADIUS),
+        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(radius),
                 entity -> entity instanceof Enemy && entity.isAlive())) {
             target.hurt(player.damageSources().playerAttack(player), damage);
-            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, FROST_NOVA_DURATION, 9));
+            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 9));
             // Makes them shake and turn blue like in powder snow. It thaws by 2 every tick
-            target.setTicksFrozen(target.getTicksRequiredToFreeze() + FROST_NOVA_DURATION * 2);
+            target.setTicksFrozen(target.getTicksRequiredToFreeze() + duration * 2);
         }
 
         // Snowflakes flying outwards in a ring (count 0 means the offsets are used as speed)
@@ -113,7 +122,9 @@ public final class Skills {
         ServerLevel level = player.serverLevel();
         Vec3 eyes = player.getEyePosition();
         Vec3 look = player.getLookAngle();
-        BlockHitResult hit = level.clip(new ClipContext(eyes, eyes.add(look.scale(BLINK_DISTANCE)),
+        // Each Blink upgrade rank adds 2 blocks
+        double maxDistance = BLINK_DISTANCE + 2 * Progression.rank(player, Upgrade.BLINK);
+        BlockHitResult hit = level.clip(new ClipContext(eyes, eyes.add(look.scale(maxDistance)),
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
         Vec3 from = player.position();
         double furthest = hit.getLocation().distanceTo(eyes) - 0.5;

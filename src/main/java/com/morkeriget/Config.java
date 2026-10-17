@@ -22,6 +22,7 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue FROST_NOVA_COOLDOWN;
     public static final ModConfigSpec.DoubleValue BLINK_MANA;
     public static final ModConfigSpec.DoubleValue BLINK_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue XP_MULTIPLIER;
 
     static {
         BUILDER.push("loot");
@@ -58,6 +59,11 @@ public final class Config {
         FROST_NOVA_COOLDOWN = BUILDER.comment("Frostnova: cooldown i sekunder").defineInRange("frostNovaCooldown", 8.0, 0, 600);
         BLINK_MANA = BUILDER.comment("Blink: mana det koster").defineInRange("blinkMana", 20.0, 0, 100);
         BLINK_COOLDOWN = BUILDER.comment("Blink: cooldown i sekunder").defineInRange("blinkCooldown", 3.0, 0, 600);
+        BUILDER.pop();
+
+        BUILDER.push("levels");
+        XP_MULTIPLIER = BUILDER.comment("Ganger al XP fra monstre med dette tal. 2 = dobbelt så hurtigt op i level")
+                .defineInRange("xpMultiplier", 1.0, 0, 100);
         BUILDER.pop();
     }
 

@@ -3,6 +3,7 @@ package com.morkeriget.skill;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.morkeriget.progress.SkillScreen;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -24,6 +25,8 @@ public final class SkillKeys {
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.morkeriget");
     public static final KeyMapping BLINK = new KeyMapping("key.morkeriget.blink",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.morkeriget");
+    public static final KeyMapping SKILLS = new KeyMapping("key.morkeriget.skills",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.morkeriget");
 
     // 20 ticks is one second
     private static final int DODGE_COOLDOWN = 2 * 20;
@@ -37,6 +40,7 @@ public final class SkillKeys {
         event.register(WHIRLWIND);
         event.register(FROST_NOVA);
         event.register(BLINK);
+        event.register(SKILLS);
     }
 
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -58,6 +62,9 @@ public final class SkillKeys {
         }
         while (BLINK.consumeClick()) {
             PacketDistributor.sendToServer(new SkillPayload(Skill.BLINK));
+        }
+        while (SKILLS.consumeClick()) {
+            Minecraft.getInstance().setScreen(new SkillScreen());
         }
     }
 

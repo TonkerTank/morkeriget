@@ -1,6 +1,8 @@
 package com.morkeriget.skill;
 
 import com.morkeriget.Config;
+import com.morkeriget.progress.Progression;
+import com.morkeriget.progress.Upgrade;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -32,7 +34,9 @@ public final class Mana {
     // Regenerates twice a second. It also sends the value every time, so the bar is right after joining or respawning
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         if (event.getEntity() instanceof ServerPlayer player && player.tickCount % 10 == 0) {
-            set(player, Math.min(MAX, get(player) + Config.MANA_REGEN.get().floatValue() / 2));
+            // Each Spirit upgrade rank makes mana come back 20% faster
+            float regen = Config.MANA_REGEN.get().floatValue() * (1 + 0.2f * Progression.rank(player, Upgrade.SPIRIT));
+            set(player, Math.min(MAX, get(player) + regen / 2));
         }
     }
 }
