@@ -4,12 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.commands.Commands;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -24,6 +26,7 @@ import net.minecraft.world.entity.monster.Enemy;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -51,6 +54,24 @@ public final class Progression {
         NeoForge.EVENT_BUS.addListener(Progression::onDeath);
         NeoForge.EVENT_BUS.addListener(Progression::onLogin);
         NeoForge.EVENT_BUS.addListener(Progression::onRespawn);
+        NeoForge.EVENT_BUS.addListener(Progression::registerCommands);
+    }
+
+    // "/morkeriget level 60" jumps to that level with all its skill points, for testing. Points already spent stay spent.
+    // Needs cheats
+    private static void registerCommands(RegisterCommandsEvent event) {
+        event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(Commands.literal("level")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("level", IntegerArgumentType.integer(1, MAX_LEVEL)).executes(context -> {
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    int level = IntegerArgumentType.getInteger(context, "level");
+                    PlayerProgress progress = player.getData(PROGRESS);
+                    int spent = progress.ranks().values().stream().mapToInt(Integer::intValue).sum();
+                    player.setData(PROGRESS, new PlayerProgress(level, 0, Math.max(0, level - 1 - spent), progress.ranks()));
+                    sync(player);
+                    context.getSource().sendSuccess(() -> Component.literal("Du er nu level " + level), false);
+                    return 1;
+                }))));
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {

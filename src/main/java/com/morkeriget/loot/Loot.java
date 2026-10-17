@@ -104,28 +104,36 @@ public final class Loot {
     private static final Set<ItemKind> HITTING = EnumSet.of(ItemKind.MELEE, ItemKind.RANGED, ItemKind.JEWELRY);
     private static final Set<ItemKind> DEFENSIVE = EnumSet.of(ItemKind.ARMOR, ItemKind.SHIELD, ItemKind.JEWELRY);
 
+    // How much an affix grows with the item level. Only flat stats grow. Percent stats like speed and the special
+    // affixes stay the same at every level, like in Diablo, or they get silly when they add up over many items
+    private enum Scaling {
+        FULL, HALF, NONE
+    }
+
     // A bonus that can roll on the given kinds of item. min and max are scaled by how good the roll is.
     // Stat affixes change an attribute. Special affixes are stored under tag, with lore as the text
     private record Affix(Set<ItemKind> kinds, Holder<Attribute> attribute, AttributeModifier.Operation operation,
-                         double min, double max, String tag, String lore) {
-        static Affix stat(Set<ItemKind> kinds, Holder<Attribute> attribute, AttributeModifier.Operation operation, double min, double max) {
-            return new Affix(kinds, attribute, operation, min, max, null, null);
+                         double min, double max, String tag, String lore, Scaling scaling) {
+        static Affix stat(Set<ItemKind> kinds, Holder<Attribute> attribute, AttributeModifier.Operation operation, double min, double max,
+                          Scaling scaling) {
+            return new Affix(kinds, attribute, operation, min, max, null, null, scaling);
         }
 
         static Affix special(Set<ItemKind> kinds, String tag, int min, int max, String lore) {
-            return new Affix(kinds, null, null, min, max, tag, lore);
+            return new Affix(kinds, null, null, min, max, tag, lore, Scaling.NONE);
         }
     }
 
     private static final List<Affix> AFFIXES = List.of(
-            Affix.stat(MELEE, Attributes.ATTACK_DAMAGE, AttributeModifier.Operation.ADD_VALUE, 1, 4),
-            Affix.stat(MELEE, Attributes.ATTACK_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, 0.05, 0.2),
-            Affix.stat(ALL, Attributes.MAX_HEALTH, AttributeModifier.Operation.ADD_VALUE, 2, 6),
-            Affix.stat(ALL, Attributes.MOVEMENT_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, 0.03, 0.12),
-            Affix.stat(DEFENSIVE, Attributes.ARMOR, AttributeModifier.Operation.ADD_VALUE, 1, 4),
-            Affix.stat(EnumSet.of(ItemKind.ARMOR, ItemKind.SHIELD), Attributes.ARMOR_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE, 1, 3),
-            Affix.stat(ALL, Attributes.LUCK, AttributeModifier.Operation.ADD_VALUE, 1, 3),
-            Affix.stat(EnumSet.of(ItemKind.MELEE), Attributes.ATTACK_KNOCKBACK, AttributeModifier.Operation.ADD_VALUE, 0.5, 1.5),
+            Affix.stat(MELEE, Attributes.ATTACK_DAMAGE, AttributeModifier.Operation.ADD_VALUE, 1, 4, Scaling.FULL),
+            Affix.stat(MELEE, Attributes.ATTACK_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, 0.05, 0.2, Scaling.NONE),
+            // Health only grows half as fast, since armour already makes you much tougher at high levels
+            Affix.stat(ALL, Attributes.MAX_HEALTH, AttributeModifier.Operation.ADD_VALUE, 2, 6, Scaling.HALF),
+            Affix.stat(ALL, Attributes.MOVEMENT_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, 0.03, 0.12, Scaling.NONE),
+            Affix.stat(DEFENSIVE, Attributes.ARMOR, AttributeModifier.Operation.ADD_VALUE, 1, 4, Scaling.FULL),
+            Affix.stat(EnumSet.of(ItemKind.ARMOR, ItemKind.SHIELD), Attributes.ARMOR_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE, 1, 3, Scaling.FULL),
+            Affix.stat(ALL, Attributes.LUCK, AttributeModifier.Operation.ADD_VALUE, 1, 3, Scaling.NONE),
+            Affix.stat(EnumSet.of(ItemKind.MELEE), Attributes.ATTACK_KNOCKBACK, AttributeModifier.Operation.ADD_VALUE, 0.5, 1.5, Scaling.NONE),
             Affix.special(HITTING, LIFESTEAL_TAG, 3, 10, "+%d%% livsstjæl"),
             Affix.special(EnumSet.of(ItemKind.MELEE, ItemKind.RANGED), FIRE_TAG, 2, 5, "Sætter ild i fjender i %d sek."),
             Affix.special(HITTING, CRUSHING_TAG, 5, 15, "%d%% chance for knusende slag (dobbelt skade)"),
@@ -211,7 +219,12 @@ public final class Loot {
     }
 
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel) {
-        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null);
+        return create(random, rarity, itemLevel, randomItem(random, itemLevel));
+    }
+
+    // Loot made from a chosen base item, e.g. for the /morkeriget loot command
+    public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, Item item) {
+        return roll(new ItemStack(item), random, rarity, itemLevel, null, null);
     }
 
     // A random piece from a random set
@@ -239,10 +252,9 @@ public final class Loot {
 
     // Gives a fresh item its affixes, name and lore. set and piece are null for items that aren't part of a set
     private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece) {
-        // Affixes get stronger with the item level. Percent affixes like lifesteal only grow half as fast,
-        // so they don't get silly at high levels
-        double statScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
-        double specialScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1) / 2;
+        // Flat affixes get stronger with the item level, see Scaling
+        double fullScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
+        double halfScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1) / 2;
         ItemKind kind = ItemKind.of(stack);
         EquipmentSlotGroup slot = slotGroup(stack);
 
@@ -255,7 +267,12 @@ public final class Loot {
             Affix affix = available.remove(random.nextInt(available.size()));
             double quality = random.nextDouble();
             totalQuality += quality;
-            double amount = (affix.min + (affix.max - affix.min) * quality) * (affix.tag != null ? specialScale : statScale);
+            double scale = switch (affix.scaling) {
+                case FULL -> fullScale;
+                case HALF -> halfScale;
+                case NONE -> 1;
+            };
+            double amount = (affix.min + (affix.max - affix.min) * quality) * scale;
             if (affix.tag != null) {
                 int value = (int) Math.round(amount);
                 CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(affix.tag, value));

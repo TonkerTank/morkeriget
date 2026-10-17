@@ -44,7 +44,8 @@ public final class Config {
         DROP_CHANCE = BUILDER.comment("Chance for at et almindeligt monster dropper en genstand (0.08 = 8 %)")
                 .defineInRange("dropChance", 0.08, 0, 1);
         AFFIX_PER_LEVEL = BUILDER.comment("Hvor meget stærkere bonusser bliver pr. genstandslevel (0.05 = +5 %, så level 21 er dobbelt så stærkt).",
-                        "Procent-bonusser som livsstjæl og torne vokser halvt så hurtigt")
+                        "Det gælder skade, rustning og hårdhed. Liv vokser halvt så hurtigt. Procent-bonusser som fart,",
+                        "angrebshastighed, livsstjæl og torne vokser ikke")
                 .defineInRange("affixScalingPerLevel", 0.05, 0, 1);
         SET_CHANCE_BOSS = BUILDER.comment("Chance for at en boss' legendariske genstand i stedet er en sæt-genstand (0.3 = 30 %)")
                 .defineInRange("setChanceBoss", 0.3, 0, 1);
@@ -105,8 +106,8 @@ public final class Config {
                 .defineInRange("levelSpread", 1, 0, 10);
         HEALTH_PER_LEVEL = BUILDER.comment("Ekstra liv pr. level over 1 (0.08 = +8 %, så level 11 har 80 % mere liv)")
                 .defineInRange("healthPerLevel", 0.08, 0, 10);
-        DAMAGE_PER_LEVEL = BUILDER.comment("Ekstra skade pr. level over 1 (0.05 = +5 %)")
-                .defineInRange("damagePerLevel", 0.05, 0, 10);
+        DAMAGE_PER_LEVEL = BUILDER.comment("Ekstra skade pr. level over 1 (0.07 = +7 %)")
+                .defineInRange("damagePerLevel", 0.07, 0, 10);
         BUILDER.pop();
     }
 

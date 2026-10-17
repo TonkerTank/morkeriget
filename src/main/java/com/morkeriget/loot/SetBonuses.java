@@ -5,7 +5,9 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.progress.Progression;
@@ -13,6 +15,7 @@ import com.morkeriget.progress.Progression;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.item.ItemArgument;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -24,6 +27,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -59,6 +63,27 @@ public final class SetBonuses {
             }));
         }
         event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(set));
+
+        // "/morkeriget loot legendary 50 minecraft:netherite_sword" gives a piece of loot of that rarity, level and item.
+        // Without the item it is a random one, like a monster would drop
+        LiteralArgumentBuilder<CommandSourceStack> loot = Commands.literal("loot").requires(source -> source.hasPermission(2));
+        for (Rarity rarity : List.of(Rarity.COMMON, Rarity.MAGIC, Rarity.RARE, Rarity.LEGENDARY)) {
+            loot.then(Commands.literal(rarity.name().toLowerCase())
+                    .then(Commands.argument("level", IntegerArgumentType.integer(1, Progression.MAX_LEVEL + 2))
+                            .executes(context -> giveLoot(context.getSource(), rarity, IntegerArgumentType.getInteger(context, "level"), null))
+                            .then(Commands.argument("item", ItemArgument.item(event.getBuildContext()))
+                                    .executes(context -> giveLoot(context.getSource(), rarity, IntegerArgumentType.getInteger(context, "level"),
+                                            ItemArgument.getItem(context, "item").getItem())))));
+        }
+        event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(loot));
+    }
+
+    private static int giveLoot(CommandSourceStack source, Rarity rarity, int level, Item item) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        ItemStack stack = item != null ? Loot.create(player.getRandom(), rarity, level, item) : Loot.create(player.getRandom(), rarity, level);
+        player.getInventory().placeItemBackInInventory(stack);
+        source.sendSuccess(() -> Component.literal("Du fik ").append(stack.getHoverName()), false);
+        return 1;
     }
 
     // Whether the player wears at least this many different pieces of the set

@@ -27,6 +27,10 @@ public final class PlayerHits {
     // The target that just got a crushing blow. Pre and Post run right after each other on the server thread,
     // so this only has to remember it between the two
     private static LivingEntity crushedTarget;
+    // The most the special affixes can add up to over all items, so stacking many of them doesn't make you unkillable
+    private static final int MAX_LIFESTEAL = 20;
+    private static final int MAX_CRUSHING = 40;
+    private static final int MAX_THORNS = 60;
 
     private PlayerHits() {
     }
@@ -46,7 +50,7 @@ public final class PlayerHits {
         if (event.getSource().getDirectEntity() instanceof AbstractArrow) {
             event.setNewDamage(event.getNewDamage() * (1 + total(items, Loot.ARROW_DAMAGE_TAG) / 100f));
         }
-        int crushingChance = total(items, Loot.CRUSHING_TAG);
+        int crushingChance = Math.min(MAX_CRUSHING, total(items, Loot.CRUSHING_TAG));
         if (crushingChance > 0 && player.getRandom().nextInt(100) < crushingChance) {
             event.setNewDamage(event.getNewDamage() * 2);
             crushedTarget = event.getEntity();
@@ -69,7 +73,7 @@ public final class PlayerHits {
         PacketDistributor.sendToPlayer(player, new DamageNumberPayload(event.getEntity().getId(), event.getNewDamage(), crushing));
 
         List<ItemStack> items = affixItems(player, weapon(player, event.getSource()));
-        int lifesteal = total(items, Loot.LIFESTEAL_TAG) + (SetBonuses.has(player, ItemSet.BLOODHUNTER, 2) ? 6 : 0);
+        int lifesteal = Math.min(MAX_LIFESTEAL, total(items, Loot.LIFESTEAL_TAG) + (SetBonuses.has(player, ItemSet.BLOODHUNTER, 2) ? 6 : 0));
         if (lifesteal > 0) {
             player.heal(event.getNewDamage() * lifesteal / 100f);
         }
@@ -86,7 +90,8 @@ public final class PlayerHits {
                 || attacker == victim) {
             return;
         }
-        int percent = total(affixItems(victim, ItemStack.EMPTY), Loot.THORNS_TAG) + (SetBonuses.has(victim, ItemSet.GUARDIAN, 4) ? 25 : 0);
+        int percent = Math.min(MAX_THORNS,
+                total(affixItems(victim, ItemStack.EMPTY), Loot.THORNS_TAG) + (SetBonuses.has(victim, ItemSet.GUARDIAN, 4) ? 25 : 0));
         float damage = (event.getNewDamage() + event.getBlockedDamage()) * percent / 100f;
         if (damage > 0) {
             attacker.hurt(victim.damageSources().thorns(victim), damage);
