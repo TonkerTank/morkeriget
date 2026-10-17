@@ -1,6 +1,8 @@
 package com.morkeriget;
 
 import com.morkeriget.combat.DamageNumbers;
+import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.LootBeams;
 import com.morkeriget.skill.ManaBar;
 import com.morkeriget.skill.SkillKeys;
@@ -9,6 +11,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 // This class will not load on dedicated servers. Accessing client side code from here is safe.
@@ -25,5 +28,7 @@ public class MorkerigetClient {
         // Damage numbers that float up from monsters you hit
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onClientTick);
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onRenderLevel);
+        // The screen for the jewelry slots
+        modEventBus.addListener((RegisterMenuScreensEvent event) -> event.register(Jewelry.MENU.get(), JewelryScreen::new));
     }
 }

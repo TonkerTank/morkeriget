@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 
 import com.morkeriget.combat.PlayerHits;
 import com.morkeriget.elite.Elites;
+import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.skill.Skills;
@@ -33,5 +34,7 @@ public class Morkeriget {
         PlayerHits.register(modEventBus);
         // Levels, XP and skill points
         Progression.register(modEventBus);
+        // Rings, amulets and the jewelry slots
+        Jewelry.register(modEventBus);
     }
 }
