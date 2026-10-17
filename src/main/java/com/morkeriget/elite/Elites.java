@@ -46,6 +46,7 @@ public final class Elites {
         NeoForge.EVENT_BUS.addListener(Elites::onJoinLevel);
         NeoForge.EVENT_BUS.addListener(Elites::onDamagePost);
         NeoForge.EVENT_BUS.addListener(Elites::onEntityTick);
+        Bosses.register();
     }
 
     public static boolean isElite(Entity entity) {
@@ -60,21 +61,34 @@ public final class Elites {
         if (monster.getPersistentData().getBoolean(CHECKED_TAG)) {
             return;
         }
-        monster.getPersistentData().putBoolean(CHECKED_TAG, true);
-        if (monster.getRandom().nextFloat() >= ELITE_CHANCE) {
-            return;
+        markChecked(monster);
+        float roll = monster.getRandom().nextFloat();
+        if (roll < Bosses.BOSS_CHANCE && Bosses.canBeBoss(monster)) {
+            Bosses.makeBoss(monster);
+        } else if (roll < ELITE_CHANCE) {
+            makeElite(monster, monster.getRandom().nextFloat() < SECOND_MODIFIER_CHANCE ? 2 : 1);
         }
+    }
+
+    // Makes sure the monster never rolls to become an elite, e.g. a boss's minions
+    public static void markChecked(Entity entity) {
+        entity.getPersistentData().putBoolean(CHECKED_TAG, true);
+    }
+
+    // Turns the monster into an elite with this many random modifiers, and returns which ones it got
+    static List<EliteModifier> makeElite(Monster monster, int modifierCount) {
         monster.getPersistentData().putBoolean(ELITE_TAG, true);
 
         boost(monster.getAttribute(Attributes.MAX_HEALTH), 2.0);
         boost(monster.getAttribute(Attributes.ATTACK_DAMAGE), 0.5);
 
         List<EliteModifier> available = new ArrayList<>(List.of(EliteModifier.values()));
-        int count = monster.getRandom().nextFloat() < SECOND_MODIFIER_CHANCE ? 2 : 1;
+        List<EliteModifier> chosen = new ArrayList<>();
         MutableComponent name = Component.empty();
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < modifierCount && !available.isEmpty(); i++) {
             EliteModifier modifier = available.remove(monster.getRandom().nextInt(available.size()));
             modifier.apply(monster);
+            chosen.add(modifier);
             name.append(Component.literal(modifier.displayName + " ").withStyle(modifier.color));
         }
         name.append(Component.literal("Elite ").append(monster.getType().getDescription()).withStyle(ChatFormatting.GOLD));
@@ -83,6 +97,7 @@ public final class Elites {
         monster.setCustomName(name);
         monster.setCustomNameVisible(true);
         monster.addEffect(new MobEffectInstance(MobEffects.GLOWING, MobEffectInstance.INFINITE_DURATION, 0, false, false));
+        return chosen;
     }
 
     // When an elite hits something

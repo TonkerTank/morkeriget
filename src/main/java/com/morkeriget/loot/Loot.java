@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 
 import net.minecraft.ChatFormatting;
@@ -88,14 +89,20 @@ public final class Loot {
             return;
         }
         RandomSource random = event.getEntity().getRandom();
-        boolean elite = Elites.isElite(event.getEntity());
-        if (!elite && random.nextFloat() >= DROP_CHANCE) {
-            return;
+        List<Rarity> drops = new ArrayList<>();
+        if (Bosses.isBoss(event.getEntity())) {
+            drops.add(Rarity.LEGENDARY);
+            drops.add(Rarity.roll(random, Rarity.RARE));
+            drops.add(Rarity.roll(random, Rarity.RARE));
+        } else if (Elites.isElite(event.getEntity())) {
+            drops.add(Rarity.roll(random, Rarity.RARE));
+        } else if (random.nextFloat() < DROP_CHANCE) {
+            drops.add(Rarity.roll(random, Rarity.COMMON));
         }
-        Rarity rarity = Rarity.roll(random, elite ? Rarity.RARE : Rarity.COMMON);
-        ItemStack stack = create(random, rarity);
-        event.getDrops().add(new ItemEntity(event.getEntity().level(),
-                event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), stack));
+        for (Rarity rarity : drops) {
+            event.getDrops().add(new ItemEntity(event.getEntity().level(),
+                    event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), create(random, rarity)));
+        }
     }
 
     public static ItemStack create(RandomSource random, Rarity rarity) {

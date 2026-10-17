@@ -44,7 +44,7 @@ public enum EliteModifier {
             case BURNING -> monster.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, MobEffectInstance.INFINITE_DURATION, 0, false, false));
             case FAST -> boost(monster, Attributes.MOVEMENT_SPEED, 0.4, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
             case ARMORED -> {
-                boost(monster, Attributes.ARMOR, 8, AttributeModifier.Operation.ADD_VALUE);
+                boost(monster, Attributes.ARMOR, 5, AttributeModifier.Operation.ADD_VALUE);
                 boost(monster, Attributes.KNOCKBACK_RESISTANCE, 0.8, AttributeModifier.Operation.ADD_VALUE);
             }
             default -> {
