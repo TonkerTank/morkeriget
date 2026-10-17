@@ -8,6 +8,7 @@ public final class Config {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     public static final ModConfigSpec.DoubleValue DROP_CHANCE;
+    public static final ModConfigSpec.DoubleValue AFFIX_PER_LEVEL;
     public static final ModConfigSpec.DoubleValue ELITE_CHANCE;
     public static final ModConfigSpec.DoubleValue SECOND_MODIFIER_CHANCE;
     public static final ModConfigSpec.DoubleValue ELITE_HEALTH;
@@ -32,6 +33,9 @@ public final class Config {
         BUILDER.push("loot");
         DROP_CHANCE = BUILDER.comment("Chance for at et almindeligt monster dropper en genstand (0.08 = 8 %)")
                 .defineInRange("dropChance", 0.08, 0, 1);
+        AFFIX_PER_LEVEL = BUILDER.comment("Hvor meget stærkere bonusser bliver pr. genstandslevel (0.05 = +5 %, så level 21 er dobbelt så stærkt).",
+                        "Procent-bonusser som livsstjæl og torne vokser halvt så hurtigt")
+                .defineInRange("affixScalingPerLevel", 0.05, 0, 1);
         BUILDER.pop();
 
         BUILDER.push("elites");

@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
+import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
 
 import net.minecraft.ChatFormatting;
@@ -45,13 +47,46 @@ public final class Loot {
     public static final String ARROW_DAMAGE_TAG = "morkeriget_arrow_damage";
     public static final String THORNS_TAG = "morkeriget_thorns";
 
-    private static final List<Item> VANILLA_LOOT = List.of(
-            Items.STONE_SWORD, Items.IRON_SWORD, Items.GOLDEN_SWORD, Items.DIAMOND_SWORD,
-            Items.IRON_AXE, Items.DIAMOND_AXE,
-            Items.BOW, Items.CROSSBOW, Items.SHIELD,
-            Items.CHAINMAIL_HELMET, Items.CHAINMAIL_CHESTPLATE, Items.CHAINMAIL_LEGGINGS, Items.CHAINMAIL_BOOTS,
-            Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS,
-            Items.DIAMOND_HELMET, Items.DIAMOND_BOOTS);
+    // An item that can drop, and the item levels it drops at. Better base items only drop from higher level monsters.
+    // The item is a supplier because rings and amulets are our own items, which don't exist until they are registered
+    private record LootItem(Supplier<Item> item, int minLevel, int maxLevel) {
+        static LootItem of(Item item, int minLevel, int maxLevel) {
+            return new LootItem(() -> item, minLevel, maxLevel);
+        }
+    }
+
+    private static final int ANY_LEVEL = Integer.MAX_VALUE;
+
+    private static final List<LootItem> LOOT_ITEMS = List.of(
+            LootItem.of(Items.STONE_SWORD, 1, 9),
+            LootItem.of(Items.GOLDEN_SWORD, 1, 14),
+            LootItem.of(Items.IRON_SWORD, 3, ANY_LEVEL),
+            LootItem.of(Items.IRON_AXE, 3, ANY_LEVEL),
+            LootItem.of(Items.DIAMOND_SWORD, 10, ANY_LEVEL),
+            LootItem.of(Items.DIAMOND_AXE, 10, ANY_LEVEL),
+            LootItem.of(Items.NETHERITE_SWORD, 20, ANY_LEVEL),
+            LootItem.of(Items.NETHERITE_AXE, 20, ANY_LEVEL),
+            LootItem.of(Items.BOW, 1, ANY_LEVEL),
+            LootItem.of(Items.CROSSBOW, 5, ANY_LEVEL),
+            LootItem.of(Items.SHIELD, 1, ANY_LEVEL),
+            LootItem.of(Items.CHAINMAIL_HELMET, 1, 19),
+            LootItem.of(Items.CHAINMAIL_CHESTPLATE, 1, 19),
+            LootItem.of(Items.CHAINMAIL_LEGGINGS, 1, 19),
+            LootItem.of(Items.CHAINMAIL_BOOTS, 1, 19),
+            LootItem.of(Items.IRON_HELMET, 3, ANY_LEVEL),
+            LootItem.of(Items.IRON_CHESTPLATE, 3, ANY_LEVEL),
+            LootItem.of(Items.IRON_LEGGINGS, 3, ANY_LEVEL),
+            LootItem.of(Items.IRON_BOOTS, 3, ANY_LEVEL),
+            LootItem.of(Items.DIAMOND_HELMET, 10, ANY_LEVEL),
+            LootItem.of(Items.DIAMOND_CHESTPLATE, 10, ANY_LEVEL),
+            LootItem.of(Items.DIAMOND_LEGGINGS, 10, ANY_LEVEL),
+            LootItem.of(Items.DIAMOND_BOOTS, 10, ANY_LEVEL),
+            LootItem.of(Items.NETHERITE_HELMET, 20, ANY_LEVEL),
+            LootItem.of(Items.NETHERITE_CHESTPLATE, 20, ANY_LEVEL),
+            LootItem.of(Items.NETHERITE_LEGGINGS, 20, ANY_LEVEL),
+            LootItem.of(Items.NETHERITE_BOOTS, 20, ANY_LEVEL),
+            new LootItem(Jewelry.RING::get, 1, ANY_LEVEL),
+            new LootItem(Jewelry.AMULET::get, 1, ANY_LEVEL));
 
     private static final Set<ItemKind> ALL = EnumSet.allOf(ItemKind.class);
     private static final Set<ItemKind> MELEE = EnumSet.of(ItemKind.MELEE, ItemKind.JEWELRY);
@@ -101,6 +136,8 @@ public final class Loot {
             return;
         }
         RandomSource random = event.getEntity().getRandom();
+        // Loot gets the level of the monster. Monsters from before monster levels existed count as level 1
+        int itemLevel = Math.max(1, MonsterLevels.get(event.getEntity()));
         List<Rarity> drops = new ArrayList<>();
         if (Bosses.isBoss(event.getEntity())) {
             drops.add(Rarity.LEGENDARY);
@@ -113,22 +150,23 @@ public final class Loot {
         }
         for (Rarity rarity : drops) {
             event.getDrops().add(new ItemEntity(event.getEntity().level(),
-                    event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), create(random, rarity)));
+                    event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), create(random, rarity, itemLevel)));
         }
     }
 
-    // Rings and amulets are our own items, so they can't be in a list made before the items are registered
-    private static Item randomItem(RandomSource random) {
-        int jewelryCount = 2;
-        int pick = random.nextInt(VANILLA_LOOT.size() + jewelryCount);
-        if (pick < VANILLA_LOOT.size()) {
-            return VANILLA_LOOT.get(pick);
-        }
-        return pick == VANILLA_LOOT.size() ? Jewelry.RING.get() : Jewelry.AMULET.get();
+    private static Item randomItem(RandomSource random, int itemLevel) {
+        List<LootItem> possible = LOOT_ITEMS.stream()
+                .filter(loot -> itemLevel >= loot.minLevel && itemLevel <= loot.maxLevel)
+                .toList();
+        return possible.get(random.nextInt(possible.size())).item.get();
     }
 
-    public static ItemStack create(RandomSource random, Rarity rarity) {
-        ItemStack stack = new ItemStack(randomItem(random));
+    public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel) {
+        ItemStack stack = new ItemStack(randomItem(random, itemLevel));
+        // Affixes get stronger with the item level. Percent affixes like lifesteal only grow half as fast,
+        // so they don't get silly at high levels
+        double statScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
+        double specialScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1) / 2;
         ItemKind kind = ItemKind.of(stack);
         // Jewelry bonuses are put on the player by Jewelry, so the slot here is only a place to store them.
         // Players never wear anything in the body slot, so vanilla never uses them by itself
@@ -148,7 +186,7 @@ public final class Loot {
             Affix affix = available.remove(random.nextInt(available.size()));
             double quality = random.nextDouble();
             totalQuality += quality;
-            double amount = affix.min + (affix.max - affix.min) * quality;
+            double amount = (affix.min + (affix.max - affix.min) * quality) * (affix.tag != null ? specialScale : statScale);
             if (affix.tag != null) {
                 int value = (int) Math.round(amount);
                 CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(affix.tag, value));
@@ -165,7 +203,7 @@ public final class Loot {
         stack.set(DataComponents.ATTRIBUTE_MODIFIERS, kind == ItemKind.JEWELRY ? modifiers.withTooltip(false) : modifiers);
 
         // Item power works like in Diablo: a quick number that tells you how good the item is
-        int itemPower = 100 + rarity.ordinal() * 150 + (int) (totalQuality * 50) + random.nextInt(25);
+        int itemPower = 100 + rarity.ordinal() * 150 + itemLevel * 10 + (int) (totalQuality * 50) + random.nextInt(25);
 
         Component baseName = stack.getItem().getDescription();
         Component name = rarity == Rarity.LEGENDARY
@@ -174,6 +212,7 @@ public final class Loot {
         stack.set(DataComponents.ITEM_NAME, name.copy().withStyle(rarity.color));
         List<Component> lore = new ArrayList<>(List.of(
                 Component.literal(rarity.displayName + " genstand").withStyle(rarity.color),
+                Component.literal("Genstandslevel " + itemLevel).withStyle(ChatFormatting.GRAY),
                 Component.literal("Genstandsstyrke " + itemPower).withStyle(ChatFormatting.GRAY)));
         lore.addAll(affixLore);
         if (kind == ItemKind.JEWELRY) {
