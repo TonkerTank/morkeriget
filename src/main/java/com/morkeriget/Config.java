@@ -9,6 +9,8 @@ public final class Config {
 
     public static final ModConfigSpec.DoubleValue DROP_CHANCE;
     public static final ModConfigSpec.DoubleValue AFFIX_PER_LEVEL;
+    public static final ModConfigSpec.DoubleValue SET_CHANCE_BOSS;
+    public static final ModConfigSpec.DoubleValue SET_CHANCE_ELITE;
     public static final ModConfigSpec.DoubleValue ELITE_CHANCE;
     public static final ModConfigSpec.DoubleValue SECOND_MODIFIER_CHANCE;
     public static final ModConfigSpec.DoubleValue ELITE_HEALTH;
@@ -40,6 +42,10 @@ public final class Config {
         AFFIX_PER_LEVEL = BUILDER.comment("Hvor meget stærkere bonusser bliver pr. genstandslevel (0.05 = +5 %, så level 21 er dobbelt så stærkt).",
                         "Procent-bonusser som livsstjæl og torne vokser halvt så hurtigt")
                 .defineInRange("affixScalingPerLevel", 0.05, 0, 1);
+        SET_CHANCE_BOSS = BUILDER.comment("Chance for at en boss' legendariske genstand i stedet er en sæt-genstand (0.3 = 30 %)")
+                .defineInRange("setChanceBoss", 0.3, 0, 1);
+        SET_CHANCE_ELITE = BUILDER.comment("Chance for at en elite dropper en sæt-genstand i stedet for sin normale genstand (0.02 = 2 %)")
+                .defineInRange("setChanceElite", 0.02, 0, 1);
         BUILDER.pop();
 
         BUILDER.push("elites");

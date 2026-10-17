@@ -1,6 +1,8 @@
 package com.morkeriget.skill;
 
 import com.morkeriget.Config;
+import com.morkeriget.loot.ItemSet;
+import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 
@@ -34,8 +36,11 @@ public final class Mana {
     // Regenerates twice a second. It also sends the value every time, so the bar is right after joining or respawning
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         if (event.getEntity() instanceof ServerPlayer player && player.tickCount % 10 == 0) {
-            // Each Spirit upgrade rank makes mana come back 20% faster
+            // Each Spirit upgrade rank makes mana come back 20% faster, and two Stormcaller pieces 50% faster
             float regen = Config.MANA_REGEN.get().floatValue() * (1 + 0.2f * Progression.rank(player, Upgrade.SPIRIT));
+            if (SetBonuses.has(player, ItemSet.STORMCALLER, 2)) {
+                regen *= 1.5f;
+            }
             set(player, Math.min(MAX, get(player) + regen / 2));
         }
     }

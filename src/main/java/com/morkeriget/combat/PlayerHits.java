@@ -5,7 +5,9 @@ import java.util.List;
 
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.ItemKind;
+import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.SetBonuses;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
@@ -67,7 +69,7 @@ public final class PlayerHits {
         PacketDistributor.sendToPlayer(player, new DamageNumberPayload(event.getEntity().getId(), event.getNewDamage(), crushing));
 
         List<ItemStack> items = affixItems(player, weapon(player, event.getSource()));
-        int lifesteal = total(items, Loot.LIFESTEAL_TAG);
+        int lifesteal = total(items, Loot.LIFESTEAL_TAG) + (SetBonuses.has(player, ItemSet.BLOODHUNTER, 2) ? 6 : 0);
         if (lifesteal > 0) {
             player.heal(event.getNewDamage() * lifesteal / 100f);
         }
@@ -84,7 +86,7 @@ public final class PlayerHits {
                 || attacker == victim) {
             return;
         }
-        int percent = total(affixItems(victim, ItemStack.EMPTY), Loot.THORNS_TAG);
+        int percent = total(affixItems(victim, ItemStack.EMPTY), Loot.THORNS_TAG) + (SetBonuses.has(victim, ItemSet.GUARDIAN, 4) ? 25 : 0);
         float damage = (event.getNewDamage() + event.getBlockedDamage()) * percent / 100f;
         if (damage > 0) {
             attacker.hurt(victim.damageSources().thorns(victim), damage);

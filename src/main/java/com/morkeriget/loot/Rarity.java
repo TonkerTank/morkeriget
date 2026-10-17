@@ -8,7 +8,9 @@ public enum Rarity {
     COMMON("Almindelig", ChatFormatting.WHITE, 0, 50, 0xFFFFFF),
     MAGIC("Magisk", ChatFormatting.BLUE, 1, 30, 0x5577FF),
     RARE("Sjælden", ChatFormatting.YELLOW, 2, 15, 0xFFFF33),
-    LEGENDARY("Legendarisk", ChatFormatting.GOLD, 4, 5, 0xFF8800);
+    LEGENDARY("Legendarisk", ChatFormatting.GOLD, 4, 5, 0xFF8800),
+    // Set items are never rolled at random (weight 0). They drop on purpose, see Loot.createSet
+    SET("Sæt", ChatFormatting.GREEN, 3, 0, 0x33FF55);
 
     public final String displayName;
     public final ChatFormatting color;

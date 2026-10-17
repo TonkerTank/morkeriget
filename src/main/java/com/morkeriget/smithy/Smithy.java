@@ -61,6 +61,7 @@ public final class Smithy {
             case MAGIC -> 2;
             case RARE -> 4;
             case LEGENDARY -> 10;
+            case SET -> 12;
         };
     }
 
@@ -70,7 +71,7 @@ public final class Smithy {
             case COMMON -> 0;
             case MAGIC -> 3;
             case RARE -> 6;
-            case LEGENDARY -> 15;
+            case LEGENDARY, SET -> 15;
         };
     }
 }

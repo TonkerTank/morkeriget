@@ -139,6 +139,7 @@ public final class Loot {
 
     public static void register(IEventBus modEventBus) {
         NeoForge.EVENT_BUS.addListener(Loot::onLivingDrops);
+        SetBonuses.register();
     }
 
     private static void onLivingDrops(LivingDropsEvent event) {
@@ -151,18 +152,19 @@ public final class Loot {
         int itemLevel = Math.max(1, MonsterLevels.get(event.getEntity()));
         List<Rarity> drops = new ArrayList<>();
         if (Bosses.isBoss(event.getEntity())) {
-            drops.add(Rarity.LEGENDARY);
+            drops.add(random.nextDouble() < Config.SET_CHANCE_BOSS.get() ? Rarity.SET : Rarity.LEGENDARY);
             drops.add(Rarity.roll(random, Rarity.RARE));
             drops.add(Rarity.roll(random, Rarity.RARE));
         } else if (Elites.isElite(event.getEntity())) {
-            drops.add(Rarity.roll(random, Rarity.RARE));
+            drops.add(random.nextDouble() < Config.SET_CHANCE_ELITE.get() ? Rarity.SET : Rarity.roll(random, Rarity.RARE));
         } else if (random.nextFloat() < Config.DROP_CHANCE.get()) {
             drops.add(Rarity.roll(random, Rarity.COMMON));
         }
         Rarity best = null;
         for (Rarity rarity : drops) {
+            ItemStack stack = rarity == Rarity.SET ? createSet(random, itemLevel) : create(random, rarity, itemLevel);
             event.getDrops().add(new ItemEntity(event.getEntity().level(),
-                    event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), create(random, rarity, itemLevel)));
+                    event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), stack));
             if (best == null || rarity.ordinal() > best.ordinal()) {
                 best = rarity;
             }
@@ -178,7 +180,13 @@ public final class Loot {
         double y = position.y + 0.5;
         double z = position.z;
         BlockPos pos = BlockPos.containing(position);
-        if (rarity == Rarity.LEGENDARY) {
+        if (rarity == Rarity.SET) {
+            level.playSound(null, pos, SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 1.0f, 1.5f);
+            level.playSound(null, pos, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.8f);
+            level.sendParticles(ParticleTypes.FLASH, x, y, z, 1, 0, 0, 0, 0);
+            level.sendParticles(ParticleTypes.HAPPY_VILLAGER, x, y, z, 50, 0.5, 0.8, 0.5, 0.1);
+            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 20, 0.1, 1.5, 0.1, 0.02);
+        } else if (rarity == Rarity.LEGENDARY) {
             // Volume above 1 only makes a sound reach further, not louder, so these are sounds that are loud on their own
             level.playSound(null, pos, SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 1.0f, 1.2f);
             level.playSound(null, pos, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.4f);
@@ -202,21 +210,31 @@ public final class Loot {
     }
 
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel) {
-        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel);
+        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null);
     }
 
-    // The same base item with the same rarity and level, but new bonuses. Used by the smithy
+    // A random piece from a random set
+    public static ItemStack createSet(RandomSource random, int itemLevel) {
+        ItemSet set = ItemSet.values()[random.nextInt(ItemSet.values().length)];
+        return createSet(random, itemLevel, set, set.pieces.get(random.nextInt(set.pieces.size())));
+    }
+
+    public static ItemStack createSet(RandomSource random, int itemLevel, ItemSet set, ItemSet.Piece piece) {
+        return roll(new ItemStack(piece.baseItem(itemLevel)), random, Rarity.SET, itemLevel, set, piece);
+    }
+
+    // The same base item with the same rarity, level and set, but new bonuses. Used by the smithy
     public static ItemStack reroll(ItemStack old, RandomSource random) {
         ItemStack stack = new ItemStack(old.getItem());
         if (old.has(DataComponents.DAMAGE)) {
             stack.set(DataComponents.DAMAGE, old.get(DataComponents.DAMAGE));
         }
         Rarity rarity = getRarity(old);
-        return roll(stack, random, rarity != null ? rarity : Rarity.COMMON, itemLevel(old));
+        return roll(stack, random, rarity != null ? rarity : Rarity.COMMON, itemLevel(old), ItemSet.of(old), ItemSet.piece(old));
     }
 
-    // Gives a fresh item its affixes, name and lore
-    private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel) {
+    // Gives a fresh item its affixes, name and lore. set and piece are null for items that aren't part of a set
+    private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece) {
         // Affixes get stronger with the item level. Percent affixes like lifesteal only grow half as fast,
         // so they don't get silly at high levels
         double statScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
@@ -260,20 +278,34 @@ public final class Loot {
         int itemPower = 100 + rarity.ordinal() * 150 + itemLevel * 10 + (int) (totalQuality * 50) + random.nextInt(25);
 
         Component baseName = stack.getItem().getDescription();
-        Component name = rarity == Rarity.LEGENDARY
-                ? Component.literal(LEGENDARY_NAMES.get(random.nextInt(LEGENDARY_NAMES.size())) + " ").append(baseName)
-                : baseName.copy();
+        Component name;
+        if (set != null) {
+            name = Component.literal(set.displayName + " ").append(baseName);
+        } else if (rarity == Rarity.LEGENDARY) {
+            name = Component.literal(LEGENDARY_NAMES.get(random.nextInt(LEGENDARY_NAMES.size())) + " ").append(baseName);
+        } else {
+            name = baseName.copy();
+        }
         stack.set(DataComponents.ITEM_NAME, name.copy().withStyle(rarity.color));
+        String kindLine = set != null ? "Sæt-genstand: " + set.displayName + " sæt" : rarity.displayName + " genstand";
         List<Component> lore = new ArrayList<>(List.of(
-                Component.literal(rarity.displayName + " genstand").withStyle(rarity.color),
+                Component.literal(kindLine).withStyle(rarity.color),
                 Component.literal(ITEM_LEVEL_LORE + itemLevel).withStyle(ChatFormatting.GRAY),
                 Component.literal(ITEM_POWER_LORE + itemPower).withStyle(ChatFormatting.GRAY)));
         lore.addAll(affixLore);
+        if (set != null) {
+            List<String> pieceNames = set.pieces.stream().map(p -> p.displayName).toList();
+            lore.add(Component.empty());
+            lore.add(Component.literal(set.displayName + " sæt: " + String.join(", ", pieceNames)).withStyle(ChatFormatting.DARK_GREEN));
+            lore.add(Component.literal("(2) " + set.twoPieceBonus).withStyle(ChatFormatting.GRAY));
+            lore.add(Component.literal("(4) " + set.fourPieceBonus).withStyle(ChatFormatting.GRAY));
+            set.markOn(stack, piece);
+        }
         if (kind == ItemKind.JEWELRY) {
             lore.add(Component.literal("Tag på i Smykker (K)").withStyle(ChatFormatting.DARK_GRAY));
         }
         stack.set(DataComponents.LORE, new ItemLore(lore));
-        if (rarity == Rarity.LEGENDARY) {
+        if (rarity == Rarity.LEGENDARY || rarity == Rarity.SET) {
             stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
         }
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {

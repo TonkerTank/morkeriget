@@ -3,6 +3,8 @@ package com.morkeriget.skill;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.loot.ItemSet;
+import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 
@@ -77,8 +79,10 @@ public final class Skills {
         };
         if (used) {
             Mana.spend(player, skill.manaCost());
-            player.getPersistentData().putLong(readyTag, now + skill.cooldown());
-            PacketDistributor.sendToPlayer(player, new CooldownPayload(skill, skill.cooldown()));
+            // Four Stormcaller pieces make cooldowns 30% shorter
+            int cooldown = SetBonuses.has(player, ItemSet.STORMCALLER, 4) ? Math.round(skill.cooldown() * 0.7f) : skill.cooldown();
+            player.getPersistentData().putLong(readyTag, now + cooldown);
+            PacketDistributor.sendToPlayer(player, new CooldownPayload(skill, cooldown));
         }
     }
 

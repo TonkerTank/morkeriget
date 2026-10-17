@@ -272,9 +272,9 @@ public final class Rifts {
         private void complete(ServerPlayer player) {
             RandomSource random = level.getRandom();
             List<ItemStack> rewards = new ArrayList<>();
-            for (int i = 0; i < 2; i++) {
-                rewards.add(Loot.create(random, Rarity.roll(random, Rarity.MAGIC), monsterLevel));
-            }
+            // One set piece and one normal item
+            rewards.add(Loot.createSet(random, monsterLevel));
+            rewards.add(Loot.create(random, Rarity.roll(random, Rarity.MAGIC), monsterLevel));
             rewards.add(new ItemStack(Smithy.ESSENCE.get(), 5 + random.nextInt(6)));
             for (ItemStack reward : rewards) {
                 level.addFreshEntity(new ItemEntity(level, player.getX(), player.getY() + 0.5, player.getZ(), reward));
@@ -282,7 +282,7 @@ public final class Rifts {
             Progression.addXp(player, 100 + 20 * monsterLevel);
 
             player.sendSystemMessage(Component.literal("Riften er lukket! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                    .append(Component.literal("Du fik ekstra loot, essens og XP.").withStyle(ChatFormatting.YELLOW)));
+                    .append(Component.literal("Du fik en sæt-genstand, ekstra loot, essens og XP.").withStyle(ChatFormatting.YELLOW)));
             level.playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
             level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1, player.getZ(), 80, 0.5, 1, 0.5, 0.4);
         }

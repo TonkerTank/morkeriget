@@ -35,6 +35,6 @@ public class RiftStoneItem extends Item {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         lines.add(Component.literal("Højreklik for at åbne en rift").withStyle(ChatFormatting.LIGHT_PURPLE));
         lines.add(Component.literal("Overlev " + Rifts.WAVES + " bølger og dræb riftens vogter").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("for ekstra loot, essens og XP").withStyle(ChatFormatting.GRAY));
+        lines.add(Component.literal("for en sæt-genstand, ekstra loot, essens og XP").withStyle(ChatFormatting.GRAY));
     }
 }
