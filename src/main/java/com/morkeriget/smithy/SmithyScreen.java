@@ -14,14 +14,18 @@ import net.minecraft.world.inventory.Slot;
 
 // The smithy screen. Like the jewelry screen there is no texture, so it is drawn with plain rectangles. Client only
 public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
-    private static final int BUTTON_Y = 48;
+    private static final int BUTTON_Y = 42;
+    private static final int ROW = 20;
     private Button salvage;
     private Button reroll;
+    private Button socket;
+    private Button unsocket;
+    private Button combine;
 
     public SmithyScreen(SmithyMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         imageWidth = 176;
-        imageHeight = 166;
+        imageHeight = SmithyMenu.INVENTORY_Y + 82;
         inventoryLabelY = SmithyMenu.INVENTORY_Y - 11;
     }
 
@@ -31,13 +35,23 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         addRenderableWidget(Button.builder(Component.literal("Skills"), pressed -> backToSkills())
                 .bounds(leftPos + imageWidth - 50, topPos + 4, 46, 16)
                 .build());
-        salvage = addRenderableWidget(Button.builder(Component.literal("Smelt om"), pressed -> click(SmithyMenu.SALVAGE))
-                .bounds(leftPos + 8, topPos + BUTTON_Y, 78, 18)
-                .build());
-        reroll = addRenderableWidget(Button.builder(Component.literal("Re-roll"), pressed -> click(SmithyMenu.REROLL))
-                .bounds(leftPos + 90, topPos + BUTTON_Y, 78, 18)
+        salvage = button(SmithyMenu.SALVAGE, "Smelt om", 0, 0);
+        reroll = button(SmithyMenu.REROLL, "Re-roll", 1, 0);
+        socket = button(SmithyMenu.SOCKET, "Sæt i", 0, 1);
+        unsocket = button(SmithyMenu.UNSOCKET, "Fjern sten (" + SmithyMenu.UNSOCKET_COST + ")", 1, 1);
+        button(SmithyMenu.SALVAGE_ALL_COMMON, "Smelt alle alm.", 0, 2);
+        button(SmithyMenu.SALVAGE_ALL_MAGIC, "Smelt alle mag.", 1, 2);
+        combine = addRenderableWidget(Button.builder(Component.literal("Kombinér 3 sten"), pressed -> click(SmithyMenu.COMBINE))
+                .bounds(leftPos + 8, topPos + BUTTON_Y + 3 * ROW, 160, 18)
                 .build());
         updateButtons();
+    }
+
+    // Two columns of buttons under the slots
+    private Button button(int id, String text, int column, int row) {
+        return addRenderableWidget(Button.builder(Component.literal(text), pressed -> click(id))
+                .bounds(leftPos + 8 + column * 82, topPos + BUTTON_Y + row * ROW, 78, 18)
+                .build());
     }
 
     private void click(int button) {
@@ -62,6 +76,14 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         int cost = rarity != null ? Smithy.rerollCost(rarity) : 0;
         reroll.active = cost > 0 && essence() >= cost;
         reroll.setMessage(Component.literal(cost > 0 ? "Re-roll (" + cost + ")" : "Re-roll"));
+        socket.active = rarity != null && Gems.hasFreeSocket(menu.item()) && Gem.of(menu.gem()) != null;
+        unsocket.active = rarity != null && Gems.hasGems(menu.item()) && essence() >= SmithyMenu.UNSOCKET_COST;
+        int tier = Gems.tier(menu.gem());
+        boolean canCombine = Gem.of(menu.gem()) != null && menu.gem().getCount() >= 3 && tier < Gem.MAX_TIER;
+        combine.active = canCombine && essence() >= Smithy.combineCost(tier);
+        combine.setMessage(Component.literal(canCombine
+                ? "Kombinér 3 → " + Gem.of(menu.gem()).name(tier + 1) + " (" + Smithy.combineCost(tier) + ")"
+                : "Kombinér 3 ens sten"));
     }
 
     @Override
@@ -93,9 +115,15 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         super.renderLabels(graphics, mouseX, mouseY);
-        graphics.drawString(font, "Essens: " + essence(), 8, SmithyMenu.ITEM_Y + 4, 0xC080FF, false);
-        if (menu.item().isEmpty()) {
-            graphics.drawString(font, "Læg loot her", SmithyMenu.ITEM_X + 22, SmithyMenu.ITEM_Y + 4, 0x888888, false);
+        // On the same line as the "Inventory" label, but at the right edge
+        String essence = "Essens: " + essence();
+        graphics.drawString(font, essence, imageWidth - 8 - font.width(essence), inventoryLabelY, 0xC080FF, false);
+        graphics.drawString(font, "Loot", SmithyMenu.ITEM_X - 4 - font.width("Loot"), SmithyMenu.SLOT_Y + 4, 0x888888, false);
+        graphics.drawString(font, "Sten", SmithyMenu.GEM_X - 4 - font.width("Sten"), SmithyMenu.SLOT_Y + 4, 0x888888, false);
+        if (!menu.item().isEmpty()) {
+            int sockets = Gems.sockets(menu.item());
+            String text = sockets == 0 ? "Ingen" : Gems.gems(menu.item()).size() + "/" + sockets + " sokler";
+            graphics.drawString(font, text, SmithyMenu.GEM_X + 20, SmithyMenu.SLOT_Y + 4, 0xAAAAAA, false);
         }
     }
 

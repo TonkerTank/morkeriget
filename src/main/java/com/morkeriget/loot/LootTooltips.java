@@ -5,6 +5,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.morkeriget.smithy.Gems;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
@@ -34,7 +36,8 @@ public final class LootTooltips {
             new Special(Loot.FIRE_TAG, "%s sek. ild"),
             new Special(Loot.CRUSHING_TAG, "%s%% knusende slag"),
             new Special(Loot.ARROW_DAMAGE_TAG, "%s%% pileskade"),
-            new Special(Loot.THORNS_TAG, "%s%% torne"));
+            new Special(Loot.THORNS_TAG, "%s%% torne"),
+            new Special(Gems.MANA_REGEN_TAG, "%s%% hurtigere mana"));
 
     private LootTooltips() {
     }

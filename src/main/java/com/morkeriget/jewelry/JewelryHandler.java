@@ -7,8 +7,8 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 
 // The player's jewelry slots: the first ones take rings, the last one takes an amulet
 public class JewelryHandler extends ItemStackHandler {
-    // Jewelry can have at most this many stat bonuses (a legendary has 4 affixes)
-    static final int MAX_BONUSES = 4;
+    // Jewelry can have at most this many stat bonuses (a legendary has 4 affixes, and there can be 2 gems)
+    static final int MAX_BONUSES = 6;
 
     // The player this belongs to, or null for the empty copy the client uses to show the menu
     private final IAttachmentHolder holder;

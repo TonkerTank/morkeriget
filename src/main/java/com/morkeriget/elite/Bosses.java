@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
@@ -22,6 +23,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -45,6 +47,7 @@ public final class Bosses {
     private static final String BOSS_TAG = "morkeriget_boss";
     private static final String TITLE_TAG = "morkeriget_boss_title";
     private static final String MINION_TAG = "morkeriget_minion";
+    private static final String ABILITY_TAG = "morkeriget_boss_ability";
     private static final ResourceLocation BOSS_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "boss_boost");
     // Players closer than this see the boss bar
     private static final double BAR_RANGE = 32.0;
@@ -98,11 +101,13 @@ public final class Bosses {
 
         String name = NAMES.get(monster.getRandom().nextInt(NAMES.size()));
         monster.setCustomName(Component.literal(name).withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+        BossAbility ability = BossAbility.forBoss(name);
+        monster.getPersistentData().putString(ABILITY_TAG, ability.name());
         List<String> modifierNames = new ArrayList<>();
         for (EliteModifier modifier : modifiers) {
             modifierNames.add(modifier.displayName);
         }
-        monster.getPersistentData().putString(TITLE_TAG, name + " - " + String.join(", ", modifierNames));
+        monster.getPersistentData().putString(TITLE_TAG, name + " (" + ability.displayName + ") - " + String.join(", ", modifierNames));
     }
 
     private static void onEntityTick(EntityTickEvent.Post event) {
@@ -127,6 +132,12 @@ public final class Bosses {
         if (boss.tickCount % MINION_INTERVAL == 0) {
             summonMinions(level, boss, target);
         }
+        // Each boss's own ability, halfway between two slams
+        BossAbility ability = BossAbility.byName(boss.getPersistentData().getString(ABILITY_TAG));
+        if (ability != null && boss.tickCount % BossAbility.INTERVAL == BossAbility.INTERVAL / 2) {
+            ability.use(level, boss, target);
+        }
+        BossAbility.tickPending(level, boss);
     }
 
     private static void updateBar(ServerLevel level, Monster boss) {
@@ -164,8 +175,18 @@ public final class Bosses {
     private static void summonMinions(ServerLevel level, Monster boss, LivingEntity target) {
         int nearby = level.getEntitiesOfClass(Monster.class, boss.getBoundingBox().inflate(16),
                 monster -> monster.getPersistentData().getBoolean(MINION_TAG)).size();
-        for (int i = nearby; i < MAX_MINIONS && i < nearby + 2; i++) {
-            if (!(boss.getType().create(level) instanceof Monster minion)) {
+        int count = Math.min(2, MAX_MINIONS - nearby);
+        if (count > 0) {
+            summon(level, boss, target, boss.getType(), count, minion -> {
+            });
+            level.playSound(null, boss.blockPosition(), SoundEvents.EVOKER_PREPARE_SUMMON, SoundSource.HOSTILE, 1.0f, 0.9f);
+        }
+    }
+
+    // Puts count monsters of the type around the boss, a little lower level than it. setup runs before each joins the world
+    static void summon(ServerLevel level, Monster boss, LivingEntity target, EntityType<?> type, int count, Consumer<Monster> setup) {
+        for (int i = 0; i < count; i++) {
+            if (!(type.create(level) instanceof Monster minion)) {
                 return;
             }
             Elites.markChecked(minion);
@@ -183,10 +204,10 @@ public final class Bosses {
             // Gives it its normal gear, like a bow for skeletons
             minion.finalizeSpawn(level, level.getCurrentDifficultyAt(minion.blockPosition()), MobSpawnType.MOB_SUMMONED, null);
             minion.setTarget(target);
+            setup.accept(minion);
             level.addFreshEntity(minion);
             level.sendParticles(ParticleTypes.SOUL, x, boss.getY() + 0.5, z, 15, 0.3, 0.5, 0.3, 0.02);
         }
-        level.playSound(null, boss.blockPosition(), SoundEvents.EVOKER_PREPARE_SUMMON, SoundSource.HOSTILE, 1.0f, 0.9f);
     }
 
     private static void onDeath(LivingDeathEvent event) {
@@ -212,6 +233,7 @@ public final class Bosses {
     }
 
     private static void removeBar(Entity boss) {
+        BossAbility.forget(boss.getUUID());
         ServerBossEvent bar = BARS.remove(boss.getUUID());
         if (bar != null) {
             bar.removeAllPlayers();

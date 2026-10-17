@@ -1,10 +1,12 @@
 package com.morkeriget.skill;
 
 import com.morkeriget.Config;
+import com.morkeriget.combat.PlayerHits;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
+import com.morkeriget.smithy.Gems;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -45,6 +47,8 @@ public final class Mana {
             if (SetBonuses.has(player, ItemSet.STORMCALLER, 2)) {
                 regen *= 1.5f;
             }
+            // Sapphires in worn items
+            regen *= 1 + PlayerHits.total(PlayerHits.equippedItems(player), Gems.MANA_REGEN_TAG) / 100f;
             set(player, Math.min(MAX, get(player) + regen / 2));
         }
     }

@@ -12,6 +12,7 @@ import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.smithy.Gems;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -230,7 +231,10 @@ public final class Loot {
             stack.set(DataComponents.DAMAGE, old.get(DataComponents.DAMAGE));
         }
         Rarity rarity = getRarity(old);
-        return roll(stack, random, rarity != null ? rarity : Rarity.COMMON, itemLevel(old), ItemSet.of(old), ItemSet.piece(old));
+        ItemStack rerolled = roll(stack, random, rarity != null ? rarity : Rarity.COMMON, itemLevel(old), ItemSet.of(old), ItemSet.piece(old));
+        // The sockets and gems stay as they were
+        Gems.copy(old, rerolled);
+        return rerolled;
     }
 
     // Gives a fresh item its affixes, name and lore. set and piece are null for items that aren't part of a set
@@ -240,14 +244,7 @@ public final class Loot {
         double statScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
         double specialScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1) / 2;
         ItemKind kind = ItemKind.of(stack);
-        // Jewelry bonuses are put on the player by Jewelry, so the slot here is only a place to store them.
-        // Players never wear anything in the body slot, so vanilla never uses them by itself
-        EquipmentSlotGroup slot = switch (kind) {
-            case ARMOR -> EquipmentSlotGroup.bySlot(((ArmorItem) stack.getItem()).getEquipmentSlot());
-            case SHIELD -> EquipmentSlotGroup.OFFHAND;
-            case JEWELRY -> EquipmentSlotGroup.BODY;
-            default -> EquipmentSlotGroup.MAINHAND;
-        };
+        EquipmentSlotGroup slot = slotGroup(stack);
 
         // Pick different affixes that fit this kind of item and roll how strong each one is
         List<Affix> available = new ArrayList<>(AFFIXES.stream().filter(affix -> affix.kinds.contains(kind)).toList());
@@ -313,7 +310,22 @@ public final class Loot {
             tag.putInt(ITEM_LEVEL_TAG, itemLevel);
             tag.putInt(ITEM_POWER_TAG, itemPower);
         });
+        int sockets = Gems.rollSockets(random, rarity);
+        if (sockets > 0) {
+            Gems.setSockets(stack, sockets);
+        }
         return stack;
+    }
+
+    // Where the item's attribute bonuses count. Jewelry bonuses are put on the player by Jewelry, so the slot there is
+    // only a place to store them. Players never wear anything in the body slot, so vanilla never uses them by itself
+    public static EquipmentSlotGroup slotGroup(ItemStack stack) {
+        return switch (ItemKind.of(stack)) {
+            case ARMOR -> EquipmentSlotGroup.bySlot(((ArmorItem) stack.getItem()).getEquipmentSlot());
+            case SHIELD -> EquipmentSlotGroup.OFFHAND;
+            case JEWELRY -> EquipmentSlotGroup.BODY;
+            default -> EquipmentSlotGroup.MAINHAND;
+        };
     }
 
     public static int itemLevel(ItemStack stack) {

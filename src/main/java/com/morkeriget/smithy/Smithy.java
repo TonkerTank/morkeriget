@@ -1,19 +1,32 @@
 package com.morkeriget.smithy;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.elite.Bosses;
+import com.morkeriget.elite.Elites;
+import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.loot.Rarity;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -24,6 +37,16 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class Smithy {
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Morkeriget.MODID);
     public static final DeferredItem<Item> ESSENCE = ITEMS.registerSimpleItem("essence", new Item.Properties());
+    public static final Map<Gem, DeferredItem<Item>> GEMS = new EnumMap<>(Gem.class);
+
+    static {
+        for (Gem gem : Gem.values()) {
+            GEMS.put(gem, ITEMS.registerItem("gem_" + gem.name().toLowerCase(), properties -> new GemItem(gem, properties), new Item.Properties()));
+        }
+    }
+
+    // Elites sometimes drop a gem, bosses always drop one or two
+    private static final double ELITE_GEM_CHANCE = 0.12;
 
     private static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(BuiltInRegistries.MENU, Morkeriget.MODID);
     public static final Supplier<MenuType<SmithyMenu>> MENU = MENUS.register("smithy",
@@ -37,6 +60,26 @@ public final class Smithy {
         MENUS.register(modEventBus);
         modEventBus.addListener(Smithy::registerPayloads);
         modEventBus.addListener(Smithy::addToCreativeTab);
+        NeoForge.EVENT_BUS.addListener(Smithy::onDrops);
+    }
+
+    // Higher level monsters drop better gems
+    private static void onDrops(LivingDropsEvent event) {
+        Entity entity = event.getEntity();
+        if (!(entity.level() instanceof ServerLevel) || !(event.getEntity().getKillCredit() instanceof Player)) {
+            return;
+        }
+        RandomSource random = entity.getRandom();
+        int count = Bosses.isBoss(entity) ? 1 + random.nextInt(2) : Elites.isElite(entity) && random.nextDouble() < ELITE_GEM_CHANCE ? 1 : 0;
+        int level = MonsterLevels.get(entity);
+        for (int i = 0; i < count; i++) {
+            event.getDrops().add(new ItemEntity(entity.level(), entity.getX(), entity.getY(), entity.getZ(), Gems.random(random, level, 0)));
+        }
+    }
+
+    // What it costs to combine three gems of this tier into one of the next
+    public static int combineCost(int tier) {
+        return tier * 2;
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -51,6 +94,9 @@ public final class Smithy {
     private static void addToCreativeTab(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
             event.accept(ESSENCE);
+            for (DeferredItem<Item> gem : GEMS.values()) {
+                event.accept(gem);
+            }
         }
     }
 

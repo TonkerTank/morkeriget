@@ -16,7 +16,9 @@ import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
+import com.morkeriget.portal.TownPortal;
 import com.morkeriget.progress.Progression;
+import com.morkeriget.smithy.Gems;
 import com.morkeriget.smithy.Smithy;
 
 import net.minecraft.ChatFormatting;
@@ -103,6 +105,10 @@ public final class Rifts {
         if (event.getTabKey() == CreativeModeTabs.COMBAT) {
             event.accept(RIFT_STONE);
         }
+    }
+
+    public static boolean isInRift(ServerPlayer player) {
+        return RIFTS.containsKey(player.getUUID());
     }
 
     // A rift stone of this tier. Stones without a tier, like crafted ones, are tier I
@@ -373,15 +379,22 @@ public final class Rifts {
                 rewards.add(Loot.create(random, Rarity.roll(random, minimum), monsterLevel));
             }
             rewards.add(new ItemStack(Smithy.ESSENCE.get(), 4 + tier * 2 + random.nextInt(5)));
+            // One gem, and one more for every third tier. Every fourth tier makes them a tier better
+            for (int i = 0; i < 1 + tier / 3; i++) {
+                rewards.add(Gems.random(random, monsterLevel, tier / 4));
+            }
             int nextTier = Math.min(MAX_TIER, tier + 1);
             rewards.add(stone(nextTier));
+            // A town portal scroll, so you can get home with your loot
+            rewards.add(TownPortal.scroll());
             for (ItemStack reward : rewards) {
                 level.addFreshEntity(new ItemEntity(level, player.getX(), player.getY() + 0.5, player.getZ(), reward));
             }
             Progression.addXp(player, (int) ((100 + 20 * monsterLevel) * (1 + 0.25 * (tier - 1))));
 
             player.sendSystemMessage(Component.literal("Rift " + roman(tier) + " er lukket! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                    .append(Component.literal("Du fik en sæt-genstand, ekstra loot, essens, XP og en riftsten " + roman(nextTier) + ".")
+                    .append(Component.literal("Du fik en sæt-genstand, ekstra loot, ædelsten, essens, XP, en portalrulle og en riftsten "
+                            + roman(nextTier) + ".")
                             .withStyle(ChatFormatting.YELLOW)));
             level.playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
             level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1, player.getZ(), 80, 0.5, 1, 0.5, 0.4);

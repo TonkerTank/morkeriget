@@ -130,7 +130,14 @@ public final class PlayerHits {
         return items;
     }
 
-    private static int total(List<ItemStack> items, String tag) {
+    // Everything the player wears plus the weapon in their hand, e.g. for the mana bonus from sapphires
+    public static List<ItemStack> equippedItems(ServerPlayer player) {
+        ItemStack held = player.getMainHandItem();
+        ItemKind kind = ItemKind.of(held);
+        return affixItems(player, kind == ItemKind.MELEE || kind == ItemKind.RANGED ? held : ItemStack.EMPTY);
+    }
+
+    public static int total(List<ItemStack> items, String tag) {
         int total = 0;
         for (ItemStack item : items) {
             total += Loot.affix(item, tag);

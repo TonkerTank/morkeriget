@@ -6,6 +6,7 @@ import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.LootBeams;
 import com.morkeriget.loot.LootTooltips;
+import com.morkeriget.smithy.Gem;
 import com.morkeriget.smithy.Smithy;
 import com.morkeriget.smithy.SmithyScreen;
 import com.morkeriget.skill.ManaBar;
@@ -16,6 +17,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -41,6 +43,12 @@ public class MorkerigetClient {
         modEventBus.addListener(TargetFrame::register);
         NeoForge.EVENT_BUS.addListener(TargetFrame::onRenderGuiPre);
         NeoForge.EVENT_BUS.addListener(TargetFrame::onBossBar);
+        // The gems are the same white picture coloured differently
+        modEventBus.addListener((RegisterColorHandlersEvent.Item event) -> {
+            for (Gem gem : Gem.values()) {
+                event.register((stack, tintIndex) -> tintIndex == 0 ? 0xFF000000 | gem.color : -1, Smithy.GEMS.get(gem).get());
+            }
+        });
         // Loot tooltips compare the item with what you are wearing
         NeoForge.EVENT_BUS.addListener(LootTooltips::onTooltip);
         // The screens for the jewelry slots and the smithy

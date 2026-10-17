@@ -7,6 +7,7 @@ import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.portal.TownPortal;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.rift.Rifts;
 import com.morkeriget.skill.Skills;
@@ -45,5 +46,7 @@ public class Morkeriget {
         Smithy.register(modEventBus);
         // Rift stones open rifts with waves of monsters and a guardian at the end
         Rifts.register(modEventBus);
+        // Town portal scrolls take you home and back again
+        TownPortal.register(modEventBus);
     }
 }

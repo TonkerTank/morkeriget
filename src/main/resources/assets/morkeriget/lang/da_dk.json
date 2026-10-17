@@ -12,5 +12,10 @@
   "item.morkeriget.ring": "Ring",
   "item.morkeriget.amulet": "Amulet",
   "item.morkeriget.essence": "Essens",
-  "item.morkeriget.rift_stone": "Riftsten"
+  "item.morkeriget.rift_stone": "Riftsten",
+  "item.morkeriget.gem_ruby": "Rubin",
+  "item.morkeriget.gem_emerald": "Smaragd",
+  "item.morkeriget.gem_topaz": "Topas",
+  "item.morkeriget.gem_sapphire": "Safir",
+  "item.morkeriget.town_portal": "Portalrulle"
 }
