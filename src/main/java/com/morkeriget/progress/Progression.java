@@ -70,7 +70,8 @@ public final class Progression {
     // XP depends on how much health the monster has, so elites and bosses already give more. They get a bonus on top
     private static void onDeath(LivingDeathEvent event) {
         LivingEntity monster = event.getEntity();
-        if (!(monster instanceof Enemy) || !(event.getSource().getEntity() instanceof ServerPlayer player)) {
+        // Kill credit instead of the damage source, so a monster that burns to death after your hit still counts
+        if (!(monster instanceof Enemy) || !(monster.getKillCredit() instanceof ServerPlayer player)) {
             return;
         }
         int bonus = Bosses.isBoss(monster) ? 5 : Elites.isElite(monster) ? 2 : 1;

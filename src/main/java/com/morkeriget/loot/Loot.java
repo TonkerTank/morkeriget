@@ -14,10 +14,15 @@ import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -33,6 +38,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
@@ -132,7 +138,8 @@ public final class Loot {
     }
 
     private static void onLivingDrops(LivingDropsEvent event) {
-        if (!(event.getEntity() instanceof Enemy) || !(event.getSource().getEntity() instanceof Player)) {
+        // Kill credit instead of the damage source, so a monster that burns to death after your hit still drops loot
+        if (!(event.getEntity() instanceof Enemy) || !(event.getEntity().getKillCredit() instanceof Player)) {
             return;
         }
         RandomSource random = event.getEntity().getRandom();
@@ -148,9 +155,38 @@ public final class Loot {
         } else if (random.nextFloat() < Config.DROP_CHANCE.get()) {
             drops.add(Rarity.roll(random, Rarity.COMMON));
         }
+        Rarity best = null;
         for (Rarity rarity : drops) {
             event.getDrops().add(new ItemEntity(event.getEntity().level(),
                     event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), create(random, rarity, itemLevel)));
+            if (best == null || rarity.ordinal() > best.ordinal()) {
+                best = rarity;
+            }
+        }
+        if (best != null && event.getEntity().level() instanceof ServerLevel level) {
+            celebrate(level, event.getEntity().position(), best);
+        }
+    }
+
+    // A sound and a burst of particles when something good drops, so you notice it even in a big fight
+    private static void celebrate(ServerLevel level, Vec3 position, Rarity rarity) {
+        double x = position.x;
+        double y = position.y + 0.5;
+        double z = position.z;
+        BlockPos pos = BlockPos.containing(position);
+        if (rarity == Rarity.LEGENDARY) {
+            // Volume above 1 only makes a sound reach further, not louder, so these are sounds that are loud on their own
+            level.playSound(null, pos, SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 1.0f, 1.2f);
+            level.playSound(null, pos, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.4f);
+            level.sendParticles(ParticleTypes.FLASH, x, y, z, 1, 0, 0, 0, 0);
+            level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, x, y, z, 60, 0.3, 0.6, 0.3, 0.4);
+            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 20, 0.1, 1.5, 0.1, 0.02);
+        } else if (rarity == Rarity.RARE) {
+            level.playSound(null, pos, SoundEvents.BELL_BLOCK, SoundSource.PLAYERS, 1.0f, 1.5f);
+            level.sendParticles(ParticleTypes.WAX_ON, x, y, z, 15, 0.3, 0.4, 0.3, 0.5);
+        } else if (rarity == Rarity.MAGIC) {
+            level.playSound(null, pos, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 1.0f, 1.6f);
+            level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 20, 0.3, 0.4, 0.3, 0.5);
         }
     }
 
