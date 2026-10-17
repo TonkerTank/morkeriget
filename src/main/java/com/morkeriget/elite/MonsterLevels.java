@@ -54,7 +54,7 @@ public final class MonsterLevels {
     }
 
     // Gives the monster its level and makes it stronger for every level above 1
-    static void apply(Monster monster, int level) {
+    public static void apply(Monster monster, int level) {
         monster.setData(LEVEL, level);
         int above = level - 1;
         boost(monster.getAttribute(Attributes.MAX_HEALTH), above * Config.HEALTH_PER_LEVEL.get());

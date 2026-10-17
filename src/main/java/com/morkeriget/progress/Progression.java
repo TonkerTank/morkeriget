@@ -83,7 +83,7 @@ public final class Progression {
         }
     }
 
-    private static void addXp(ServerPlayer player, int amount) {
+    public static void addXp(ServerPlayer player, int amount) {
         PlayerProgress progress = player.getData(PROGRESS);
         if (progress.level() >= MAX_LEVEL) {
             return;

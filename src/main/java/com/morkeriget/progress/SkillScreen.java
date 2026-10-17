@@ -2,6 +2,7 @@ package com.morkeriget.progress;
 
 import com.morkeriget.jewelry.OpenJewelryPayload;
 import com.morkeriget.skill.SkillKeys;
+import com.morkeriget.smithy.OpenSmithyPayload;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -41,6 +42,9 @@ public class SkillScreen extends Screen {
         // Menus are opened by the server, so ask it to open the jewelry slots
         addRenderableWidget(Button.builder(Component.literal("Smykker"), pressed -> PacketDistributor.sendToServer(OpenJewelryPayload.INSTANCE))
                 .bounds(left() + WIDTH - 60, top() - 4, 60, 16)
+                .build());
+        addRenderableWidget(Button.builder(Component.literal("Smedje"), pressed -> PacketDistributor.sendToServer(OpenSmithyPayload.INSTANCE))
+                .bounds(left() + WIDTH - 124, top() - 4, 60, 16)
                 .build());
 
         ProgressPayload progress = ClientProgress.get();

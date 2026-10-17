@@ -81,7 +81,7 @@ public final class Elites {
     }
 
     // Turns the monster into an elite with this many random modifiers, and returns which ones it got
-    static List<EliteModifier> makeElite(Monster monster, int modifierCount) {
+    public static List<EliteModifier> makeElite(Monster monster, int modifierCount) {
         monster.getPersistentData().putBoolean(ELITE_TAG, true);
 
         boost(monster.getAttribute(Attributes.MAX_HEALTH), Config.ELITE_HEALTH.get() - 1);

@@ -80,7 +80,7 @@ public final class Bosses {
         return !(monster instanceof Creeper) && !(monster instanceof WitherBoss) && !(monster instanceof Warden);
     }
 
-    static void makeBoss(Monster monster) {
+    public static void makeBoss(Monster monster) {
         List<EliteModifier> modifiers = Elites.makeElite(monster, 3);
         monster.getPersistentData().putBoolean(BOSS_TAG, true);
 

@@ -46,6 +46,10 @@ import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 // Monsters you kill can drop weapons, armour, shields and jewelry with a rarity, an item power and random bonuses (affixes)
 public final class Loot {
     public static final String RARITY_TAG = "morkeriget_rarity";
+    private static final String ITEM_LEVEL_TAG = "morkeriget_item_level";
+    private static final String ITEM_POWER_TAG = "morkeriget_item_power";
+    private static final String ITEM_LEVEL_LORE = "Genstandslevel ";
+    private static final String ITEM_POWER_LORE = "Genstandsstyrke ";
     // Special affixes. The value is stored on the item and used in PlayerHits
     public static final String LIFESTEAL_TAG = "morkeriget_lifesteal";
     public static final String FIRE_TAG = "morkeriget_fire";
@@ -198,7 +202,21 @@ public final class Loot {
     }
 
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel) {
-        ItemStack stack = new ItemStack(randomItem(random, itemLevel));
+        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel);
+    }
+
+    // The same base item with the same rarity and level, but new bonuses. Used by the smithy
+    public static ItemStack reroll(ItemStack old, RandomSource random) {
+        ItemStack stack = new ItemStack(old.getItem());
+        if (old.has(DataComponents.DAMAGE)) {
+            stack.set(DataComponents.DAMAGE, old.get(DataComponents.DAMAGE));
+        }
+        Rarity rarity = getRarity(old);
+        return roll(stack, random, rarity != null ? rarity : Rarity.COMMON, itemLevel(old));
+    }
+
+    // Gives a fresh item its affixes, name and lore
+    private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel) {
         // Affixes get stronger with the item level. Percent affixes like lifesteal only grow half as fast,
         // so they don't get silly at high levels
         double statScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
@@ -248,8 +266,8 @@ public final class Loot {
         stack.set(DataComponents.ITEM_NAME, name.copy().withStyle(rarity.color));
         List<Component> lore = new ArrayList<>(List.of(
                 Component.literal(rarity.displayName + " genstand").withStyle(rarity.color),
-                Component.literal("Genstandslevel " + itemLevel).withStyle(ChatFormatting.GRAY),
-                Component.literal("Genstandsstyrke " + itemPower).withStyle(ChatFormatting.GRAY)));
+                Component.literal(ITEM_LEVEL_LORE + itemLevel).withStyle(ChatFormatting.GRAY),
+                Component.literal(ITEM_POWER_LORE + itemPower).withStyle(ChatFormatting.GRAY)));
         lore.addAll(affixLore);
         if (kind == ItemKind.JEWELRY) {
             lore.add(Component.literal("Tag på i Smykker (K)").withStyle(ChatFormatting.DARK_GRAY));
@@ -258,8 +276,39 @@ public final class Loot {
         if (rarity == Rarity.LEGENDARY) {
             stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
         }
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putString(RARITY_TAG, rarity.name()));
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
+            tag.putString(RARITY_TAG, rarity.name());
+            tag.putInt(ITEM_LEVEL_TAG, itemLevel);
+            tag.putInt(ITEM_POWER_TAG, itemPower);
+        });
         return stack;
+    }
+
+    public static int itemLevel(ItemStack stack) {
+        return Math.max(1, storedNumber(stack, ITEM_LEVEL_TAG, ITEM_LEVEL_LORE));
+    }
+
+    public static int itemPower(ItemStack stack) {
+        return storedNumber(stack, ITEM_POWER_TAG, ITEM_POWER_LORE);
+    }
+
+    // Items from before the level and power were saved as numbers only have them in the lore, so read them from there
+    private static int storedNumber(ItemStack stack, String tag, String lorePrefix) {
+        int stored = affix(stack, tag);
+        if (stored > 0) {
+            return stored;
+        }
+        for (Component line : stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY).lines()) {
+            String text = line.getString();
+            if (text.startsWith(lorePrefix)) {
+                try {
+                    return Integer.parseInt(text.substring(lorePrefix.length()).trim());
+                } catch (NumberFormatException ignored) {
+                    return 0;
+                }
+            }
+        }
+        return 0;
     }
 
     // The same text vanilla uses for attribute bonuses, e.g. "+3 Attack Damage" or "+12% Speed"

@@ -5,6 +5,9 @@ import com.morkeriget.combat.TargetFrame;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.LootBeams;
+import com.morkeriget.loot.LootTooltips;
+import com.morkeriget.smithy.Smithy;
+import com.morkeriget.smithy.SmithyScreen;
 import com.morkeriget.skill.ManaBar;
 import com.morkeriget.skill.SkillBar;
 import com.morkeriget.skill.SkillKeys;
@@ -38,7 +41,12 @@ public class MorkerigetClient {
         modEventBus.addListener(TargetFrame::register);
         NeoForge.EVENT_BUS.addListener(TargetFrame::onRenderGuiPre);
         NeoForge.EVENT_BUS.addListener(TargetFrame::onBossBar);
-        // The screen for the jewelry slots
-        modEventBus.addListener((RegisterMenuScreensEvent event) -> event.register(Jewelry.MENU.get(), JewelryScreen::new));
+        // Loot tooltips compare the item with what you are wearing
+        NeoForge.EVENT_BUS.addListener(LootTooltips::onTooltip);
+        // The screens for the jewelry slots and the smithy
+        modEventBus.addListener((RegisterMenuScreensEvent event) -> {
+            event.register(Jewelry.MENU.get(), JewelryScreen::new);
+            event.register(Smithy.MENU.get(), SmithyScreen::new);
+        });
     }
 }

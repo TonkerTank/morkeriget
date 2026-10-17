@@ -8,7 +8,9 @@ import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.progress.Progression;
+import com.morkeriget.rift.Rifts;
 import com.morkeriget.skill.Skills;
+import com.morkeriget.smithy.Smithy;
 import com.mojang.logging.LogUtils;
 
 import net.neoforged.bus.api.IEventBus;
@@ -39,5 +41,9 @@ public class Morkeriget {
         Progression.register(modEventBus);
         // Rings, amulets and the jewelry slots
         Jewelry.register(modEventBus);
+        // Salvaging loot into essence and rerolling bonuses
+        Smithy.register(modEventBus);
+        // Rift stones open rifts with waves of monsters and a guardian at the end
+        Rifts.register(modEventBus);
     }
 }
