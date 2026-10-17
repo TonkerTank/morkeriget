@@ -2,6 +2,7 @@ package com.morkeriget;
 
 import org.slf4j.Logger;
 
+import com.morkeriget.combat.PlayerHits;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.skill.Skills;
@@ -24,5 +25,7 @@ public class Morkeriget {
         Elites.register(modEventBus);
         // Skills on keys, like Whirlwind
         Skills.register(modEventBus);
+        // Special weapon affixes and damage numbers when the player hits something
+        PlayerHits.register(modEventBus);
     }
 }

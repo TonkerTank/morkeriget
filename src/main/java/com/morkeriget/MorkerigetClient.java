@@ -1,5 +1,6 @@
 package com.morkeriget;
 
+import com.morkeriget.combat.DamageNumbers;
 import com.morkeriget.loot.LootBeams;
 import com.morkeriget.skill.SkillKeys;
 
@@ -18,5 +19,8 @@ public class MorkerigetClient {
         // Keys for dodging and skills
         modEventBus.addListener(SkillKeys::register);
         NeoForge.EVENT_BUS.addListener(SkillKeys::onClientTick);
+        // Damage numbers that float up from monsters you hit
+        NeoForge.EVENT_BUS.addListener(DamageNumbers::onClientTick);
+        NeoForge.EVENT_BUS.addListener(DamageNumbers::onRenderLevel);
     }
 }

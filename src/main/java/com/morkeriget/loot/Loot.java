@@ -33,6 +33,10 @@ import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 // Monsters you kill can drop weapons and armour with a rarity, an item power and random bonuses (affixes)
 public final class Loot {
     public static final String RARITY_TAG = "morkeriget_rarity";
+    // Special weapon affixes. The value is stored on the item and used in PlayerHits
+    public static final String LIFESTEAL_TAG = "morkeriget_lifesteal";
+    public static final String FIRE_TAG = "morkeriget_fire";
+    public static final String CRUSHING_TAG = "morkeriget_crushing";
 
     // Chance that a normal monster drops a piece of loot
     private static final float DROP_CHANCE = 0.08f;
@@ -44,19 +48,30 @@ public final class Loot {
             Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS,
             Items.DIAMOND_HELMET, Items.DIAMOND_BOOTS);
 
-    // A bonus that can roll on an item. min and max are scaled by how good the roll is
-    private record Affix(String name, Holder<Attribute> attribute, AttributeModifier.Operation operation, double min, double max) {
+    // A bonus that can roll on an item. min and max are scaled by how good the roll is.
+    // Stat affixes change an attribute. Special affixes only roll on weapons, and are stored under tag with lore as the text
+    private record Affix(Holder<Attribute> attribute, AttributeModifier.Operation operation, double min, double max, String tag, String lore) {
+        static Affix stat(Holder<Attribute> attribute, AttributeModifier.Operation operation, double min, double max) {
+            return new Affix(attribute, operation, min, max, null, null);
+        }
+
+        static Affix special(String tag, int min, int max, String lore) {
+            return new Affix(null, null, min, max, tag, lore);
+        }
     }
 
     private static final List<Affix> AFFIXES = List.of(
-            new Affix("Skade", Attributes.ATTACK_DAMAGE, AttributeModifier.Operation.ADD_VALUE, 1, 4),
-            new Affix("Angrebshastighed", Attributes.ATTACK_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, 0.05, 0.2),
-            new Affix("Liv", Attributes.MAX_HEALTH, AttributeModifier.Operation.ADD_VALUE, 2, 6),
-            new Affix("Bevægelseshastighed", Attributes.MOVEMENT_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, 0.03, 0.12),
-            new Affix("Rustning", Attributes.ARMOR, AttributeModifier.Operation.ADD_VALUE, 1, 4),
-            new Affix("Sejhed", Attributes.ARMOR_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE, 1, 3),
-            new Affix("Held", Attributes.LUCK, AttributeModifier.Operation.ADD_VALUE, 1, 3),
-            new Affix("Tilbageslag", Attributes.ATTACK_KNOCKBACK, AttributeModifier.Operation.ADD_VALUE, 0.5, 1.5));
+            Affix.stat(Attributes.ATTACK_DAMAGE, AttributeModifier.Operation.ADD_VALUE, 1, 4),
+            Affix.stat(Attributes.ATTACK_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, 0.05, 0.2),
+            Affix.stat(Attributes.MAX_HEALTH, AttributeModifier.Operation.ADD_VALUE, 2, 6),
+            Affix.stat(Attributes.MOVEMENT_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, 0.03, 0.12),
+            Affix.stat(Attributes.ARMOR, AttributeModifier.Operation.ADD_VALUE, 1, 4),
+            Affix.stat(Attributes.ARMOR_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE, 1, 3),
+            Affix.stat(Attributes.LUCK, AttributeModifier.Operation.ADD_VALUE, 1, 3),
+            Affix.stat(Attributes.ATTACK_KNOCKBACK, AttributeModifier.Operation.ADD_VALUE, 0.5, 1.5),
+            Affix.special(LIFESTEAL_TAG, 3, 10, "+%d%% livsstjæl"),
+            Affix.special(FIRE_TAG, 2, 5, "Sætter ild i fjender i %d sek."),
+            Affix.special(CRUSHING_TAG, 5, 15, "%d%% chance for knusende slag (dobbelt skade)"));
 
     private static final List<String> LEGENDARY_NAMES = List.of(
             "Dommedagens", "Lilith's", "Blodets", "Skyggernes", "Helvedes", "Ravnens", "Mørkets", "Sjælerøverens");
@@ -90,16 +105,24 @@ public final class Loot {
                 : EquipmentSlotGroup.MAINHAND;
 
         // Pick different affixes and roll how strong each one is
-        List<Affix> available = new ArrayList<>(AFFIXES);
+        boolean weapon = slot == EquipmentSlotGroup.MAINHAND;
+        List<Affix> available = new ArrayList<>(AFFIXES.stream().filter(affix -> weapon || affix.tag == null).toList());
         ItemAttributeModifiers modifiers = stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+        List<Component> specialLore = new ArrayList<>();
         double totalQuality = 0;
         for (int i = 0; i < rarity.affixCount && !available.isEmpty(); i++) {
             Affix affix = available.remove(random.nextInt(available.size()));
             double quality = random.nextDouble();
             totalQuality += quality;
             double amount = affix.min + (affix.max - affix.min) * quality;
-            ResourceLocation id = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "affix_" + i);
-            modifiers = modifiers.withModifierAdded(affix.attribute, new AttributeModifier(id, amount, affix.operation), slot);
+            if (affix.tag != null) {
+                int value = (int) Math.round(amount);
+                CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(affix.tag, value));
+                specialLore.add(Component.literal(String.format(affix.lore, value)).withStyle(ChatFormatting.BLUE));
+            } else {
+                ResourceLocation id = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "affix_" + i);
+                modifiers = modifiers.withModifierAdded(affix.attribute, new AttributeModifier(id, amount, affix.operation), slot);
+            }
         }
         stack.set(DataComponents.ATTRIBUTE_MODIFIERS, modifiers);
 
@@ -111,9 +134,11 @@ public final class Loot {
                 ? Component.literal(LEGENDARY_NAMES.get(random.nextInt(LEGENDARY_NAMES.size())) + " ").append(baseName)
                 : baseName.copy();
         stack.set(DataComponents.ITEM_NAME, name.copy().withStyle(rarity.color));
-        stack.set(DataComponents.LORE, new ItemLore(List.of(
+        List<Component> lore = new ArrayList<>(List.of(
                 Component.literal(rarity.displayName + " genstand").withStyle(rarity.color),
-                Component.literal("Genstandsstyrke " + itemPower).withStyle(ChatFormatting.GRAY))));
+                Component.literal("Genstandsstyrke " + itemPower).withStyle(ChatFormatting.GRAY)));
+        lore.addAll(specialLore);
+        stack.set(DataComponents.LORE, new ItemLore(lore));
         if (rarity == Rarity.LEGENDARY) {
             stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
         }
