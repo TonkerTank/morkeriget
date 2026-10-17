@@ -10,9 +10,10 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-// Packet sent from the server to the player with their level, XP and upgrades, for the skill screen and the HUD.
-// ranks is in the same order as Upgrade.values()
-public record ProgressPayload(int level, int xp, int xpNeeded, int points, List<Integer> ranks) implements CustomPacketPayload {
+// Packet sent from the server to the player with their level, XP, upgrades and class, for the skill screen and the HUD.
+// ranks is in the same order as Upgrade.values(), and playerClass is "" before a class is picked
+public record ProgressPayload(int level, int xp, int xpNeeded, int points, List<Integer> ranks, String playerClass)
+        implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<ProgressPayload> TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "progress"));
 
     public static final StreamCodec<ByteBuf, ProgressPayload> STREAM_CODEC = StreamCodec.composite(
@@ -21,6 +22,7 @@ public record ProgressPayload(int level, int xp, int xpNeeded, int points, List<
             ByteBufCodecs.VAR_INT, ProgressPayload::xpNeeded,
             ByteBufCodecs.VAR_INT, ProgressPayload::points,
             ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()), ProgressPayload::ranks,
+            ByteBufCodecs.STRING_UTF8, ProgressPayload::playerClass,
             ProgressPayload::new);
 
     @Override
@@ -30,5 +32,10 @@ public record ProgressPayload(int level, int xp, int xpNeeded, int points, List<
 
     public int rank(Upgrade upgrade) {
         return upgrade.ordinal() < ranks.size() ? ranks.get(upgrade.ordinal()) : 0;
+    }
+
+    // null before a class is picked
+    public PlayerClass chosenClass() {
+        return PlayerClass.byName(playerClass);
     }
 }

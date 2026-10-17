@@ -24,9 +24,9 @@ public class SmithyMenu extends AbstractContainerMenu {
     public static final int REROLL = 1;
     public static final int SOCKET = 2;
     public static final int UNSOCKET = 3;
-    public static final int SALVAGE_ALL_COMMON = 4;
-    public static final int SALVAGE_ALL_MAGIC = 5;
     public static final int COMBINE = 6;
+    // "Salvage all" sends this plus the best rarity to salvage, e.g. SALVAGE_ALL + RARE.ordinal()
+    public static final int SALVAGE_ALL = 10;
     // What it costs to take the gems out of an item
     public static final int UNSOCKET_COST = 3;
     // Where the slots are drawn, used by SmithyScreen too
@@ -80,8 +80,8 @@ public class SmithyMenu extends AbstractContainerMenu {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return false;
         }
-        if (id == SALVAGE_ALL_COMMON || id == SALVAGE_ALL_MAGIC) {
-            return salvageAll(serverPlayer, id == SALVAGE_ALL_COMMON ? Rarity.COMMON : Rarity.MAGIC);
+        if (id >= SALVAGE_ALL && id <= SALVAGE_ALL + Rarity.LEGENDARY.ordinal()) {
+            return salvageAll(serverPlayer, Rarity.values()[id - SALVAGE_ALL]);
         }
         if (id == COMBINE) {
             return combine(serverPlayer);
@@ -153,23 +153,26 @@ public class SmithyMenu extends AbstractContainerMenu {
         return true;
     }
 
-    // Salvages every item of this rarity in the inventory. Skips the item in your hand and items with gems in them,
-    // so nothing you use or have put work into disappears
-    private boolean salvageAll(ServerPlayer player, Rarity rarity) {
+    // Salvages every item in the inventory up to and including this rarity. Skips the item in your hand, set items and
+    // items with gems in them, so nothing you use or have put work into disappears. Worn items aren't in this list at all
+    private boolean salvageAll(ServerPlayer player, Rarity best) {
         Inventory inventory = player.getInventory();
         int count = 0;
+        int essence = 0;
         for (int slot = 0; slot < inventory.items.size(); slot++) {
             ItemStack stack = inventory.items.get(slot);
-            if (slot != inventory.selected && Loot.getRarity(stack) == rarity && !Gems.hasGems(stack)) {
+            Rarity rarity = Loot.getRarity(stack);
+            if (slot != inventory.selected && rarity != null && rarity != Rarity.SET && rarity.ordinal() <= best.ordinal()
+                    && !Gems.hasGems(stack)) {
                 inventory.items.set(slot, ItemStack.EMPTY);
                 count++;
+                essence += Smithy.salvageValue(rarity);
             }
         }
         if (count == 0) {
-            player.displayClientMessage(Component.literal("Ingen " + rarity.displayName.toLowerCase() + "e genstande at smelte om"), true);
+            player.displayClientMessage(Component.literal("Ingen genstande at smelte om"), true);
             return false;
         }
-        int essence = count * Smithy.salvageValue(rarity);
         inventory.placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), essence));
         player.displayClientMessage(Component.literal("Smeltede " + count + " genstande om til " + essence + " essens"), true);
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);

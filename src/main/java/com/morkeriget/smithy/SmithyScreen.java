@@ -21,6 +21,8 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     private Button socket;
     private Button unsocket;
     private Button combine;
+    // The best rarity "Smelt alle" takes. Remembered while the game runs, so it is the same next time
+    private static Rarity salvageUpTo = Rarity.MAGIC;
 
     public SmithyScreen(SmithyMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -39,8 +41,16 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         reroll = button(SmithyMenu.REROLL, "Re-roll", 1, 0);
         socket = button(SmithyMenu.SOCKET, "Sæt i", 0, 1);
         unsocket = button(SmithyMenu.UNSOCKET, "Fjern sten (" + SmithyMenu.UNSOCKET_COST + ")", 1, 1);
-        button(SmithyMenu.SALVAGE_ALL_COMMON, "Smelt alle alm.", 0, 2);
-        button(SmithyMenu.SALVAGE_ALL_MAGIC, "Smelt alle mag.", 1, 2);
+        // Clicking the first one picks how good the items "Smelt alle" takes can be
+        addRenderableWidget(Button.builder(limitText(), pressed -> {
+                    salvageUpTo = Rarity.values()[(salvageUpTo.ordinal() + 1) % (Rarity.LEGENDARY.ordinal() + 1)];
+                    pressed.setMessage(limitText());
+                })
+                .bounds(leftPos + 8, topPos + BUTTON_Y + 2 * ROW, 78, 18)
+                .build());
+        addRenderableWidget(Button.builder(Component.literal("Smelt alle"), pressed -> click(SmithyMenu.SALVAGE_ALL + salvageUpTo.ordinal()))
+                .bounds(leftPos + 90, topPos + BUTTON_Y + 2 * ROW, 78, 18)
+                .build());
         combine = addRenderableWidget(Button.builder(Component.literal("Kombinér 3 sten"), pressed -> click(SmithyMenu.COMBINE))
                 .bounds(leftPos + 8, topPos + BUTTON_Y + 3 * ROW, 160, 18)
                 .build());
@@ -52,6 +62,11 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         return addRenderableWidget(Button.builder(Component.literal(text), pressed -> click(id))
                 .bounds(leftPos + 8 + column * 82, topPos + BUTTON_Y + row * ROW, 78, 18)
                 .build());
+    }
+
+    // E.g. "Til: Sjælden" in the rarity's colour
+    private static Component limitText() {
+        return Component.literal("Til: ").append(Component.literal(salvageUpTo.displayName).withStyle(salvageUpTo.color));
     }
 
     private void click(int button) {

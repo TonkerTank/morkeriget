@@ -6,6 +6,7 @@ import java.util.List;
 import com.morkeriget.Config;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.SetBonuses;
+import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 
@@ -19,7 +20,6 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -48,6 +48,12 @@ public final class Skills {
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(Skills::registerPayloads);
         NeoForge.EVENT_BUS.addListener(Mana::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(ClassSkills::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(ClassSkills::onEntityTick);
+        NeoForge.EVENT_BUS.addListener(Minions::onJoinLevel);
+        NeoForge.EVENT_BUS.addListener(Minions::onIncomingDamage);
+        NeoForge.EVENT_BUS.addListener(NecroSkills::onDamagePre);
+        NeoForge.EVENT_BUS.addListener(NecroSkills::onDeath);
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -59,6 +65,17 @@ public final class Skills {
     }
 
     public static void use(ServerPlayer player, Skill skill) {
+        // Skills belong to a class. The potions are for everyone
+        if (!skill.isPotion()) {
+            PlayerClass playerClass = Progression.playerClass(player);
+            if (playerClass == null) {
+                player.displayClientMessage(Component.literal("Vælg en klasse først - tryk K"), true);
+                return;
+            }
+            if (!playerClass.skills.contains(skill)) {
+                return;
+            }
+        }
         long now = player.serverLevel().getGameTime();
         String readyTag = "morkeriget_" + skill.name().toLowerCase() + "_ready";
         long ready = player.getPersistentData().getLong(readyTag);
@@ -77,6 +94,18 @@ public final class Skills {
             case BLINK -> blink(player);
             case CHAIN_LIGHTNING -> chainLightning(player);
             case BATTLE_CRY -> battleCry(player);
+            // The newer class skills live in ClassSkills, so this file doesn't get too long
+            case LEAP -> ClassSkills.leap(player);
+            case FRENZY -> ClassSkills.frenzy(player);
+            case FIREBALL -> ClassSkills.fireball(player);
+            case MULTISHOT -> ClassSkills.multishot(player);
+            case ARROW_RAIN -> ClassSkills.arrowRain(player);
+            case SMOKE_BOMB -> ClassSkills.smokeBomb(player);
+            case WOLVES -> ClassSkills.wolves(player);
+            case BONE_SPEAR -> NecroSkills.boneSpear(player);
+            case RAISE_SKELETONS -> NecroSkills.raiseSkeletons(player);
+            case BONE_ARMOR -> NecroSkills.boneArmor(player);
+            case CURSE -> NecroSkills.curse(player);
             case HEALTH_POTION -> healthPotion(player);
             case MANA_POTION -> manaPotion(player);
         };
@@ -97,7 +126,7 @@ public final class Skills {
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.WHIRLWIND);
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.5 * upgrade);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(WHIRLWIND_RADIUS),
-                entity -> entity instanceof Enemy && entity.isAlive())) {
+                entity -> Minions.isEnemy(entity))) {
             target.hurt(player.damageSources().playerAttack(player), damage);
             Vec3 push = target.position().subtract(player.position()).normalize();
             target.knockback(0.6, -push.x, -push.z);
@@ -121,7 +150,7 @@ public final class Skills {
         int duration = FROST_NOVA_DURATION + rank * 10;
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(radius),
-                entity -> entity instanceof Enemy && entity.isAlive())) {
+                entity -> Minions.isEnemy(entity))) {
             target.hurt(player.damageSources().playerAttack(player), damage);
             target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 9));
             // Makes them shake and turn blue like in powder snow. It thaws by 2 every tick
@@ -201,7 +230,7 @@ public final class Skills {
     private static LivingEntity closestEnemy(ServerLevel level, LivingEntity center, double range, List<LivingEntity> skip) {
         LivingEntity closest = null;
         for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, center.getBoundingBox().inflate(range),
-                entity -> entity instanceof Enemy && entity.isAlive() && !skip.contains(entity)
+                entity -> Minions.isEnemy(entity) && !skip.contains(entity)
                         && entity.distanceTo(center) <= range && center.hasLineOfSight(entity))) {
             if (closest == null || entity.distanceToSqr(center) < closest.distanceToSqr(center)) {
                 closest = entity;
@@ -254,7 +283,7 @@ public final class Skills {
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, duration, 0));
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, duration, 0));
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(BATTLE_CRY_RADIUS),
-                entity -> entity instanceof Enemy && entity.isAlive())) {
+                entity -> Minions.isEnemy(entity))) {
             target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0));
             level.sendParticles(ParticleTypes.ANGRY_VILLAGER, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(),
                     3, 0.3, 0.2, 0.3, 0);

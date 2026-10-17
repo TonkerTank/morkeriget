@@ -9,6 +9,7 @@ import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
+import com.morkeriget.skill.Minions;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
@@ -40,6 +41,8 @@ public final class Progression {
     public static final int MAX_LEVEL = 100;
     private static final ResourceLocation VITALITY_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "vitality");
     private static final ResourceLocation STRENGTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "strength");
+    private static final ResourceLocation BARBARIAN_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "class_barbarian");
+    private static final ResourceLocation RANGER_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "class_ranger");
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
     private static final Supplier<AttachmentType<PlayerProgress>> PROGRESS = ATTACHMENTS.register("progress",
@@ -67,7 +70,7 @@ public final class Progression {
                     int level = IntegerArgumentType.getInteger(context, "level");
                     PlayerProgress progress = player.getData(PROGRESS);
                     int spent = progress.ranks().values().stream().mapToInt(Integer::intValue).sum();
-                    player.setData(PROGRESS, new PlayerProgress(level, 0, Math.max(0, level - 1 - spent), progress.ranks()));
+                    player.setData(PROGRESS, progress.withLevel(level, 0, Math.max(0, level - 1 - spent)));
                     sync(player);
                     context.getSource().sendSuccess(() -> Component.literal("Du er nu level " + level), false);
                     return 1;
@@ -77,6 +80,7 @@ public final class Progression {
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         event.registrar("1")
                 .playToServer(UpgradePayload.TYPE, UpgradePayload.STREAM_CODEC, Progression::handleUpgrade)
+                .playToServer(ChooseClassPayload.TYPE, ChooseClassPayload.STREAM_CODEC, Progression::handleChooseClass)
                 // The lambda keeps ClientProgress (client only) from being loaded on a dedicated server
                 .playToClient(ProgressPayload.TYPE, ProgressPayload.STREAM_CODEC, (payload, context) -> ClientProgress.set(payload));
     }
@@ -89,11 +93,16 @@ public final class Progression {
         return player.getData(PROGRESS).rank(upgrade);
     }
 
+    // null until the player has picked a class
+    public static PlayerClass playerClass(ServerPlayer player) {
+        return PlayerClass.byName(player.getData(PROGRESS).playerClass());
+    }
+
     // XP depends on how much health the monster has, so elites and bosses already give more. They get a bonus on top
     private static void onDeath(LivingDeathEvent event) {
         LivingEntity monster = event.getEntity();
         // Kill credit instead of the damage source, so a monster that burns to death after your hit still counts
-        if (!(monster instanceof Enemy) || !(monster.getKillCredit() instanceof ServerPlayer player)) {
+        if (!(monster instanceof Enemy) || Minions.isAlly(monster) || !(monster.getKillCredit() instanceof ServerPlayer player)) {
             return;
         }
         int bonus = Bosses.isBoss(monster) ? 5 : Elites.isElite(monster) ? 2 : 1;
@@ -120,7 +129,7 @@ public final class Progression {
         if (level >= MAX_LEVEL) {
             xp = 0;
         }
-        player.setData(PROGRESS, new PlayerProgress(level, xp, points, progress.ranks()));
+        player.setData(PROGRESS, progress.withLevel(level, xp, points));
         if (level > progress.level()) {
             player.sendSystemMessage(Component.literal("Level " + level + "! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(Component.literal("Du har " + points + " skill-point" + (points == 1 ? "" : "s") + " - tryk K")
@@ -137,7 +146,9 @@ public final class Progression {
             return;
         }
         PlayerProgress progress = player.getData(PROGRESS);
-        if (progress.points() <= 0 || progress.rank(payload.upgrade()) >= Upgrade.MAX_RANK) {
+        PlayerClass playerClass = playerClass(player);
+        if (progress.points() <= 0 || progress.rank(payload.upgrade()) >= Upgrade.MAX_RANK
+                || playerClass == null || !playerClass.canUse(payload.upgrade())) {
             return;
         }
         player.setData(PROGRESS, progress.withUpgrade(payload.upgrade()));
@@ -146,12 +157,40 @@ public final class Progression {
         sync(player);
     }
 
-    // The extra health and damage aren't saved with the player, so they are put on again when they log in or respawn
+    // Picking a class, or changing to another one, gives back every skill point
+    private static void handleChooseClass(ChooseClassPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
+            return;
+        }
+        PlayerClass playerClass = payload.playerClass();
+        player.setData(PROGRESS, player.getData(PROGRESS).withClass(playerClass));
+        applyPassives(player);
+        player.sendSystemMessage(Component.literal("Du er nu " + playerClass.displayName + "! ")
+                .withStyle(style -> style.withColor(playerClass.color).withBold(true))
+                .append(Component.literal("Dine skills ligger på 1-4. Brug dine skill-points i K").withStyle(ChatFormatting.YELLOW)));
+        player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
+        sync(player);
+    }
+
+    // The extra health, damage and speed aren't saved with the player, so they are put on again when they log in or respawn
     private static void applyPassives(ServerPlayer player) {
+        PlayerClass playerClass = playerClass(player);
         AttributeInstance health = player.getAttribute(Attributes.MAX_HEALTH);
         if (health != null) {
             int rank = rank(player, Upgrade.VITALITY);
             health.addOrUpdateTransientModifier(new AttributeModifier(VITALITY_ID, rank * 2, AttributeModifier.Operation.ADD_VALUE));
+            // Barbarians have 20% more health
+            health.addOrUpdateTransientModifier(new AttributeModifier(BARBARIAN_ID,
+                    playerClass == PlayerClass.BARBARIAN ? 0.2 : 0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            if (player.getHealth() > player.getMaxHealth()) {
+                player.setHealth(player.getMaxHealth());
+            }
+        }
+        AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed != null) {
+            // Rangers are 10% faster
+            speed.addOrUpdateTransientModifier(new AttributeModifier(RANGER_ID,
+                    playerClass == PlayerClass.RANGER ? 0.1 : 0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
         }
         AttributeInstance damage = player.getAttribute(Attributes.ATTACK_DAMAGE);
         if (damage != null) {
@@ -164,6 +203,9 @@ public final class Progression {
         if (event.getEntity() instanceof ServerPlayer player) {
             applyPassives(player);
             sync(player);
+            if (playerClass(player) == null) {
+                player.sendSystemMessage(Component.literal("Vælg en klasse: tryk K").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+            }
         }
     }
 
@@ -182,6 +224,6 @@ public final class Progression {
             ranks.add(progress.rank(upgrade));
         }
         PacketDistributor.sendToPlayer(player, new ProgressPayload(progress.level(), progress.xp(),
-                PlayerProgress.xpForNextLevel(progress.level()), progress.points(), ranks));
+                PlayerProgress.xpForNextLevel(progress.level()), progress.points(), ranks, progress.playerClass()));
     }
 }

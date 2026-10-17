@@ -4,6 +4,7 @@ import com.morkeriget.Config;
 import com.morkeriget.combat.PlayerHits;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.SetBonuses;
+import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 import com.morkeriget.smithy.Gems;
@@ -46,6 +47,10 @@ public final class Mana {
             float regen = Config.MANA_REGEN.get().floatValue() * (1 + 0.2f * Progression.rank(player, Upgrade.SPIRIT));
             if (SetBonuses.has(player, ItemSet.STORMCALLER, 2)) {
                 regen *= 1.5f;
+            }
+            // Sorcerers get mana back 40% faster
+            if (Progression.playerClass(player) == PlayerClass.SORCERER) {
+                regen *= 1.4f;
             }
             // Sapphires in worn items
             regen *= 1 + PlayerHits.total(PlayerHits.equippedItems(player), Gems.MANA_REGEN_TAG) / 100f;

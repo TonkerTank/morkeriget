@@ -12,6 +12,7 @@ import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.skill.Minions;
 import com.morkeriget.smithy.Gems;
 
 import net.minecraft.ChatFormatting;
@@ -153,7 +154,7 @@ public final class Loot {
 
     private static void onLivingDrops(LivingDropsEvent event) {
         // Kill credit instead of the damage source, so a monster that burns to death after your hit still drops loot
-        if (!(event.getEntity() instanceof Enemy) || !(event.getEntity().getKillCredit() instanceof Player)) {
+        if (!(event.getEntity() instanceof Enemy) || Minions.isAlly(event.getEntity()) || !(event.getEntity().getKillCredit() instanceof Player)) {
             return;
         }
         RandomSource random = event.getEntity().getRandom();

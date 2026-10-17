@@ -5,12 +5,16 @@ import java.util.List;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.morkeriget.progress.ClassScreen;
+import com.morkeriget.progress.ClientProgress;
+import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.SkillScreen;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
@@ -21,23 +25,15 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class SkillKeys {
     public static final KeyMapping DODGE = new KeyMapping("key.morkeriget.dodge",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, "key.categories.morkeriget");
-    // The skills are on 1-5 like in Diablo. Those keys also pick hotbar slots, which onClientTickPre stops
-    public static final KeyMapping WHIRLWIND = new KeyMapping("key.morkeriget.whirlwind",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_1, "key.categories.morkeriget");
-    public static final KeyMapping FROST_NOVA = new KeyMapping("key.morkeriget.frost_nova",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_2, "key.categories.morkeriget");
-    public static final KeyMapping BLINK = new KeyMapping("key.morkeriget.blink",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_3, "key.categories.morkeriget");
-    public static final KeyMapping CHAIN_LIGHTNING = new KeyMapping("key.morkeriget.chain_lightning",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_4, "key.categories.morkeriget");
-    public static final KeyMapping BATTLE_CRY = new KeyMapping("key.morkeriget.battle_cry",
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_5, "key.categories.morkeriget");
+    // The class's four skills are on 1-4 like in Diablo. Those keys also pick hotbar slots, which onClientTickPre stops
+    public static final List<KeyMapping> SKILL_SLOTS = List.of(
+            slot(1, GLFW.GLFW_KEY_1), slot(2, GLFW.GLFW_KEY_2), slot(3, GLFW.GLFW_KEY_3), slot(4, GLFW.GLFW_KEY_4));
     public static final KeyMapping HEALTH_POTION = new KeyMapping("key.morkeriget.health_potion",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.morkeriget");
     public static final KeyMapping MANA_POTION = new KeyMapping("key.morkeriget.mana_potion",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.morkeriget");
-    private static final List<KeyMapping> SKILL_KEYS = List.of(WHIRLWIND, FROST_NOVA, BLINK, CHAIN_LIGHTNING, BATTLE_CRY,
-            HEALTH_POTION, MANA_POTION);
+    private static final List<KeyMapping> SKILL_KEYS = List.of(SKILL_SLOTS.get(0), SKILL_SLOTS.get(1), SKILL_SLOTS.get(2),
+            SKILL_SLOTS.get(3), HEALTH_POTION, MANA_POTION);
     public static final KeyMapping SKILLS = new KeyMapping("key.morkeriget.skills",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.morkeriget");
 
@@ -48,6 +44,10 @@ public final class SkillKeys {
     private SkillKeys() {
     }
 
+    private static KeyMapping slot(int number, int key) {
+        return new KeyMapping("key.morkeriget.skill_" + number, InputConstants.Type.KEYSYM, key, "key.categories.morkeriget");
+    }
+
     // Ticks left before you can dodge again, for the skill bar
     static int dodgeCooldown() {
         return dodgeCooldown;
@@ -55,11 +55,9 @@ public final class SkillKeys {
 
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(DODGE);
-        event.register(WHIRLWIND);
-        event.register(FROST_NOVA);
-        event.register(BLINK);
-        event.register(CHAIN_LIGHTNING);
-        event.register(BATTLE_CRY);
+        for (KeyMapping slot : SKILL_SLOTS) {
+            event.register(slot);
+        }
         event.register(HEALTH_POTION);
         event.register(MANA_POTION);
         event.register(SKILLS);
@@ -89,20 +87,15 @@ public final class SkillKeys {
         while (DODGE.consumeClick()) {
             dodge(player);
         }
-        while (WHIRLWIND.consumeClick()) {
-            PacketDistributor.sendToServer(new SkillPayload(Skill.WHIRLWIND));
-        }
-        while (FROST_NOVA.consumeClick()) {
-            PacketDistributor.sendToServer(new SkillPayload(Skill.FROST_NOVA));
-        }
-        while (BLINK.consumeClick()) {
-            PacketDistributor.sendToServer(new SkillPayload(Skill.BLINK));
-        }
-        while (CHAIN_LIGHTNING.consumeClick()) {
-            PacketDistributor.sendToServer(new SkillPayload(Skill.CHAIN_LIGHTNING));
-        }
-        while (BATTLE_CRY.consumeClick()) {
-            PacketDistributor.sendToServer(new SkillPayload(Skill.BATTLE_CRY));
+        PlayerClass playerClass = ClientProgress.get().chosenClass();
+        for (int i = 0; i < SKILL_SLOTS.size(); i++) {
+            while (SKILL_SLOTS.get(i).consumeClick()) {
+                if (playerClass == null) {
+                    player.displayClientMessage(Component.literal("Vælg en klasse først - tryk K"), true);
+                } else {
+                    PacketDistributor.sendToServer(new SkillPayload(playerClass.skills.get(i)));
+                }
+            }
         }
         while (HEALTH_POTION.consumeClick()) {
             PacketDistributor.sendToServer(new SkillPayload(Skill.HEALTH_POTION));
@@ -111,7 +104,8 @@ public final class SkillKeys {
             PacketDistributor.sendToServer(new SkillPayload(Skill.MANA_POTION));
         }
         while (SKILLS.consumeClick()) {
-            Minecraft.getInstance().setScreen(new SkillScreen());
+            // The first time, you pick a class
+            Minecraft.getInstance().setScreen(playerClass == null ? new ClassScreen() : new SkillScreen());
         }
     }
 

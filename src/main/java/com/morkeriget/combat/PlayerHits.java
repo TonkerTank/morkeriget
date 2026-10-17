@@ -3,11 +3,14 @@ package com.morkeriget.combat;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.Config;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.ItemKind;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.SetBonuses;
+import com.morkeriget.progress.PlayerClass;
+import com.morkeriget.progress.Progression;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
@@ -46,9 +49,19 @@ public final class PlayerHits {
         if (player == null) {
             return;
         }
-        List<ItemStack> items = affixItems(player, weapon(player, event.getSource()));
+        ItemStack weapon = weapon(player, event.getSource());
+        List<ItemStack> items = affixItems(player, weapon);
         if (event.getSource().getDirectEntity() instanceof AbstractArrow) {
-            event.setNewDamage(event.getNewDamage() * (1 + total(items, Loot.ARROW_DAMAGE_TAG) / 100f));
+            float multiplier = 1 + total(items, Loot.ARROW_DAMAGE_TAG) / 100f;
+            // Bows have no flat damage bonus like swords, so arrows get stronger with the bow's item level instead
+            if (Loot.getRarity(weapon) != null) {
+                multiplier *= (float) (1 + Config.AFFIX_PER_LEVEL.get() * (Loot.itemLevel(weapon) - 1));
+            }
+            // Rangers do 25% more arrow damage
+            if (Progression.playerClass(player) == PlayerClass.RANGER) {
+                multiplier *= 1.25f;
+            }
+            event.setNewDamage(event.getNewDamage() * multiplier);
         }
         int crushingChance = Math.min(MAX_CRUSHING, total(items, Loot.CRUSHING_TAG));
         if (crushingChance > 0 && player.getRandom().nextInt(100) < crushingChance) {

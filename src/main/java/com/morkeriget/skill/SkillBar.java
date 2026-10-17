@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.progress.ClientProgress;
+import com.morkeriget.progress.PlayerClass;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
@@ -55,13 +57,25 @@ public final class SkillBar {
         }
     }
 
-    private static ItemStack icon(Skill skill) {
+    // Also used by the skill screen
+    public static ItemStack icon(Skill skill) {
         return switch (skill) {
             case WHIRLWIND -> new ItemStack(Items.IRON_SWORD);
             case FROST_NOVA -> new ItemStack(Items.BLUE_ICE);
             case BLINK -> new ItemStack(Items.ENDER_PEARL);
             case CHAIN_LIGHTNING -> new ItemStack(Items.LIGHTNING_ROD);
             case BATTLE_CRY -> new ItemStack(Items.GOAT_HORN);
+            case LEAP -> new ItemStack(Items.RABBIT_FOOT);
+            case FRENZY -> new ItemStack(Items.REDSTONE);
+            case FIREBALL -> new ItemStack(Items.FIRE_CHARGE);
+            case MULTISHOT -> new ItemStack(Items.CROSSBOW);
+            case ARROW_RAIN -> new ItemStack(Items.ARROW);
+            case SMOKE_BOMB -> new ItemStack(Items.GUNPOWDER);
+            case WOLVES -> new ItemStack(Items.WOLF_ARMOR);
+            case BONE_SPEAR -> new ItemStack(Items.BONE);
+            case RAISE_SKELETONS -> new ItemStack(Items.WITHER_SKELETON_SKULL);
+            case BONE_ARMOR -> new ItemStack(Items.BONE_BLOCK);
+            case CURSE -> new ItemStack(Items.FERMENTED_SPIDER_EYE);
             case HEALTH_POTION -> potion(0xE02020);
             case MANA_POTION -> potion(0x3060FF);
         };
@@ -72,18 +86,6 @@ public final class SkillBar {
         ItemStack stack = new ItemStack(Items.POTION);
         stack.set(DataComponents.POTION_CONTENTS, new PotionContents(Optional.empty(), Optional.of(color), List.of()));
         return stack;
-    }
-
-    private static KeyMapping key(Skill skill) {
-        return switch (skill) {
-            case WHIRLWIND -> SkillKeys.WHIRLWIND;
-            case FROST_NOVA -> SkillKeys.FROST_NOVA;
-            case BLINK -> SkillKeys.BLINK;
-            case CHAIN_LIGHTNING -> SkillKeys.CHAIN_LIGHTNING;
-            case BATTLE_CRY -> SkillKeys.BATTLE_CRY;
-            case HEALTH_POTION -> SkillKeys.HEALTH_POTION;
-            case MANA_POTION -> SkillKeys.MANA_POTION;
-        };
     }
 
     private static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
@@ -98,18 +100,21 @@ public final class SkillBar {
         int y = graphics.guiHeight() - 19;
 
         slot(graphics, minecraft.font, x, y, DODGE_ICON, SkillKeys.DODGE, SkillKeys.dodgeCooldown(), SkillKeys.DODGE_COOLDOWN, false);
-        for (Skill skill : Skill.values()) {
-            int i = skill.ordinal();
-            int slotX;
-            if (skill.isPotion()) {
-                slotX = potionX;
-                potionX -= SLOT;
-            } else {
+        // Before a class is picked there are no skills, only dodge and the potions
+        PlayerClass playerClass = ClientProgress.get().chosenClass();
+        if (playerClass != null) {
+            for (int slot = 0; slot < playerClass.skills.size(); slot++) {
                 x += SLOT;
-                slotX = x;
+                skillSlot(graphics, minecraft.font, x, y, playerClass.skills.get(slot), SkillKeys.SKILL_SLOTS.get(slot));
             }
-            slot(graphics, minecraft.font, slotX, y, icon(skill), key(skill), remaining[i], total[i], ManaBar.mana() < skill.manaCost());
         }
+        skillSlot(graphics, minecraft.font, potionX, y, Skill.HEALTH_POTION, SkillKeys.HEALTH_POTION);
+        skillSlot(graphics, minecraft.font, potionX - SLOT, y, Skill.MANA_POTION, SkillKeys.MANA_POTION);
+    }
+
+    private static void skillSlot(GuiGraphics graphics, Font font, int x, int y, Skill skill, KeyMapping key) {
+        int i = skill.ordinal();
+        slot(graphics, font, x, y, icon(skill), key, remaining[i], total[i], ManaBar.mana() < skill.manaCost());
     }
 
     private static void slot(GuiGraphics graphics, Font font, int x, int y, ItemStack icon, KeyMapping key,
