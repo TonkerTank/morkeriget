@@ -1,19 +1,32 @@
 package com.morkeriget.skill;
 
-// The skills the player can use. Each one costs mana and has a cooldown in ticks (20 ticks is one second)
+import com.morkeriget.Config;
+
+import net.neoforged.neoforge.common.ModConfigSpec;
+
+// The skills the player can use. Mana cost and cooldown come from the config file
 public enum Skill {
-    WHIRLWIND("Hvirvelvind", 30, 2 * 20),
-    FROST_NOVA("Frostnova", 40, 8 * 20),
-    BLINK("Blink", 20, 3 * 20);
+    WHIRLWIND("Hvirvelvind", Config.WHIRLWIND_MANA, Config.WHIRLWIND_COOLDOWN),
+    FROST_NOVA("Frostnova", Config.FROST_NOVA_MANA, Config.FROST_NOVA_COOLDOWN),
+    BLINK("Blink", Config.BLINK_MANA, Config.BLINK_COOLDOWN);
 
     public final String displayName;
-    public final float manaCost;
-    public final int cooldown;
+    private final ModConfigSpec.DoubleValue manaCost;
+    private final ModConfigSpec.DoubleValue cooldownSeconds;
 
-    Skill(String displayName, float manaCost, int cooldown) {
+    Skill(String displayName, ModConfigSpec.DoubleValue manaCost, ModConfigSpec.DoubleValue cooldownSeconds) {
         this.displayName = displayName;
         this.manaCost = manaCost;
-        this.cooldown = cooldown;
+        this.cooldownSeconds = cooldownSeconds;
+    }
+
+    public float manaCost() {
+        return manaCost.get().floatValue();
+    }
+
+    // In ticks (20 ticks is one second)
+    public int cooldown() {
+        return (int) Math.round(cooldownSeconds.get() * 20);
     }
 
     public static Skill byId(int id) {

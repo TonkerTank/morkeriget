@@ -50,7 +50,7 @@ public final class Skills {
             player.displayClientMessage(Component.literal(skill.displayName + " er klar om " + seconds + " sek."), true);
             return;
         }
-        if (Mana.get(player) < skill.manaCost) {
+        if (Mana.get(player) < skill.manaCost()) {
             player.displayClientMessage(Component.literal("Ikke nok mana til " + skill.displayName), true);
             return;
         }
@@ -60,8 +60,8 @@ public final class Skills {
             case BLINK -> blink(player);
         };
         if (used) {
-            Mana.spend(player, skill.manaCost);
-            player.getPersistentData().putLong(readyTag, now + skill.cooldown);
+            Mana.spend(player, skill.manaCost());
+            player.getPersistentData().putLong(readyTag, now + skill.cooldown());
         }
     }
 

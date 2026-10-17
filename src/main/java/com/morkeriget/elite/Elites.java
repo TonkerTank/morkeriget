@@ -3,6 +3,7 @@ package com.morkeriget.elite;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 
 import net.minecraft.ChatFormatting;
@@ -33,8 +34,6 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
 public final class Elites {
     private static final String ELITE_TAG = "morkeriget_elite";
     private static final String CHECKED_TAG = "morkeriget_elite_checked";
-    private static final float ELITE_CHANCE = 0.05f;
-    private static final float SECOND_MODIFIER_CHANCE = 0.3f;
     private static final ResourceLocation ELITE_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "elite_boost");
     // Teleporting elites jump to their target when it is further away than this
     private static final double TELEPORT_DISTANCE = 6.0;
@@ -63,10 +62,10 @@ public final class Elites {
         }
         markChecked(monster);
         float roll = monster.getRandom().nextFloat();
-        if (roll < Bosses.BOSS_CHANCE && Bosses.canBeBoss(monster)) {
+        if (roll < Config.BOSS_CHANCE.get() && Bosses.canBeBoss(monster)) {
             Bosses.makeBoss(monster);
-        } else if (roll < ELITE_CHANCE) {
-            makeElite(monster, monster.getRandom().nextFloat() < SECOND_MODIFIER_CHANCE ? 2 : 1);
+        } else if (roll < Config.ELITE_CHANCE.get()) {
+            makeElite(monster, monster.getRandom().nextFloat() < Config.SECOND_MODIFIER_CHANCE.get() ? 2 : 1);
         }
     }
 
@@ -79,8 +78,8 @@ public final class Elites {
     static List<EliteModifier> makeElite(Monster monster, int modifierCount) {
         monster.getPersistentData().putBoolean(ELITE_TAG, true);
 
-        boost(monster.getAttribute(Attributes.MAX_HEALTH), 2.0);
-        boost(monster.getAttribute(Attributes.ATTACK_DAMAGE), 0.5);
+        boost(monster.getAttribute(Attributes.MAX_HEALTH), Config.ELITE_HEALTH.get() - 1);
+        boost(monster.getAttribute(Attributes.ATTACK_DAMAGE), Config.ELITE_DAMAGE.get() - 1);
 
         List<EliteModifier> available = new ArrayList<>(List.of(EliteModifier.values()));
         List<EliteModifier> chosen = new ArrayList<>();

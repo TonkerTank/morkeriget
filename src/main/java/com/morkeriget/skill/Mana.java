@@ -1,5 +1,7 @@
 package com.morkeriget.skill;
 
+import com.morkeriget.Config;
+
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
@@ -9,7 +11,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class Mana {
     public static final float MAX = 100;
     private static final String MANA_TAG = "morkeriget_mana";
-    private static final float REGEN_PER_SECOND = 5;
 
     private Mana() {
     }
@@ -31,7 +32,7 @@ public final class Mana {
     // Regenerates twice a second. It also sends the value every time, so the bar is right after joining or respawning
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         if (event.getEntity() instanceof ServerPlayer player && player.tickCount % 10 == 0) {
-            set(player, Math.min(MAX, get(player) + REGEN_PER_SECOND / 2));
+            set(player, Math.min(MAX, get(player) + Config.MANA_REGEN.get().floatValue() / 2));
         }
     }
 }

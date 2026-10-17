@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 
 import net.minecraft.ChatFormatting;
@@ -41,7 +42,6 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
 // Rare named bosses: an elite with three modifiers that is bigger and much tougher, has a boss bar,
 // slams the ground and calls in minions. Always drops a legendary item (see Loot)
 public final class Bosses {
-    static final float BOSS_CHANCE = 0.005f;
     private static final String BOSS_TAG = "morkeriget_boss";
     private static final String TITLE_TAG = "morkeriget_boss_title";
     private static final String MINION_TAG = "morkeriget_minion";
@@ -84,10 +84,12 @@ public final class Bosses {
         List<EliteModifier> modifiers = Elites.makeElite(monster, 3);
         monster.getPersistentData().putBoolean(BOSS_TAG, true);
 
-        // On top of the elite boost, so about 4x health and a bit over 2x damage in total.
-        // A boss zombie then takes about 12 hits with a diamond sword
-        boost(monster, Attributes.MAX_HEALTH, 0.33, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-        boost(monster, Attributes.ATTACK_DAMAGE, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+        // The config has the total multiplier, so take away what the elite boost already gave.
+        // With the default 4x health a boss zombie takes about 12 hits with a diamond sword
+        boost(monster, Attributes.MAX_HEALTH, Config.BOSS_HEALTH.get() / Config.ELITE_HEALTH.get() - 1,
+                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+        boost(monster, Attributes.ATTACK_DAMAGE, Config.BOSS_DAMAGE.get() / Config.ELITE_DAMAGE.get() - 1,
+                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
         boost(monster, Attributes.SCALE, 0.5, AttributeModifier.Operation.ADD_VALUE);
         boost(monster, Attributes.KNOCKBACK_RESISTANCE, 0.5, AttributeModifier.Operation.ADD_VALUE);
         monster.setHealth(monster.getMaxHealth());

@@ -11,6 +11,7 @@ import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(Morkeriget.MODID)
@@ -19,6 +20,8 @@ public class Morkeriget {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public Morkeriget(IEventBus modEventBus, ModContainer modContainer) {
+        // Settings in config/morkeriget-common.toml
+        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
         // Monsters drop weapons and armour with a rarity and random bonuses
         Loot.register(modEventBus);
         // Some monsters spawn as stronger elites that always drop good loot

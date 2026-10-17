@@ -3,6 +3,7 @@ package com.morkeriget.loot;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
@@ -38,9 +39,6 @@ public final class Loot {
     public static final String LIFESTEAL_TAG = "morkeriget_lifesteal";
     public static final String FIRE_TAG = "morkeriget_fire";
     public static final String CRUSHING_TAG = "morkeriget_crushing";
-
-    // Chance that a normal monster drops a piece of loot
-    private static final float DROP_CHANCE = 0.08f;
 
     private static final List<Item> LOOT_ITEMS = List.of(
             Items.STONE_SWORD, Items.IRON_SWORD, Items.GOLDEN_SWORD, Items.DIAMOND_SWORD,
@@ -96,7 +94,7 @@ public final class Loot {
             drops.add(Rarity.roll(random, Rarity.RARE));
         } else if (Elites.isElite(event.getEntity())) {
             drops.add(Rarity.roll(random, Rarity.RARE));
-        } else if (random.nextFloat() < DROP_CHANCE) {
+        } else if (random.nextFloat() < Config.DROP_CHANCE.get()) {
             drops.add(Rarity.roll(random, Rarity.COMMON));
         }
         for (Rarity rarity : drops) {
