@@ -62,9 +62,15 @@ public final class Elites {
         }
         markChecked(monster);
         float roll = monster.getRandom().nextFloat();
-        if (roll < Config.BOSS_CHANCE.get() && Bosses.canBeBoss(monster)) {
+        boolean boss = roll < Config.BOSS_CHANCE.get() && Bosses.canBeBoss(monster);
+        boolean elite = !boss && roll < Config.ELITE_CHANCE.get();
+        // The level goes on first, since the elite and boss boosts set the health to full afterwards
+        if (Config.MONSTER_LEVELS.get()) {
+            MonsterLevels.apply(monster, MonsterLevels.roll(monster, boss ? 2 : elite ? 1 : 0));
+        }
+        if (boss) {
             Bosses.makeBoss(monster);
-        } else if (roll < Config.ELITE_CHANCE.get()) {
+        } else if (elite) {
             makeElite(monster, monster.getRandom().nextFloat() < Config.SECOND_MODIFIER_CHANCE.get() ? 2 : 1);
         }
     }

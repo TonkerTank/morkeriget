@@ -59,6 +59,10 @@ public final class Progression {
                 .playToClient(ProgressPayload.TYPE, ProgressPayload.STREAM_CODEC, (payload, context) -> ClientProgress.set(payload));
     }
 
+    public static int level(ServerPlayer player) {
+        return player.getData(PROGRESS).level();
+    }
+
     public static int rank(ServerPlayer player, Upgrade upgrade) {
         return player.getData(PROGRESS).rank(upgrade);
     }

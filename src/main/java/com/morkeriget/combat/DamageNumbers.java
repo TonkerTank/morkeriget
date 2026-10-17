@@ -40,6 +40,7 @@ public final class DamageNumbers {
         if (entity == null) {
             return;
         }
+        TargetFrame.onHit(entity);
         // Spread the numbers a little, so several hits in a row don't land on top of each other
         Vec3 position = new Vec3(entity.getRandomX(0.6), entity.getY() + entity.getBbHeight() + 0.2, entity.getRandomZ(0.6));
         String text = payload.amount() >= 10 ? String.valueOf(Math.round(payload.amount())) : String.format("%.1f", payload.amount());

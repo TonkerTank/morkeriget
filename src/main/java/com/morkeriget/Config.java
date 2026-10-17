@@ -23,6 +23,10 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue BLINK_MANA;
     public static final ModConfigSpec.DoubleValue BLINK_COOLDOWN;
     public static final ModConfigSpec.DoubleValue XP_MULTIPLIER;
+    public static final ModConfigSpec.BooleanValue MONSTER_LEVELS;
+    public static final ModConfigSpec.IntValue MONSTER_LEVEL_SPREAD;
+    public static final ModConfigSpec.DoubleValue HEALTH_PER_LEVEL;
+    public static final ModConfigSpec.DoubleValue DAMAGE_PER_LEVEL;
 
     static {
         BUILDER.push("loot");
@@ -64,6 +68,17 @@ public final class Config {
         BUILDER.push("levels");
         XP_MULTIPLIER = BUILDER.comment("Ganger al XP fra monstre med dette tal. 2 = dobbelt så hurtigt op i level")
                 .defineInRange("xpMultiplier", 1.0, 0, 100);
+        BUILDER.pop();
+
+        BUILDER.push("monsterLevels");
+        MONSTER_LEVELS = BUILDER.comment("Om monstre får et level efter den nærmeste spillers level")
+                .define("enabled", true);
+        MONSTER_LEVEL_SPREAD = BUILDER.comment("Hvor mange levels et monster kan være over eller under spilleren")
+                .defineInRange("levelSpread", 1, 0, 10);
+        HEALTH_PER_LEVEL = BUILDER.comment("Ekstra liv pr. level over 1 (0.08 = +8 %, så level 11 har 80 % mere liv)")
+                .defineInRange("healthPerLevel", 0.08, 0, 10);
+        DAMAGE_PER_LEVEL = BUILDER.comment("Ekstra skade pr. level over 1 (0.05 = +5 %)")
+                .defineInRange("damagePerLevel", 0.05, 0, 10);
         BUILDER.pop();
     }
 

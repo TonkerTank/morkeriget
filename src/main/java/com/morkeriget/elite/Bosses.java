@@ -170,6 +170,10 @@ public final class Bosses {
             }
             Elites.markChecked(minion);
             minion.getPersistentData().putBoolean(MINION_TAG, true);
+            int bossLevel = MonsterLevels.get(boss);
+            if (bossLevel > 0) {
+                MonsterLevels.apply(minion, Math.max(1, bossLevel - 2));
+            }
             double x = boss.getX() + (boss.getRandom().nextDouble() - 0.5) * 4;
             double z = boss.getZ() + (boss.getRandom().nextDouble() - 0.5) * 4;
             minion.moveTo(x, boss.getY(), z, boss.getRandom().nextFloat() * 360, 0);

@@ -1,6 +1,7 @@
 package com.morkeriget;
 
 import com.morkeriget.combat.DamageNumbers;
+import com.morkeriget.combat.TargetFrame;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.LootBeams;
@@ -28,6 +29,10 @@ public class MorkerigetClient {
         // Damage numbers that float up from monsters you hit
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onClientTick);
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onRenderLevel);
+        // Name, level and health of the monster you look at, at the top of the screen
+        modEventBus.addListener(TargetFrame::register);
+        NeoForge.EVENT_BUS.addListener(TargetFrame::onRenderGuiPre);
+        NeoForge.EVENT_BUS.addListener(TargetFrame::onBossBar);
         // The screen for the jewelry slots
         modEventBus.addListener((RegisterMenuScreensEvent event) -> event.register(Jewelry.MENU.get(), JewelryScreen::new));
     }
