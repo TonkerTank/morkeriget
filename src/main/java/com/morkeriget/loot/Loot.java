@@ -12,6 +12,8 @@ import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.progress.PlayerClass;
+import com.morkeriget.progress.Progression;
 import com.morkeriget.skill.Minions;
 import com.morkeriget.smithy.Gems;
 
@@ -23,6 +25,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
@@ -160,6 +163,8 @@ public final class Loot {
         RandomSource random = event.getEntity().getRandom();
         // Loot gets the level of the monster. Monsters from before monster levels existed count as level 1
         int itemLevel = Math.max(1, MonsterLevels.get(event.getEntity()));
+        // Legendary powers are mostly for the class of the one who got the kill
+        PlayerClass killerClass = event.getEntity().getKillCredit() instanceof ServerPlayer killer ? Progression.playerClass(killer) : null;
         List<Rarity> drops = new ArrayList<>();
         if (Bosses.isBoss(event.getEntity())) {
             drops.add(random.nextDouble() < Config.SET_CHANCE_BOSS.get() ? Rarity.SET : Rarity.LEGENDARY);
@@ -172,7 +177,7 @@ public final class Loot {
         }
         Rarity best = null;
         for (Rarity rarity : drops) {
-            ItemStack stack = rarity == Rarity.SET ? createSet(random, itemLevel) : create(random, rarity, itemLevel);
+            ItemStack stack = rarity == Rarity.SET ? createSet(random, itemLevel) : create(random, rarity, itemLevel, killerClass);
             event.getDrops().add(new ItemEntity(event.getEntity().level(),
                     event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), stack));
             if (best == null || rarity.ordinal() > best.ordinal()) {
@@ -220,12 +225,26 @@ public final class Loot {
     }
 
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel) {
-        return create(random, rarity, itemLevel, randomItem(random, itemLevel));
+        return create(random, rarity, itemLevel, (PlayerClass) null);
+    }
+
+    // forClass is the class of the one who found it, so a legendary mostly gets a power they can use. It may be null
+    public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, PlayerClass forClass) {
+        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass));
     }
 
     // Loot made from a chosen base item, e.g. for the /morkeriget loot command
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, Item item) {
-        return roll(new ItemStack(item), random, rarity, itemLevel, null, null);
+        return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, null));
+    }
+
+    // A legendary with a chosen power, for the /morkeriget legendary command
+    public static ItemStack createLegendary(RandomSource random, int itemLevel, LegendaryPower power) {
+        return roll(new ItemStack(randomItem(random, itemLevel)), random, Rarity.LEGENDARY, itemLevel, null, null, power);
+    }
+
+    private static LegendaryPower power(RandomSource random, Rarity rarity, PlayerClass forClass) {
+        return rarity == Rarity.LEGENDARY ? LegendaryPower.roll(random, forClass) : null;
     }
 
     // A random piece from a random set
@@ -235,24 +254,28 @@ public final class Loot {
     }
 
     public static ItemStack createSet(RandomSource random, int itemLevel, ItemSet set, ItemSet.Piece piece) {
-        return roll(new ItemStack(piece.baseItem(itemLevel)), random, Rarity.SET, itemLevel, set, piece);
+        return roll(new ItemStack(piece.baseItem(itemLevel)), random, Rarity.SET, itemLevel, set, piece, null);
     }
 
-    // The same base item with the same rarity, level and set, but new bonuses. Used by the smithy
+    // The same base item with the same rarity, level, set and legendary power, but new bonuses. Used by the smithy.
+    // Legendaries from before powers existed get one
     public static ItemStack reroll(ItemStack old, RandomSource random) {
         ItemStack stack = new ItemStack(old.getItem());
         if (old.has(DataComponents.DAMAGE)) {
             stack.set(DataComponents.DAMAGE, old.get(DataComponents.DAMAGE));
         }
-        Rarity rarity = getRarity(old);
-        ItemStack rerolled = roll(stack, random, rarity != null ? rarity : Rarity.COMMON, itemLevel(old), ItemSet.of(old), ItemSet.piece(old));
+        Rarity rarity = getRarity(old) != null ? getRarity(old) : Rarity.COMMON;
+        LegendaryPower power = LegendaryPower.of(old) != null ? LegendaryPower.of(old) : power(random, rarity, null);
+        ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power);
         // The sockets and gems stay as they were
         Gems.copy(old, rerolled);
         return rerolled;
     }
 
-    // Gives a fresh item its affixes, name and lore. set and piece are null for items that aren't part of a set
-    private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece) {
+    // Gives a fresh item its affixes, name and lore. set and piece are null for items that aren't part of a set,
+    // and power is null for items that aren't legendary
+    private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece,
+                                  LegendaryPower power) {
         // Flat affixes get stronger with the item level, see Scaling
         double fullScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
         double halfScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1) / 2;
@@ -308,6 +331,13 @@ public final class Loot {
                 Component.literal(ITEM_LEVEL_LORE + itemLevel).withStyle(ChatFormatting.GRAY),
                 Component.literal(ITEM_POWER_LORE + itemPower).withStyle(ChatFormatting.GRAY)));
         lore.addAll(affixLore);
+        if (power != null) {
+            lore.add(Component.empty());
+            String classText = power.playerClass != null ? " (" + power.playerClass.displayName + ")" : "";
+            lore.add(Component.literal("★ " + power.displayName + classText).withStyle(ChatFormatting.GOLD));
+            lore.add(Component.literal(power.description).withStyle(ChatFormatting.YELLOW));
+            power.markOn(stack);
+        }
         if (set != null) {
             List<String> pieceNames = set.pieces.stream().map(p -> p.displayName).toList();
             lore.add(Component.empty());

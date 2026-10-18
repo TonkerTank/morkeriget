@@ -9,6 +9,7 @@ import java.util.UUID;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.loot.ItemKind;
+import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
@@ -47,6 +48,7 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 final class ClassSkills {
     // 20 ticks is one second
     private static final double LEAP_RADIUS = 4.0;
+    private static final int EARTHBREAKER_STUN = 2 * 20;
     private static final int FRENZY_DURATION = 6 * 20;
     private static final double FIREBALL_RANGE = 24.0;
     private static final double FIREBALL_RADIUS = 3.0;
@@ -130,10 +132,18 @@ final class ClassSkills {
         // Each Leap upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.LEAP);
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.8 * upgrade);
+        boolean earthbreaker = LegendaryPower.has(player, LegendaryPower.EARTHBREAKER);
         for (LivingEntity target : enemies(level, player.position(), LEAP_RADIUS)) {
             target.hurt(player.damageSources().playerAttack(player), damage);
             Vec3 push = target.position().subtract(player.position()).normalize();
             target.knockback(0.8, -push.x, -push.z);
+            if (earthbreaker) {
+                // Stunned: they can't move and barely hurt
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, EARTHBREAKER_STUN, 9));
+                target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, EARTHBREAKER_STUN, 4));
+                level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(),
+                        8, 0.3, 0.1, 0.3, 0);
+            }
         }
         for (int i = 0; i < 16; i++) {
             double angle = Math.PI * 2 * i / 16;
@@ -189,14 +199,17 @@ final class ClassSkills {
         return true;
     }
 
-    // Five arrows in a fan
+    // Five arrows in a fan, or nine closer together with Arrow Storm
     static boolean multishot(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         // Each Multishot upgrade rank adds 15% damage
         double damage = ARROW_DAMAGE * (1 + 0.15 * Progression.rank(player, Upgrade.MULTISHOT));
-        for (int i = -2; i <= 2; i++) {
+        boolean storm = LegendaryPower.has(player, LegendaryPower.ARROW_STORM);
+        int side = storm ? 4 : 2;
+        float spread = storm ? 6 : 8;
+        for (int i = -side; i <= side; i++) {
             Arrow arrow = arrow(level, player, damage);
-            arrow.shootFromRotation(player, player.getXRot(), player.getYRot() + i * 8, 0, 3.0f, 1.0f);
+            arrow.shootFromRotation(player, player.getXRot(), player.getYRot() + i * spread, 0, 3.0f, 1.0f);
             level.addFreshEntity(arrow);
         }
         level.playSound(null, player.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 1.0f, 0.9f);
@@ -213,7 +226,8 @@ final class ClassSkills {
         int rank = Progression.rank(player, Upgrade.ARROW_RAIN);
         double radius = ARROW_RAIN_RADIUS + 0.2 * rank;
         float damage = (float) (ARROW_RAIN_DAMAGE * bowScale(player) * (1 + 0.15 * rank));
-        RAINS.put(player.getUUID(), new Rain(center, radius, damage, ARROW_RAIN_WAVES, level.getGameTime() + ARROW_RAIN_WAVE_TIME));
+        int waves = LegendaryPower.has(player, LegendaryPower.ENDLESS_RAIN) ? ARROW_RAIN_WAVES * 2 : ARROW_RAIN_WAVES;
+        RAINS.put(player.getUUID(), new Rain(center, radius, damage, waves, level.getGameTime() + ARROW_RAIN_WAVE_TIME));
         circle(level, center, radius);
         level.playSound(null, player.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 1.0f, 0.6f);
         return true;

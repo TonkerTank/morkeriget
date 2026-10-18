@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.morkeriget.Config;
 import com.morkeriget.loot.ItemSet;
+import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
@@ -21,6 +22,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
@@ -119,17 +121,22 @@ public final class Skills {
         }
     }
 
-    // Spins around and hits every monster close to you
+    // Spins around and hits every monster close to you. With Maelstrom it pulls them in instead of pushing them away
     private static boolean whirlwind(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
+        boolean maelstrom = LegendaryPower.has(player, LegendaryPower.MAELSTROM);
         // Each Whirlwind upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.WHIRLWIND);
-        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.5 * upgrade);
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.5 * upgrade * (maelstrom ? 1.3 : 1));
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(WHIRLWIND_RADIUS),
                 entity -> Minions.isEnemy(entity))) {
             target.hurt(player.damageSources().playerAttack(player), damage);
             Vec3 push = target.position().subtract(player.position()).normalize();
-            target.knockback(0.6, -push.x, -push.z);
+            if (maelstrom) {
+                target.knockback(0.5, push.x, push.z);
+            } else {
+                target.knockback(0.6, -push.x, -push.z);
+            }
         }
 
         for (int i = 0; i < 12; i++) {
@@ -143,13 +150,19 @@ public final class Skills {
 
     // A ring of ice that hurts and freezes every monster around you, so they can barely move for a few seconds
     private static boolean frostNova(ServerPlayer player) {
+        frostNovaAt(player, player.position());
+        return true;
+    }
+
+    // The frost nova around a spot, so Frost Trail can leave one where you blinked from
+    private static void frostNovaAt(ServerPlayer player, Vec3 center) {
         ServerLevel level = player.serverLevel();
         // Each Frost Nova upgrade rank adds half a block of radius and half a second of freezing
         int rank = Progression.rank(player, Upgrade.FROST_NOVA);
         double radius = FROST_NOVA_RADIUS + rank * 0.5;
         int duration = FROST_NOVA_DURATION + rank * 10;
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5);
-        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(radius),
+        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, new AABB(center, center.add(0, player.getBbHeight(), 0)).inflate(radius),
                 entity -> Minions.isEnemy(entity))) {
             target.hurt(player.damageSources().playerAttack(player), damage);
             target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 9));
@@ -160,12 +173,11 @@ public final class Skills {
         // Snowflakes flying outwards in a ring (count 0 means the offsets are used as speed)
         for (int i = 0; i < 48; i++) {
             double angle = Math.PI * 2 * i / 48;
-            level.sendParticles(ParticleTypes.SNOWFLAKE, player.getX(), player.getY() + 0.5, player.getZ(),
+            level.sendParticles(ParticleTypes.SNOWFLAKE, center.x, center.y + 0.5, center.z,
                     0, Math.cos(angle), 0, Math.sin(angle), 0.4);
         }
-        level.playSound(null, player.blockPosition(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0f, 1.4f);
-        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.0f, 0.8f);
-        return true;
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0f, 1.4f);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.0f, 0.8f);
     }
 
     // Teleports you a few blocks in the direction you are looking. Stops in front of walls
@@ -192,6 +204,10 @@ public final class Skills {
                     player.resetFallDistance();
                     level.sendParticles(ParticleTypes.REVERSE_PORTAL, feet.x, feet.y + 1, feet.z, 30, 0.3, 0.6, 0.3, 0.05);
                     level.playSound(null, player.blockPosition(), SoundEvents.CHORUS_FRUIT_TELEPORT, SoundSource.PLAYERS, 1.0f, 1.2f);
+                    if (LegendaryPower.has(player, LegendaryPower.FROST_TRAIL)) {
+                        frostNovaAt(player, from);
+                        frostNovaAt(player, feet);
+                    }
                     return true;
                 }
             }
@@ -203,9 +219,9 @@ public final class Skills {
     // Lightning hits the closest monster and jumps on to the next one close to it, never hitting the same one twice
     private static boolean chainLightning(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        // Each Chain Lightning upgrade rank adds 15% damage and one more jump
+        // Each Chain Lightning upgrade rank adds 15% damage and one more jump, and Storm Eye three more
         int rank = Progression.rank(player, Upgrade.CHAIN_LIGHTNING);
-        int jumps = CHAIN_LIGHTNING_JUMPS + rank;
+        int jumps = CHAIN_LIGHTNING_JUMPS + rank + (LegendaryPower.has(player, LegendaryPower.STORM_EYE) ? 3 : 0);
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.2 * (1 + 0.15 * rank));
         List<LivingEntity> hit = new ArrayList<>();
         LivingEntity target = closestEnemy(level, player, CHAIN_LIGHTNING_RANGE, hit);

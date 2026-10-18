@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Elites;
+import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
@@ -49,6 +50,9 @@ final class NecroSkills {
     private static final double HEAL_RANGE = 16.0;
     private static final String CURSED_UNTIL_TAG = "morkeriget_cursed_until";
     private static final String CURSE_BONUS_TAG = "morkeriget_curse_bonus";
+    private static final String CURSED_BY_TAG = "morkeriget_cursed_by";
+    private static final double CURSE_SPREAD_RADIUS = 5.0;
+    private static final double CORPSE_EXPLOSION_RADIUS = 3.0;
     private static final ResourceLocation SKELETON_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "skeleton_boost");
     private static final BlockParticleOption BONE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.BONE_BLOCK.defaultBlockState());
 
@@ -145,19 +149,24 @@ final class NecroSkills {
         ServerLevel level = player.serverLevel();
         // 25% more damage, and each Curse upgrade rank adds 5%
         int bonus = 25 + 5 * Progression.rank(player, Upgrade.CURSE);
-        long until = level.getGameTime() + CURSE_DURATION;
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(CURSE_RADIUS),
                 entity -> Minions.isEnemy(entity) && entity.distanceTo(player) <= CURSE_RADIUS)) {
-            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, CURSE_DURATION, 0));
-            target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, CURSE_DURATION, 0));
-            CompoundTag data = target.getPersistentData();
-            data.putLong(CURSED_UNTIL_TAG, until);
-            data.putInt(CURSE_BONUS_TAG, bonus);
-            level.sendParticles(ParticleTypes.SOUL, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(), 6, 0.3, 0.2, 0.3, 0.01);
+            applyCurse(level, target, player, bonus);
         }
         level.sendParticles(ParticleTypes.SCULK_SOUL, player.getX(), player.getY() + 1, player.getZ(), 30, 3, 0.5, 3, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_CAST_SPELL, SoundSource.PLAYERS, 1.0f, 0.5f);
         return true;
+    }
+
+    // The one who cursed it is saved too, so Contagious Curse knows whose power to check when it dies
+    private static void applyCurse(ServerLevel level, LivingEntity target, ServerPlayer player, int bonus) {
+        target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, CURSE_DURATION, 0));
+        target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, CURSE_DURATION, 0));
+        CompoundTag data = target.getPersistentData();
+        data.putLong(CURSED_UNTIL_TAG, level.getGameTime() + CURSE_DURATION);
+        data.putInt(CURSE_BONUS_TAG, bonus);
+        data.putUUID(CURSED_BY_TAG, player.getUUID());
+        level.sendParticles(ParticleTypes.SOUL, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(), 6, 0.3, 0.2, 0.3, 0.01);
     }
 
     // Cursed enemies take more damage from everything, also from other players, minions and fire
@@ -172,18 +181,56 @@ final class NecroSkills {
         }
     }
 
-    // The necromancer's class bonus: every enemy that dies close by heals them a little
+    // The necromancer's class bonus: every enemy that dies close by heals them a little.
+    // Also the legendary powers that happen when something dies: Corpse Explosion and Contagious Curse
     static void onDeath(LivingDeathEvent event) {
         LivingEntity dead = event.getEntity();
-        if (!(dead.level() instanceof ServerLevel level) || !isFormerEnemy(dead)) {
+        if (!(dead.level() instanceof ServerLevel level)) {
             return;
         }
+        if (dead instanceof WitherSkeleton && Minions.owner(level, dead) instanceof ServerPlayer owner
+                && LegendaryPower.has(owner, LegendaryPower.CORPSE_EXPLOSION)) {
+            corpseExplosion(level, dead, owner);
+        }
+        if (!isFormerEnemy(dead)) {
+            return;
+        }
+        spreadCurse(level, dead);
         for (ServerPlayer player : level.players()) {
             if (player.distanceTo(dead) <= HEAL_RANGE && player.isAlive() && Progression.playerClass(player) == PlayerClass.NECROMANCER) {
                 player.heal(player.getMaxHealth() * 0.05f);
                 level.sendParticles(ParticleTypes.SOUL, dead.getX(), dead.getY() + 1, dead.getZ(), 5, 0.3, 0.3, 0.3, 0.02);
             }
         }
+    }
+
+    // A dying skeleton hurts every enemy around it, as much as a Bone Spear from its owner
+    private static void corpseExplosion(ServerLevel level, LivingEntity skeleton, ServerPlayer owner) {
+        float damage = (float) (owner.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.2);
+        Vec3 center = skeleton.position();
+        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, skeleton.getBoundingBox().inflate(CORPSE_EXPLOSION_RADIUS),
+                entity -> Minions.isEnemy(entity) && entity.position().distanceTo(center) <= CORPSE_EXPLOSION_RADIUS + 1)) {
+            target.hurt(owner.damageSources().playerAttack(owner), damage);
+        }
+        level.sendParticles(ParticleTypes.EXPLOSION, center.x, center.y + 0.5, center.z, 2, 0.4, 0.4, 0.4, 0);
+        level.sendParticles(BONE, center.x, center.y + 0.5, center.z, 40, 0.8, 0.6, 0.8, 0.1);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.7f, 1.2f);
+    }
+
+    // With Contagious Curse, a cursed enemy that dies passes the curse on to the enemies around it
+    private static void spreadCurse(ServerLevel level, LivingEntity dead) {
+        CompoundTag data = dead.getPersistentData();
+        if (data.getLong(CURSED_UNTIL_TAG) <= level.getGameTime() || !data.hasUUID(CURSED_BY_TAG)
+                || !(level.getServer().getPlayerList().getPlayer(data.getUUID(CURSED_BY_TAG)) instanceof ServerPlayer player)
+                || !LegendaryPower.has(player, LegendaryPower.CONTAGIOUS_CURSE)) {
+            return;
+        }
+        Vec3 center = dead.position();
+        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, dead.getBoundingBox().inflate(CURSE_SPREAD_RADIUS),
+                entity -> Minions.isEnemy(entity) && entity.position().distanceTo(center) <= CURSE_SPREAD_RADIUS)) {
+            applyCurse(level, target, player, data.getInt(CURSE_BONUS_TAG));
+        }
+        level.sendParticles(ParticleTypes.SCULK_SOUL, center.x, center.y + 1, center.z, 15, 1.5, 0.5, 1.5, 0.02);
     }
 
     // Minions.isEnemy checks isAlive, which is already false while the death event runs

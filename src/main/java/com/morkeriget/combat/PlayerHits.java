@@ -7,6 +7,7 @@ import com.morkeriget.Config;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.ItemKind;
 import com.morkeriget.loot.ItemSet;
+import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.PlayerClass;
@@ -42,6 +43,7 @@ public final class PlayerHits {
         modEventBus.addListener(DamageNumberPayload::register);
         NeoForge.EVENT_BUS.addListener(PlayerHits::onDamagePre);
         NeoForge.EVENT_BUS.addListener(PlayerHits::onDamagePost);
+        LegendaryEffects.register();
     }
 
     private static void onDamagePre(LivingDamageEvent.Pre event) {
@@ -67,6 +69,10 @@ public final class PlayerHits {
         if (crushingChance > 0 && player.getRandom().nextInt(100) < crushingChance) {
             event.setNewDamage(event.getNewDamage() * 2);
             crushedTarget = event.getEntity();
+            if (LegendaryPower.has(player, LegendaryPower.THUNDERSTRIKE)) {
+                event.setNewDamage(event.getNewDamage() * 1.5f);
+                LegendaryEffects.thunder(player, event.getEntity());
+            }
         }
     }
 

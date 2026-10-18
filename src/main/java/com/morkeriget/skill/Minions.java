@@ -33,6 +33,14 @@ public final class Minions {
         return isAlly(entity) && entity.getPersistentData().getUUID(OWNER_TAG).equals(player.getUUID());
     }
 
+    // The player a minion fights for, if they are online, or null
+    static ServerPlayer owner(ServerLevel level, Entity minion) {
+        if (!isAlly(minion)) {
+            return null;
+        }
+        return level.getServer().getPlayerList().getPlayer(minion.getPersistentData().getUUID(OWNER_TAG));
+    }
+
     // A monster that isn't on the player's side
     public static boolean isEnemy(Entity entity) {
         return entity instanceof Enemy && entity.isAlive() && !isAlly(entity);

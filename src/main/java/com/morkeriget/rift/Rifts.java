@@ -376,7 +376,7 @@ public final class Rifts {
             rewards.add(Loot.createSet(random, monsterLevel));
             Rarity minimum = tier >= 5 ? Rarity.RARE : Rarity.MAGIC;
             for (int i = 0; i < 1 + (tier - 1) / 3; i++) {
-                rewards.add(Loot.create(random, Rarity.roll(random, minimum), monsterLevel));
+                rewards.add(Loot.create(random, Rarity.roll(random, minimum), monsterLevel, Progression.playerClass(player)));
             }
             rewards.add(new ItemStack(Smithy.ESSENCE.get(), 4 + tier * 2 + random.nextInt(5)));
             // One gem, and one more for every third tier. Every fourth tier makes them a tier better

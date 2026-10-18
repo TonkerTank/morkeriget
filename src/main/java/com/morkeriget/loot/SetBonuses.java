@@ -76,6 +76,19 @@ public final class SetBonuses {
                                             ItemArgument.getItem(context, "item").getItem())))));
         }
         event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(loot));
+
+        // "/morkeriget legendary maelstrom" gives a legendary with that power at your level
+        LiteralArgumentBuilder<CommandSourceStack> legendary = Commands.literal("legendary").requires(source -> source.hasPermission(2));
+        for (LegendaryPower power : LegendaryPower.values()) {
+            legendary.then(Commands.literal(power.name().toLowerCase()).executes(context -> {
+                ServerPlayer player = context.getSource().getPlayerOrException();
+                ItemStack stack = Loot.createLegendary(player.getRandom(), Progression.level(player), power);
+                player.getInventory().placeItemBackInInventory(stack);
+                context.getSource().sendSuccess(() -> Component.literal("Du fik ").append(stack.getHoverName()), false);
+                return 1;
+            }));
+        }
+        event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(legendary));
     }
 
     private static int giveLoot(CommandSourceStack source, Rarity rarity, int level, Item item) throws CommandSyntaxException {
