@@ -14,6 +14,7 @@ import com.mojang.serialization.Codec;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.bounty.Bounties;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
@@ -246,8 +247,8 @@ public final class Rifts {
             foodBefore = player.getFoodData().getFoodLevel();
             saturationBefore = player.getFoodData().getSaturationLevel();
             // Tier I is the player's own level, since rifts are already hard because of how many monsters come at once.
-            // Every tier above that adds a level
-            monsterLevel = Math.min(Progression.MAX_LEVEL + MAX_TIER, Progression.level(player) + tier - 1);
+            // Every tier above that adds a level. Paragon raises it too, see Progression.monsterLevel
+            monsterLevel = Progression.monsterLevel(player) + tier - 1;
             bar.setName(Component.literal("Riften åbner sig...").withStyle(ChatFormatting.LIGHT_PURPLE));
             bar.addPlayer(player);
         }
@@ -434,6 +435,7 @@ public final class Rifts {
                 level.addFreshEntity(new ItemEntity(level, player.getX(), player.getY() + 0.5, player.getZ(), reward));
             }
             Progression.addXp(player, (int) ((100 + 20 * monsterLevel) * (1 + 0.25 * (tier - 1))));
+            Bounties.riftClosed(player);
 
             player.sendSystemMessage(Component.literal("Rift " + roman(tier) + " er lukket! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(Component.literal("Du fik en sæt-genstand, ekstra loot, ædelsten, essens, XP, en portalrulle og en riftsten "

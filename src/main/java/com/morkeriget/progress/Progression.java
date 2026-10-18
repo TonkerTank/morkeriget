@@ -40,6 +40,7 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 // Levels: killing monsters gives XP, every level gives a skill point, and points are spent on upgrades
 public final class Progression {
     public static final int MAX_LEVEL = 100;
+    public static final int PARAGON_PER_MONSTER_LEVEL = 10;
     private static final ResourceLocation VITALITY_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "vitality");
     private static final ResourceLocation STRENGTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "strength");
     private static final ResourceLocation BARBARIAN_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "class_barbarian");
@@ -111,6 +112,13 @@ public final class Progression {
 
     public static int level(ServerPlayer player) {
         return player.getData(PROGRESS).level();
+    }
+
+    // The level monsters get around this player: their own level, plus one for every PARAGON_PER_MONSTER_LEVEL paragon
+    // levels, so the game doesn't get easy once paragon makes you stronger and stronger
+    public static int monsterLevel(ServerPlayer player) {
+        PlayerProgress progress = player.getData(PROGRESS);
+        return progress.level() + progress.paragonLevel() / PARAGON_PER_MONSTER_LEVEL;
     }
 
     public static int rank(ServerPlayer player, Upgrade upgrade) {

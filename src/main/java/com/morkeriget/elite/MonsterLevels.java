@@ -44,13 +44,14 @@ public final class MonsterLevels {
         return entity.getData(LEVEL);
     }
 
-    // The nearest player's level, give or take one, plus a bonus for elites and bosses
+    // The nearest player's level, give or take one, plus a bonus for elites and bosses. Paragon raises it above
+    // level 100, see Progression.monsterLevel
     static int roll(Monster monster, int bonus) {
         Player nearest = monster.level().getNearestPlayer(monster, PLAYER_RANGE);
-        int playerLevel = nearest instanceof ServerPlayer player ? Progression.level(player) : 1;
+        int playerLevel = nearest instanceof ServerPlayer player ? Progression.monsterLevel(player) : 1;
         int spread = Config.MONSTER_LEVEL_SPREAD.get();
         int level = playerLevel + monster.getRandom().nextInt(spread * 2 + 1) - spread + bonus;
-        return Math.max(1, Math.min(Progression.MAX_LEVEL + 2, level));
+        return Math.max(1, level);
     }
 
     // Gives the monster its level and makes it stronger for every level above 1

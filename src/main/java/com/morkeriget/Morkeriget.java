@@ -2,9 +2,11 @@ package com.morkeriget;
 
 import org.slf4j.Logger;
 
+import com.morkeriget.bounty.Bounties;
 import com.morkeriget.combat.PlayerHits;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
+import com.morkeriget.helltide.Helltide;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.merchant.Merchant;
@@ -13,6 +15,7 @@ import com.morkeriget.progress.Progression;
 import com.morkeriget.rift.Rifts;
 import com.morkeriget.skill.Skills;
 import com.morkeriget.smithy.Smithy;
+import com.morkeriget.stash.Stash;
 import com.mojang.logging.LogUtils;
 
 import net.neoforged.bus.api.IEventBus;
@@ -51,5 +54,11 @@ public class Morkeriget {
         Rifts.register(modEventBus);
         // Town portal scrolls take you home and back again
         TownPortal.register(modEventBus);
+        // A stash that is the same in every world
+        Stash.register(modEventBus);
+        // Three bounties a day with rewards
+        Bounties.register(modEventBus);
+        // Every night an area is taken over by stronger monsters that drop cinders for helltide chests
+        Helltide.register(modEventBus);
     }
 }

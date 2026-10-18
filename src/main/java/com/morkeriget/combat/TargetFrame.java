@@ -3,6 +3,7 @@ package com.morkeriget.combat;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.progress.ClientProgress;
+import com.morkeriget.progress.Progression;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -78,8 +79,8 @@ public final class TargetFrame {
         Component name = target.getDisplayName();
         int level = MonsterLevels.get(target);
         if (level > 0) {
-            // Red if it is above your level, grey if it is below
-            int playerLevel = ClientProgress.get().level();
+            // Red if it is above your level, grey if it is below. Paragon counts, like in Progression.monsterLevel
+            int playerLevel = ClientProgress.get().level() + ClientProgress.get().paragonLevel() / Progression.PARAGON_PER_MONSTER_LEVEL;
             int levelColor = level > playerLevel ? 0xFF5555 : level < playerLevel ? 0xAAAAAA : 0xFFFFFF;
             String levelText = "Level " + level;
             int nameWidth = font.width(name);

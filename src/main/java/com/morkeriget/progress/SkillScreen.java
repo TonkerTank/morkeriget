@@ -3,12 +3,14 @@ package com.morkeriget.progress;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.bounty.BountyActionPayload;
 import com.morkeriget.jewelry.OpenJewelryPayload;
 import com.morkeriget.merchant.OpenMerchantPayload;
 import com.morkeriget.skill.Skill;
 import com.morkeriget.skill.SkillBar;
 import com.morkeriget.skill.SkillKeys;
 import com.morkeriget.smithy.OpenSmithyPayload;
+import com.morkeriget.stash.OpenStashPayload;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -85,6 +87,14 @@ public class SkillScreen extends Screen {
                 .build());
         addRenderableWidget(Button.builder(Component.literal("Skift klasse"), pressed -> minecraft.setScreen(new ClassScreen()))
                 .bounds(left(), top() - 4, 70, 16)
+                .build());
+        // The top row is full, so the stash and bounties are in the right column above Paragon and "Nulstil point"
+        int half = (SHARED_WIDTH - 4) / 2;
+        addRenderableWidget(Button.builder(Component.literal("Kiste"), pressed -> PacketDistributor.sendToServer(OpenStashPayload.INSTANCE))
+                .bounds(sharedX(), keysY() - 44, half, 18)
+                .build());
+        addRenderableWidget(Button.builder(Component.literal("Opgaver"), pressed -> PacketDistributor.sendToServer(new BountyActionPayload(BountyActionPayload.OPEN)))
+                .bounds(sharedX() + SHARED_WIDTH - half, keysY() - 44, half, 18)
                 .build());
 
         ProgressPayload progress = ClientProgress.get();
