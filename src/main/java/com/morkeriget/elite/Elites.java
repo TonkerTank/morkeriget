@@ -82,12 +82,18 @@ public final class Elites {
 
     // Turns the monster into an elite with this many random modifiers, and returns which ones it got
     public static List<EliteModifier> makeElite(Monster monster, int modifierCount) {
+        return makeElite(monster, modifierCount, List.of());
+    }
+
+    // The same, but it never gets the excluded modifiers
+    static List<EliteModifier> makeElite(Monster monster, int modifierCount, List<EliteModifier> excluded) {
         monster.getPersistentData().putBoolean(ELITE_TAG, true);
 
         boost(monster.getAttribute(Attributes.MAX_HEALTH), Config.ELITE_HEALTH.get() - 1);
         boost(monster.getAttribute(Attributes.ATTACK_DAMAGE), Config.ELITE_DAMAGE.get() - 1);
 
         List<EliteModifier> available = new ArrayList<>(List.of(EliteModifier.values()));
+        available.removeAll(excluded);
         List<EliteModifier> chosen = new ArrayList<>();
         MutableComponent name = Component.empty();
         for (int i = 0; i < modifierCount && !available.isEmpty(); i++) {

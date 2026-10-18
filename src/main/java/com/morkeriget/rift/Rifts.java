@@ -52,6 +52,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -68,6 +69,9 @@ public final class Rifts {
     static final int MAX_TIER = 10;
     private static final String TIER_TAG = "morkeriget_rift_tier";
     private static final String RIFT_TAG = "morkeriget_rift";
+    // The most of your max health one hit from the guardian can take. A vindicator's axe gets the boss multiplier too,
+    // so without this it killed you in one hit. 30% in tier I and 5% more per tier
+    private static final String GUARDIAN_MAX_HIT_TAG = "morkeriget_guardian_max_hit";
     // 20 ticks is one second
     private static final int TIME_LIMIT = 5 * 60 * 20;
     private static final int WAVE_PAUSE = 3 * 20;
@@ -98,12 +102,23 @@ public final class Rifts {
         NeoForge.EVENT_BUS.addListener(Rifts::onServerTick);
         NeoForge.EVENT_BUS.addListener(Rifts::onJoinLevel);
         NeoForge.EVENT_BUS.addListener(Rifts::onDrops);
+        NeoForge.EVENT_BUS.addListener(Rifts::onDamagePre);
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> RIFTS.clear());
     }
 
     private static void addToCreativeTab(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.COMBAT) {
             event.accept(RIFT_STONE);
+        }
+    }
+
+    // Hits from the guardian, also from its slam and abilities, can't take more than its share of your max health
+    private static void onDamagePre(LivingDamageEvent.Pre event) {
+        if (event.getEntity() instanceof ServerPlayer player && event.getSource().getEntity() instanceof Monster guardian) {
+            float maxHit = guardian.getPersistentData().getFloat(GUARDIAN_MAX_HIT_TAG);
+            if (maxHit > 0) {
+                event.setNewDamage(Math.min(event.getNewDamage(), player.getMaxHealth() * maxHit));
+            }
         }
     }
 
@@ -326,6 +341,7 @@ public final class Rifts {
             }
             if (guardian) {
                 Bosses.makeBoss(monster);
+                monster.getPersistentData().putFloat(GUARDIAN_MAX_HIT_TAG, 0.3f + 0.05f * (tier - 1));
             } else if (elite) {
                 Elites.makeElite(monster, 1);
             }

@@ -77,8 +77,17 @@ public final class SetBonuses {
         }
         event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(loot));
 
-        // "/morkeriget legendary maelstrom" gives a legendary with that power at your level
-        LiteralArgumentBuilder<CommandSourceStack> legendary = Commands.literal("legendary").requires(source -> source.hasPermission(2));
+        // "/morkeriget legendary maelstrom" gives a legendary with that power at your level.
+        // Without a power it lists them, since the command uses the English names
+        LiteralArgumentBuilder<CommandSourceStack> legendary = Commands.literal("legendary").requires(source -> source.hasPermission(2))
+                .executes(context -> {
+                    context.getSource().sendSuccess(() -> Component.literal("Skriv /morkeriget legendary og en af disse:").withStyle(ChatFormatting.GOLD), false);
+                    for (LegendaryPower power : LegendaryPower.values()) {
+                        context.getSource().sendSuccess(() -> Component.literal(power.name().toLowerCase()).withStyle(ChatFormatting.YELLOW)
+                                .append(Component.literal(" - " + power.displayName + ": " + power.description).withStyle(ChatFormatting.GRAY)), false);
+                    }
+                    return 1;
+                });
         for (LegendaryPower power : LegendaryPower.values()) {
             legendary.then(Commands.literal(power.name().toLowerCase()).executes(context -> {
                 ServerPlayer player = context.getSource().getPlayerOrException();
