@@ -300,6 +300,32 @@ public final class Loot {
         return rerolled;
     }
 
+    // Swaps the legendary power on the item for another one, both what it does and the two lines in the lore.
+    // Used by the codex in the smithy
+    public static void setPower(ItemStack stack, LegendaryPower power) {
+        List<Component> lore = new ArrayList<>(stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY).lines());
+        List<Component> powerLines = powerLore(power);
+        int line = 0;
+        while (line < lore.size() && !lore.get(line).getString().startsWith("★ ")) {
+            line++;
+        }
+        if (line + 1 < lore.size()) {
+            lore.set(line, powerLines.get(0));
+            lore.set(line + 1, powerLines.get(1));
+        } else {
+            lore.add(Component.empty());
+            lore.addAll(powerLines);
+        }
+        stack.set(DataComponents.LORE, new ItemLore(lore));
+        power.markOn(stack);
+    }
+
+    private static List<Component> powerLore(LegendaryPower power) {
+        String classText = power.playerClass != null ? " (" + power.playerClass.displayName + ")" : "";
+        return List.of(Component.literal("★ " + power.displayName + classText).withStyle(ChatFormatting.GOLD),
+                Component.literal(power.description).withStyle(ChatFormatting.YELLOW));
+    }
+
     // Gives a fresh item its affixes, name and lore. set and piece are null for items that aren't part of a set,
     // and power is null for items that aren't legendary
     private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece,
@@ -366,9 +392,7 @@ public final class Loot {
         lore.addAll(affixLore);
         if (power != null) {
             lore.add(Component.empty());
-            String classText = power.playerClass != null ? " (" + power.playerClass.displayName + ")" : "";
-            lore.add(Component.literal("★ " + power.displayName + classText).withStyle(ChatFormatting.GOLD));
-            lore.add(Component.literal(power.description).withStyle(ChatFormatting.YELLOW));
+            lore.addAll(powerLore(power));
             power.markOn(stack);
         }
         if (set != null) {

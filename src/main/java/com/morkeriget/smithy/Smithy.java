@@ -58,6 +58,7 @@ public final class Smithy {
     public static void register(IEventBus modEventBus) {
         ITEMS.register(modEventBus);
         MENUS.register(modEventBus);
+        Codex.register(modEventBus);
         modEventBus.addListener(Smithy::registerPayloads);
         modEventBus.addListener(Smithy::addToCreativeTab);
         NeoForge.EVENT_BUS.addListener(Smithy::onDrops);

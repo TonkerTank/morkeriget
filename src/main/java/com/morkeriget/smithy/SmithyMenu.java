@@ -2,9 +2,11 @@ package com.morkeriget.smithy;
 
 import java.util.List;
 
+import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -14,6 +16,8 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
@@ -24,9 +28,14 @@ public class SmithyMenu extends AbstractContainerMenu {
     public static final int REROLL = 1;
     public static final int SOCKET = 2;
     public static final int UNSOCKET = 3;
+    public static final int EXTRACT = 4;
     public static final int COMBINE = 6;
     // "Salvage all" sends this plus the best rarity to salvage, e.g. SALVAGE_ALL + RARE.ordinal()
     public static final int SALVAGE_ALL = 10;
+    // Putting a power from the codex on the item sends this plus the power, e.g. IMPRINT + MAELSTROM.ordinal()
+    public static final int IMPRINT = 40;
+    // The codex is sent to the screen as bits, 8 in each data slot since they are sent as shorts
+    private static final int CODEX_SLOTS = (LegendaryPower.values().length + 7) / 8;
     // What it costs to take the gems out of an item
     public static final int UNSOCKET_COST = 3;
     // Where the slots are drawn, used by SmithyScreen too
@@ -36,9 +45,30 @@ public class SmithyMenu extends AbstractContainerMenu {
     static final int INVENTORY_Y = 136;
 
     private final SimpleContainer input = new SimpleContainer(2);
+    private final ContainerData codex;
 
     public SmithyMenu(int id, Inventory inventory) {
         super(Smithy.MENU.get(), id);
+        if (inventory.player instanceof ServerPlayer player) {
+            codex = new ContainerData() {
+                @Override
+                public int get(int index) {
+                    return (Codex.mask(player) >> (8 * index)) & 0xFF;
+                }
+
+                @Override
+                public void set(int index, int value) {
+                }
+
+                @Override
+                public int getCount() {
+                    return CODEX_SLOTS;
+                }
+            };
+        } else {
+            codex = new SimpleContainerData(CODEX_SLOTS);
+        }
+        addDataSlots(codex);
         addSlot(new Slot(input, 0, ITEM_X, SLOT_Y) {
             @Override
             public boolean mayPlace(ItemStack stack) {
@@ -75,6 +105,11 @@ public class SmithyMenu extends AbstractContainerMenu {
         return slots.get(1).getItem();
     }
 
+    // Whether the player has the power in their codex, for the screen
+    boolean knows(LegendaryPower power) {
+        return ((codex.get(power.ordinal() / 8) >> (power.ordinal() % 8)) & 1) == 1;
+    }
+
     @Override
     public boolean clickMenuButton(Player player, int id) {
         if (!(player instanceof ServerPlayer serverPlayer)) {
@@ -91,13 +126,52 @@ public class SmithyMenu extends AbstractContainerMenu {
         if (rarity == null) {
             return false;
         }
+        if (id >= IMPRINT && id < IMPRINT + LegendaryPower.values().length) {
+            return imprint(serverPlayer, stack, rarity, LegendaryPower.values()[id - IMPRINT]);
+        }
         return switch (id) {
             case SALVAGE -> salvage(serverPlayer, stack, rarity);
             case REROLL -> reroll(serverPlayer, stack, rarity);
             case SOCKET -> socket(serverPlayer, stack);
             case UNSOCKET -> unsocket(serverPlayer, stack);
+            case EXTRACT -> extract(serverPlayer, stack);
             default -> false;
         };
+    }
+
+    // Takes the power out of the item and into the codex. The item is used up, but its gems are given back
+    private boolean extract(ServerPlayer player, ItemStack stack) {
+        LegendaryPower power = LegendaryPower.of(stack);
+        if (power == null) {
+            player.displayClientMessage(Component.literal("Genstanden har ingen legendarisk kraft"), true);
+            return false;
+        }
+        if (Codex.has(player, power)) {
+            player.displayClientMessage(Component.literal(power.displayName + " er allerede i din kraftbog"), true);
+            return false;
+        }
+        giveBack(player, Gems.removeAll(stack));
+        input.setItem(0, ItemStack.EMPTY);
+        Codex.add(player, power);
+        player.displayClientMessage(Component.literal(power.displayName + " er nu i din kraftbog").withStyle(ChatFormatting.GOLD), true);
+        player.playNotifySound(SoundEvents.BOOK_PAGE_TURN, SoundSource.PLAYERS, 1.0f, 0.8f);
+        player.playNotifySound(SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
+        return true;
+    }
+
+    // Puts a power from the codex on a legendary, in place of the one it had
+    private boolean imprint(ServerPlayer player, ItemStack stack, Rarity rarity, LegendaryPower power) {
+        if (rarity != Rarity.LEGENDARY) {
+            player.displayClientMessage(Component.literal("Kun legendariske genstande kan få en kraft"), true);
+            return false;
+        }
+        if (!Codex.has(player, power) || LegendaryPower.of(stack) == power || !pay(player, Codex.IMPRINT_COST)) {
+            return false;
+        }
+        Loot.setPower(stack, power);
+        input.setChanged();
+        player.playNotifySound(SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 1.0f, 1.4f);
+        return true;
     }
 
     // Gems in the item are given back

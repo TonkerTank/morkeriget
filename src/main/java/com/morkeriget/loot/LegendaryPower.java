@@ -77,7 +77,7 @@ public enum LegendaryPower {
         return false;
     }
 
-    void markOn(ItemStack stack) {
+    public void markOn(ItemStack stack) {
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putString(POWER_TAG, name()));
     }
 }
