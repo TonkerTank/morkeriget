@@ -2,6 +2,7 @@ package com.morkeriget.skill;
 
 import com.morkeriget.Morkeriget;
 import com.morkeriget.progress.ClientProgress;
+import com.morkeriget.progress.ProgressPayload;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -46,8 +47,11 @@ public final class ManaBar {
         // A lighter stripe on the left edge makes it look a little less flat
         graphics.fill(x, bottom - filled, x + 1, bottom, 0xFF6F93FF);
 
-        // The player's level just above the bar
-        String level = String.valueOf(ClientProgress.get().level());
-        graphics.drawString(minecraft.font, level, x + WIDTH / 2 - minecraft.font.width(level) / 2, top - 10, 0xFFB080FF);
+        // The player's level just above the bar. Like in Diablo 4 the paragon level takes its place once you have one
+        ProgressPayload progress = ClientProgress.get();
+        boolean paragon = progress.paragonLevel() > 0;
+        String level = String.valueOf(paragon ? progress.paragonLevel() : progress.level());
+        graphics.drawString(minecraft.font, level, x + WIDTH / 2 - minecraft.font.width(level) / 2, top - 10,
+                paragon ? 0xFF55FFFF : 0xFFB080FF);
     }
 }

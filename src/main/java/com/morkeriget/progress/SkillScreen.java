@@ -136,8 +136,11 @@ public class SkillScreen extends Screen {
         int top = top();
         int center = width / 2;
 
-        String title = (playerClass != null ? playerClass.displayName + " - " : "") + "Level " + progress.level();
-        graphics.drawCenteredString(font, title, center, top, playerClass != null ? playerClass.color : 0xFFD700);
+        // Once you have a paragon level it is shown instead of level 100, like in Diablo 4
+        boolean paragon = progress.paragonLevel() > 0;
+        String title = (playerClass != null ? playerClass.displayName + " - " : "")
+                + (paragon ? "Paragon " + progress.paragonLevel() : "Level " + progress.level());
+        graphics.drawCenteredString(font, title, center, top, paragon ? 0x55FFFF : playerClass != null ? playerClass.color : 0xFFD700);
 
         int barLeft = left + 20;
         int barRight = left + WIDTH - 20;
@@ -147,7 +150,7 @@ public class SkillScreen extends Screen {
         graphics.fill(barLeft - 1, top + 15, barRight + 1, top + 21, 0xFF000000);
         graphics.fill(barLeft, top + 16, barRight, top + 20, 0xFF2A1A3A);
         graphics.fill(barLeft, top + 16, barLeft + Math.round((barRight - barLeft) * fraction), top + 20, maxLevel ? 0xFF33CCCC : 0xFF9B4DFF);
-        String xpText = (maxLevel ? "Paragon " + progress.paragonLevel() + " - " : "") + progress.xp() + " / " + progress.xpNeeded() + " XP";
+        String xpText = progress.xp() + " / " + progress.xpNeeded() + " XP";
         graphics.drawCenteredString(font, xpText, center, top + 24, 0xAAAAAA);
 
         int pointsColor = progress.points() > 0 ? 0x55FF55 : 0xAAAAAA;
