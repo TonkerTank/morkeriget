@@ -6,6 +6,7 @@ import java.util.Optional;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.progress.ClientProgress;
 import com.morkeriget.progress.PlayerClass;
+import com.morkeriget.progress.Upgrade;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
@@ -100,12 +101,17 @@ public final class SkillBar {
         int y = graphics.guiHeight() - 19;
 
         slot(graphics, minecraft.font, x, y, DODGE_ICON, SkillKeys.DODGE, SkillKeys.dodgeCooldown(), SkillKeys.DODGE_COOLDOWN, false);
-        // Before a class is picked there are no skills, only dodge and the potions
+        // Before a class is picked there are no skills, only dodge and the potions. Keys without a skill are empty
         PlayerClass playerClass = ClientProgress.get().chosenClass();
         if (playerClass != null) {
-            for (int slot = 0; slot < playerClass.skills.size(); slot++) {
+            for (int slot = 0; slot < SkillKeys.SKILL_SLOTS.size(); slot++) {
                 x += SLOT;
-                skillSlot(graphics, minecraft.font, x, y, playerClass.skills.get(slot), SkillKeys.SKILL_SLOTS.get(slot));
+                Skill skill = ClientProgress.get().slot(slot);
+                if (skill != null) {
+                    skillSlot(graphics, minecraft.font, x, y, skill, SkillKeys.SKILL_SLOTS.get(slot));
+                } else {
+                    slot(graphics, minecraft.font, x, y, ItemStack.EMPTY, SkillKeys.SKILL_SLOTS.get(slot), 0, 0, false);
+                }
             }
         }
         skillSlot(graphics, minecraft.font, potionX, y, Skill.HEALTH_POTION, SkillKeys.HEALTH_POTION);
@@ -114,7 +120,12 @@ public final class SkillBar {
 
     private static void skillSlot(GuiGraphics graphics, Font font, int x, int y, Skill skill, KeyMapping key) {
         int i = skill.ordinal();
-        slot(graphics, font, x, y, icon(skill), key, remaining[i], total[i], ManaBar.mana() < skill.manaCost());
+        slot(graphics, font, x, y, icon(skill), key, remaining[i], total[i], ManaBar.mana() < manaCost(skill));
+    }
+
+    // The same as Skills.use works out, with Arcane Flow
+    private static float manaCost(Skill skill) {
+        return skill.manaCost() * (1 - 0.05f * ClientProgress.get().rank(Upgrade.ARCANE_FLOW));
     }
 
     private static void slot(GuiGraphics graphics, Font font, int x, int y, ItemStack icon, KeyMapping key,

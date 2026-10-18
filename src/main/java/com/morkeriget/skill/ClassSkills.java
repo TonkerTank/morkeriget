@@ -279,7 +279,7 @@ final class ClassSkills {
         if (Progression.playerClass(player) == PlayerClass.RANGER) {
             scale *= 1.25;
         }
-        return scale;
+        return scale * (1 + 0.06 * Progression.rank(player, Upgrade.MARKSMAN));
     }
 
     private static void circle(ServerLevel level, Vec3 center, double radius) {
@@ -312,9 +312,10 @@ final class ClassSkills {
     // Tame wolves that fight for you for a while. They get stronger with your level
     static boolean wolves(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        // Each Wolves upgrade rank makes them 15% stronger, and every third rank adds a wolf
+        // Each Wolves upgrade rank makes them 15% stronger, and every third rank adds a wolf. Pack Leader adds 10% a rank
         int rank = Progression.rank(player, Upgrade.WOLVES);
-        double strength = (1 + 0.05 * (Progression.level(player) - 1)) * (1 + 0.15 * rank) - 1;
+        double strength = (1 + 0.05 * (Progression.level(player) - 1)) * (1 + 0.15 * rank)
+                * (1 + 0.1 * Progression.rank(player, Upgrade.PACK_LEADER)) - 1;
         LivingEntity nearest = enemies(level, player.position(), 16).stream()
                 .min((a, b) -> Double.compare(a.distanceToSqr(player), b.distanceToSqr(player))).orElse(null);
         RandomSource random = player.getRandom();

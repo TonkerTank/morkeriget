@@ -4,8 +4,8 @@ import java.util.List;
 
 import com.morkeriget.skill.Skill;
 
-// The classes a player can pick. Each has four skills on the keys 1 to 4 and a bonus of its own (see Progression,
-// Mana and PlayerHits). The class can be changed in the skill screen, which gives all skill points back
+// The classes a player can pick. Each has a skill tree (see SkillTree) with its skills, and a bonus of its own (see
+// Progression, Mana and PlayerHits). The class can be changed in the skill screen, which gives all skill points back
 public enum PlayerClass {
     BARBARIAN("Barbar", 0xFF5544, "Kæmper tæt på og tåler meget", "+20% max liv",
             List.of(Skill.WHIRLWIND, Skill.BATTLE_CRY, Skill.LEAP, Skill.FRENZY)),
@@ -20,7 +20,7 @@ public enum PlayerClass {
     public final int color;
     public final String description;
     public final String bonus;
-    // In the order of the keys 1 to 4
+    // Every skill in the class's tree, shown in the class screen. Which ones are on the keys is up to the player
     public final List<Skill> skills;
 
     PlayerClass(String displayName, int color, String description, String bonus, List<Skill> skills) {
@@ -29,11 +29,6 @@ public enum PlayerClass {
         this.description = description;
         this.bonus = bonus;
         this.skills = skills;
-    }
-
-    // Whether a player of this class may put points into the upgrade. The ones without a skill are for everyone
-    public boolean canUse(Upgrade upgrade) {
-        return upgrade.skill == null || skills.contains(upgrade.skill);
     }
 
     // null for "" (no class picked yet) and unknown names

@@ -12,6 +12,7 @@ import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
+import com.morkeriget.progress.Upgrade;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
@@ -47,6 +48,10 @@ public final class PlayerHits {
     }
 
     private static void onDamagePre(LivingDamageEvent.Pre event) {
+        // Each Unyielding rank takes 3% off the damage the player takes
+        if (event.getEntity() instanceof ServerPlayer victim) {
+            event.setNewDamage(event.getNewDamage() * (1 - 0.03f * Progression.rank(victim, Upgrade.UNYIELDING)));
+        }
         ServerPlayer player = attacker(event.getEntity(), event.getSource());
         if (player == null) {
             return;
@@ -54,7 +59,8 @@ public final class PlayerHits {
         ItemStack weapon = weapon(player, event.getSource());
         List<ItemStack> items = affixItems(player, weapon);
         if (event.getSource().getDirectEntity() instanceof AbstractArrow) {
-            float multiplier = 1 + total(items, Loot.ARROW_DAMAGE_TAG) / 100f;
+            // Each Marksman rank adds 6%, the same as the arrow damage affix
+            float multiplier = 1 + (total(items, Loot.ARROW_DAMAGE_TAG) + 6 * Progression.rank(player, Upgrade.MARKSMAN)) / 100f;
             // Bows have no flat damage bonus like swords, so arrows get stronger with the bow's item level instead
             if (Loot.getRarity(weapon) != null) {
                 multiplier *= (float) (1 + Config.AFFIX_PER_LEVEL.get() * (Loot.itemLevel(weapon) - 1));
@@ -65,7 +71,8 @@ public final class PlayerHits {
             }
             event.setNewDamage(event.getNewDamage() * multiplier);
         }
-        int crushingChance = Math.min(MAX_CRUSHING, total(items, Loot.CRUSHING_TAG));
+        // Each Relentless rank adds 4% chance
+        int crushingChance = Math.min(MAX_CRUSHING, total(items, Loot.CRUSHING_TAG) + 4 * Progression.rank(player, Upgrade.RELENTLESS));
         if (crushingChance > 0 && player.getRandom().nextInt(100) < crushingChance) {
             event.setNewDamage(event.getNewDamage() * 2);
             crushedTarget = event.getEntity();
@@ -92,7 +99,9 @@ public final class PlayerHits {
         PacketDistributor.sendToPlayer(player, new DamageNumberPayload(event.getEntity().getId(), event.getNewDamage(), crushing));
 
         List<ItemStack> items = affixItems(player, weapon(player, event.getSource()));
-        int lifesteal = Math.min(MAX_LIFESTEAL, total(items, Loot.LIFESTEAL_TAG) + (SetBonuses.has(player, ItemSet.BLOODHUNTER, 2) ? 6 : 0));
+        // Two Bloodhunter pieces add 6%, and each Bloodthirsty rank 2%
+        int lifesteal = Math.min(MAX_LIFESTEAL, total(items, Loot.LIFESTEAL_TAG) + (SetBonuses.has(player, ItemSet.BLOODHUNTER, 2) ? 6 : 0)
+                + 2 * Progression.rank(player, Upgrade.BLOODTHIRSTY));
         if (lifesteal > 0) {
             player.heal(event.getNewDamage() * lifesteal / 100f);
         }

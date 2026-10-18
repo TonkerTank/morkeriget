@@ -2,41 +2,84 @@ package com.morkeriget.progress;
 
 import com.morkeriget.skill.Skill;
 
-// Things the player can spend skill points on. Each one can be raised to MAX_RANK. Skill upgrades can only be
-// raised by the class that has the skill; the ones without a skill are for every class.
-// What a rank actually does is in Skills, Mana and Progression
+// Things the player can spend skill points on. The class ones make up the class's skill tree (see SkillTree): the first
+// point in a skill unlocks it, and passives make you better at something without a key. The ones without a class are
+// for everyone and aren't part of the tree. What a rank actually does is in Skills, Passives, Mana and Progression
 public enum Upgrade {
-    WHIRLWIND("Hvirvelvind", "+20% skade pr. rank", Skill.WHIRLWIND),
-    FROST_NOVA("Frostnova", "+0,5 blok og +0,5 sek. frys pr. rank", Skill.FROST_NOVA),
-    BLINK("Blink", "+2 blokke længere pr. rank", Skill.BLINK),
-    CHAIN_LIGHTNING("Kædelyn", "+15% skade og +1 hop pr. rank", Skill.CHAIN_LIGHTNING),
-    BATTLE_CRY("Krigsråb", "+1 sek. varighed pr. rank", Skill.BATTLE_CRY),
-    LEAP("Spring", "+20% skade pr. rank", Skill.LEAP),
-    FRENZY("Raseri", "+1 sek. varighed pr. rank", Skill.FRENZY),
-    FIREBALL("Ildkugle", "+20% skade pr. rank", Skill.FIREBALL),
-    MULTISHOT("Multiskud", "+15% skade pr. rank", Skill.MULTISHOT),
-    ARROW_RAIN("Pileregn", "+15% skade og større område pr. rank", Skill.ARROW_RAIN),
-    SMOKE_BOMB("Røgbombe", "+0,5 sek. varighed pr. rank", Skill.SMOKE_BOMB),
-    WOLVES("Ulveflok", "+15% styrke, +1 ulv hver 3. rank", Skill.WOLVES),
-    BONE_SPEAR("Knoglespyd", "+20% skade pr. rank", Skill.BONE_SPEAR),
-    RAISE_SKELETONS("Rejs skeletter", "+15% styrke, +1 pr. kast hver 3. rank", Skill.RAISE_SKELETONS),
-    BONE_ARMOR("Knoglerustning", "+5% af dit liv som skjold pr. rank", Skill.BONE_ARMOR),
-    CURSE("Forbandelse", "+5% ekstra skade pr. rank", Skill.CURSE),
-    VITALITY("Vitalitet", "+1 hjerte pr. rank", null),
-    SPIRIT("Ånd", "+20% hurtigere mana pr. rank", null),
-    STRENGTH("Styrke", "+5% skade pr. rank", null);
+    // Barbarian
+    WHIRLWIND("Hvirvelvind", "+20% skade pr. rank", Skill.WHIRLWIND, PlayerClass.BARBARIAN, 0),
+    LEAP("Spring", "+20% skade pr. rank", Skill.LEAP, PlayerClass.BARBARIAN, 0),
+    UNYIELDING("Ukuelig", "-3% skade taget pr. rank", null, PlayerClass.BARBARIAN, 0),
+    BATTLE_CRY("Krigsråb", "+1 sek. varighed pr. rank", Skill.BATTLE_CRY, PlayerClass.BARBARIAN, 1),
+    FRENZY("Raseri", "+1 sek. varighed pr. rank", Skill.FRENZY, PlayerClass.BARBARIAN, 1),
+    BLOODTHIRSTY("Blodtørstig", "+2% livsstjæl pr. rank", null, PlayerClass.BARBARIAN, 1),
+    RELENTLESS("Ubarmhjertig", "+4% knusende slag pr. rank", null, PlayerClass.BARBARIAN, 2),
+    // Sorcerer
+    FROST_NOVA("Frostnova", "+0,5 blok og +0,5 sek. frys pr. rank", Skill.FROST_NOVA, PlayerClass.SORCERER, 0),
+    FIREBALL("Ildkugle", "+20% skade pr. rank", Skill.FIREBALL, PlayerClass.SORCERER, 0),
+    GLASS_CANNON("Glaskanon", "+6% skade pr. rank", null, PlayerClass.SORCERER, 0),
+    CHAIN_LIGHTNING("Kædelyn", "+15% skade og +1 hop pr. rank", Skill.CHAIN_LIGHTNING, PlayerClass.SORCERER, 1),
+    BLINK("Blink", "+2 blokke længere pr. rank", Skill.BLINK, PlayerClass.SORCERER, 1),
+    ARCANE_FLOW("Arkan strøm", "-5% mana-pris pr. rank", null, PlayerClass.SORCERER, 1),
+    TIME_WARP("Tidsforvrængning", "-4% cooldown pr. rank", null, PlayerClass.SORCERER, 2),
+    // Ranger
+    MULTISHOT("Multiskud", "+15% skade pr. rank", Skill.MULTISHOT, PlayerClass.RANGER, 0),
+    SMOKE_BOMB("Røgbombe", "+0,5 sek. varighed pr. rank", Skill.SMOKE_BOMB, PlayerClass.RANGER, 0),
+    MARKSMAN("Skarpskytte", "+6% pileskade pr. rank", null, PlayerClass.RANGER, 0),
+    ARROW_RAIN("Pileregn", "+15% skade og større område pr. rank", Skill.ARROW_RAIN, PlayerClass.RANGER, 1),
+    WOLVES("Ulveflok", "+15% styrke, +1 ulv hver 3. rank", Skill.WOLVES, PlayerClass.RANGER, 1),
+    AGILE("Smidig", "+3% fart pr. rank", null, PlayerClass.RANGER, 1),
+    PACK_LEADER("Flokleder", "+10% ulve-styrke pr. rank", null, PlayerClass.RANGER, 2),
+    // Necromancer
+    BONE_SPEAR("Knoglespyd", "+20% skade pr. rank", Skill.BONE_SPEAR, PlayerClass.NECROMANCER, 0),
+    BONE_ARMOR("Knoglerustning", "+5% af dit liv som skjold pr. rank", Skill.BONE_ARMOR, PlayerClass.NECROMANCER, 0),
+    GRAVE_CHILL("Gravens kulde", "+4% skade mod forbandede pr. rank", null, PlayerClass.NECROMANCER, 0),
+    RAISE_SKELETONS("Rejs skeletter", "+15% styrke, +1 pr. kast hver 3. rank", Skill.RAISE_SKELETONS, PlayerClass.NECROMANCER, 1),
+    CURSE("Forbandelse", "+5% ekstra skade pr. rank", Skill.CURSE, PlayerClass.NECROMANCER, 1),
+    DEATH_LORD("Dødens herre", "+10% minion-styrke pr. rank", null, PlayerClass.NECROMANCER, 1),
+    SOUL_HARVEST("Sjælehøst", "+1% ekstra heling pr. dræb pr. rank", null, PlayerClass.NECROMANCER, 2),
+    // For everyone
+    VITALITY("Vitalitet", "+1 hjerte pr. rank", null, null, 0),
+    SPIRIT("Ånd", "+20% hurtigere mana pr. rank", null, null, 0),
+    STRENGTH("Styrke", "+5% skade pr. rank", null, null, 0);
 
-    public static final int MAX_RANK = 10;
+    // Skills and the shared upgrades go to 10, passives to 5
+    private static final int SKILL_MAX_RANK = 10;
+    private static final int PASSIVE_MAX_RANK = 5;
 
     public final String displayName;
     public final String description;
-    // The skill this upgrade makes better, or null for the ones every class has
+    // The skill this upgrade unlocks and makes better, or null for passives and the shared upgrades
     public final Skill skill;
+    // The class whose tree it is in, or null for the shared upgrades
+    public final PlayerClass playerClass;
+    // The row in the tree, from 0
+    public final int row;
 
-    Upgrade(String displayName, String description, Skill skill) {
+    Upgrade(String displayName, String description, Skill skill, PlayerClass playerClass, int row) {
         this.displayName = displayName;
         this.description = description;
         this.skill = skill;
+        this.playerClass = playerClass;
+        this.row = row;
+    }
+
+    public boolean isPassive() {
+        return skill == null && playerClass != null;
+    }
+
+    public int maxRank() {
+        return isPassive() ? PASSIVE_MAX_RANK : SKILL_MAX_RANK;
+    }
+
+    // The upgrade that unlocks the skill, or null for the potions
+    public static Upgrade forSkill(Skill skill) {
+        for (Upgrade upgrade : values()) {
+            if (upgrade.skill == skill) {
+                return upgrade;
+            }
+        }
+        return null;
     }
 
     public static Upgrade byId(int id) {

@@ -99,7 +99,9 @@ final class NecroSkills {
             poof(level, army.get(i).position());
             army.get(i).discard();
         }
-        double strength = (1 + 0.05 * (Progression.level(player) - 1)) * (1 + 0.15 * rank) - 1;
+        // Death Lord adds 10% a rank
+        double strength = (1 + 0.05 * (Progression.level(player) - 1)) * (1 + 0.15 * rank)
+                * (1 + 0.1 * Progression.rank(player, Upgrade.DEATH_LORD)) - 1;
         RandomSource random = player.getRandom();
         for (int i = 0; i < count; i++) {
             WitherSkeleton skeleton = EntityType.WITHER_SKELETON.create(level);
@@ -177,7 +179,9 @@ final class NecroSkills {
         }
         CompoundTag data = target.getPersistentData();
         if (data.getLong(CURSED_UNTIL_TAG) > level.getGameTime()) {
-            event.setNewDamage(event.getNewDamage() * (1 + data.getInt(CURSE_BONUS_TAG) / 100f));
+            // Grave Chill: the necromancer's own hits do 4% more a rank on top
+            int chill = event.getSource().getEntity() instanceof ServerPlayer player ? 4 * Progression.rank(player, Upgrade.GRAVE_CHILL) : 0;
+            event.setNewDamage(event.getNewDamage() * (1 + (data.getInt(CURSE_BONUS_TAG) + chill) / 100f));
         }
     }
 
@@ -198,7 +202,8 @@ final class NecroSkills {
         spreadCurse(level, dead);
         for (ServerPlayer player : level.players()) {
             if (player.distanceTo(dead) <= HEAL_RANGE && player.isAlive() && Progression.playerClass(player) == PlayerClass.NECROMANCER) {
-                player.heal(player.getMaxHealth() * 0.05f);
+                // 5%, and Soul Harvest adds 1% a rank
+                player.heal(player.getMaxHealth() * (0.05f + 0.01f * Progression.rank(player, Upgrade.SOUL_HARVEST)));
                 level.sendParticles(ParticleTypes.SOUL, dead.getX(), dead.getY() + 1, dead.getZ(), 5, 0.3, 0.3, 0.3, 0.02);
             }
         }

@@ -6,7 +6,7 @@ import net.minecraft.client.Minecraft;
 
 // The level and upgrades the server last told this player about. Client only
 public final class ClientProgress {
-    private static ProgressPayload progress = new ProgressPayload(1, 0, PlayerProgress.xpForNextLevel(1), 0, List.of(), "");
+    private static ProgressPayload progress = new ProgressPayload(1, 0, PlayerProgress.xpForNextLevel(1), 0, List.of(), "", List.of());
 
     private ClientProgress() {
     }

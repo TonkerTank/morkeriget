@@ -67,14 +67,14 @@ public final class Skills {
     }
 
     public static void use(ServerPlayer player, Skill skill) {
-        // Skills belong to a class. The potions are for everyone
+        // Skills belong to a class and have to be unlocked in its tree. The potions are for everyone
         if (!skill.isPotion()) {
             PlayerClass playerClass = Progression.playerClass(player);
             if (playerClass == null) {
                 player.displayClientMessage(Component.literal("Vælg en klasse først - tryk K"), true);
                 return;
             }
-            if (!playerClass.skills.contains(skill)) {
+            if (!Progression.hasUnlocked(player, skill)) {
                 return;
             }
         }
@@ -86,7 +86,9 @@ public final class Skills {
             player.displayClientMessage(Component.literal(skill.displayName + " er klar om " + seconds + " sek."), true);
             return;
         }
-        if (Mana.get(player) < skill.manaCost()) {
+        // Each Arcane Flow rank makes skills 5% cheaper
+        float manaCost = skill.manaCost() * (1 - 0.05f * Progression.rank(player, Upgrade.ARCANE_FLOW));
+        if (Mana.get(player) < manaCost) {
             player.displayClientMessage(Component.literal("Ikke nok mana til " + skill.displayName), true);
             return;
         }
@@ -112,10 +114,14 @@ public final class Skills {
             case MANA_POTION -> manaPotion(player);
         };
         if (used) {
-            Mana.spend(player, skill.manaCost());
-            // Four Stormcaller pieces make skill cooldowns 30% shorter (not the potions)
-            boolean shorter = !skill.isPotion() && SetBonuses.has(player, ItemSet.STORMCALLER, 4);
-            int cooldown = shorter ? Math.round(skill.cooldown() * 0.7f) : skill.cooldown();
+            Mana.spend(player, manaCost);
+            // Four Stormcaller pieces make skill cooldowns 30% shorter, and each Time Warp rank 4% (not the potions)
+            float cooldownScale = 1;
+            if (!skill.isPotion()) {
+                cooldownScale *= SetBonuses.has(player, ItemSet.STORMCALLER, 4) ? 0.7f : 1;
+                cooldownScale *= 1 - 0.04f * Progression.rank(player, Upgrade.TIME_WARP);
+            }
+            int cooldown = Math.round(skill.cooldown() * cooldownScale);
             player.getPersistentData().putLong(readyTag, now + cooldown);
             PacketDistributor.sendToPlayer(player, new CooldownPayload(skill, cooldown));
         }

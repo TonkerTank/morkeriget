@@ -25,7 +25,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class SkillKeys {
     public static final KeyMapping DODGE = new KeyMapping("key.morkeriget.dodge",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, "key.categories.morkeriget");
-    // The class's four skills are on 1-4 like in Diablo. Those keys also pick hotbar slots, which onClientTickPre stops
+    // The four skills the player picked are on 1-4 like in Diablo. Those keys also pick hotbar slots, which onClientTickPre stops
     public static final List<KeyMapping> SKILL_SLOTS = List.of(
             slot(1, GLFW.GLFW_KEY_1), slot(2, GLFW.GLFW_KEY_2), slot(3, GLFW.GLFW_KEY_3), slot(4, GLFW.GLFW_KEY_4));
     public static final KeyMapping HEALTH_POTION = new KeyMapping("key.morkeriget.health_potion",
@@ -90,10 +90,13 @@ public final class SkillKeys {
         PlayerClass playerClass = ClientProgress.get().chosenClass();
         for (int i = 0; i < SKILL_SLOTS.size(); i++) {
             while (SKILL_SLOTS.get(i).consumeClick()) {
+                Skill skill = ClientProgress.get().slot(i);
                 if (playerClass == null) {
                     player.displayClientMessage(Component.literal("Vælg en klasse først - tryk K"), true);
+                } else if (skill == null) {
+                    player.displayClientMessage(Component.literal("Ingen skill på denne tast - vælg en i K"), true);
                 } else {
-                    PacketDistributor.sendToServer(new SkillPayload(playerClass.skills.get(i)));
+                    PacketDistributor.sendToServer(new SkillPayload(skill));
                 }
             }
         }

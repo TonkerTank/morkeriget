@@ -10,6 +10,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.skill.Minions;
+import com.morkeriget.skill.Skill;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
@@ -43,6 +44,8 @@ public final class Progression {
     private static final ResourceLocation STRENGTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "strength");
     private static final ResourceLocation BARBARIAN_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "class_barbarian");
     private static final ResourceLocation RANGER_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "class_ranger");
+    private static final ResourceLocation AGILE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_agile");
+    private static final ResourceLocation GLASS_CANNON_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_glass_cannon");
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
     private static final Supplier<AttachmentType<PlayerProgress>> PROGRESS = ATTACHMENTS.register("progress",
@@ -70,7 +73,7 @@ public final class Progression {
                     int level = IntegerArgumentType.getInteger(context, "level");
                     PlayerProgress progress = player.getData(PROGRESS);
                     int spent = progress.ranks().values().stream().mapToInt(Integer::intValue).sum();
-                    player.setData(PROGRESS, progress.withLevel(level, 0, Math.max(0, level - 1 - spent)));
+                    player.setData(PROGRESS, progress.withLevel(level, 0, Math.max(0, PlayerProgress.pointsForLevel(level) - spent)));
                     sync(player);
                     context.getSource().sendSuccess(() -> Component.literal("Du er nu level " + level), false);
                     return 1;
@@ -81,6 +84,7 @@ public final class Progression {
         event.registrar("1")
                 .playToServer(UpgradePayload.TYPE, UpgradePayload.STREAM_CODEC, Progression::handleUpgrade)
                 .playToServer(ChooseClassPayload.TYPE, ChooseClassPayload.STREAM_CODEC, Progression::handleChooseClass)
+                .playToServer(AssignSlotPayload.TYPE, AssignSlotPayload.STREAM_CODEC, Progression::handleAssignSlot)
                 // The lambda keeps ClientProgress (client only) from being loaded on a dedicated server
                 .playToClient(ProgressPayload.TYPE, ProgressPayload.STREAM_CODEC, (payload, context) -> ClientProgress.set(payload));
     }
@@ -96,6 +100,17 @@ public final class Progression {
     // null until the player has picked a class
     public static PlayerClass playerClass(ServerPlayer player) {
         return PlayerClass.byName(player.getData(PROGRESS).playerClass());
+    }
+
+    // Whether the skill is in the player's tree and has at least one point. The potions are for everyone
+    public static boolean hasUnlocked(ServerPlayer player, Skill skill) {
+        Upgrade upgrade = Upgrade.forSkill(skill);
+        return upgrade == null || (upgrade.playerClass == playerClass(player) && rank(player, upgrade) > 0);
+    }
+
+    // The skill on the key (0 to 3), or null
+    public static Skill slot(ServerPlayer player, int index) {
+        return player.getData(PROGRESS).slot(index);
     }
 
     // XP depends on how much health the monster has, so elites and bosses already give more. They get a bonus on top
@@ -147,8 +162,7 @@ public final class Progression {
         }
         PlayerProgress progress = player.getData(PROGRESS);
         PlayerClass playerClass = playerClass(player);
-        if (progress.points() <= 0 || progress.rank(payload.upgrade()) >= Upgrade.MAX_RANK
-                || playerClass == null || !playerClass.canUse(payload.upgrade())) {
+        if (progress.points() <= 0 || playerClass == null || !SkillTree.canRaise(playerClass, payload.upgrade(), progress::rank)) {
             return;
         }
         player.setData(PROGRESS, progress.withUpgrade(payload.upgrade()));
@@ -163,12 +177,28 @@ public final class Progression {
             return;
         }
         PlayerClass playerClass = payload.playerClass();
+        boolean sameClass = playerClass == playerClass(player);
         player.setData(PROGRESS, player.getData(PROGRESS).withClass(playerClass));
         applyPassives(player);
-        player.sendSystemMessage(Component.literal("Du er nu " + playerClass.displayName + "! ")
-                .withStyle(style -> style.withColor(playerClass.color).withBold(true))
-                .append(Component.literal("Dine skills ligger på 1-4. Brug dine skill-points i K").withStyle(ChatFormatting.YELLOW)));
+        if (sameClass) {
+            player.sendSystemMessage(Component.literal("Du har fået alle dine skill-points tilbage").withStyle(ChatFormatting.YELLOW));
+        } else {
+            player.sendSystemMessage(Component.literal("Du er nu " + playerClass.displayName + "! ")
+                    .withStyle(style -> style.withColor(playerClass.color).withBold(true))
+                    .append(Component.literal("Vælg din første skill i K").withStyle(ChatFormatting.YELLOW)));
+        }
         player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
+        sync(player);
+    }
+
+    // Only skills the player has unlocked can go on a key
+    private static void handleAssignSlot(AssignSlotPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player) || payload.slot() < 0 || payload.slot() >= SkillTree.SLOTS
+                || Upgrade.forSkill(payload.skill()) == null || !hasUnlocked(player, payload.skill())) {
+            return;
+        }
+        player.setData(PROGRESS, player.getData(PROGRESS).withSlot(payload.slot(), payload.skill()));
+        player.playNotifySound(SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.PLAYERS, 0.6f, 1.4f);
         sync(player);
     }
 
@@ -191,16 +221,27 @@ public final class Progression {
             // Rangers are 10% faster
             speed.addOrUpdateTransientModifier(new AttributeModifier(RANGER_ID,
                     playerClass == PlayerClass.RANGER ? 0.1 : 0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
+            speed.addOrUpdateTransientModifier(new AttributeModifier(AGILE_ID,
+                    rank(player, Upgrade.AGILE) * 0.03, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
         }
         AttributeInstance damage = player.getAttribute(Attributes.ATTACK_DAMAGE);
         if (damage != null) {
             int rank = rank(player, Upgrade.STRENGTH);
             damage.addOrUpdateTransientModifier(new AttributeModifier(STRENGTH_ID, rank * 0.05, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            damage.addOrUpdateTransientModifier(new AttributeModifier(GLASS_CANNON_ID,
+                    rank(player, Upgrade.GLASS_CANNON) * 0.06, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
     }
 
     private static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            if (player.getData(PROGRESS).isFromBeforeSkillTree()) {
+                player.setData(PROGRESS, player.getData(PROGRESS).respec());
+                if (playerClass(player) != null) {
+                    player.sendSystemMessage(Component.literal("Skills har fået et skill tree! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                            .append(Component.literal("Du har fået alle dine skill-points tilbage - tryk K").withStyle(ChatFormatting.YELLOW)));
+                }
+            }
             applyPassives(player);
             sync(player);
             if (playerClass(player) == null) {
@@ -223,7 +264,12 @@ public final class Progression {
         for (Upgrade upgrade : Upgrade.values()) {
             ranks.add(progress.rank(upgrade));
         }
+        List<Integer> slots = new ArrayList<>();
+        for (int i = 0; i < SkillTree.SLOTS; i++) {
+            Skill skill = progress.slot(i);
+            slots.add(skill != null ? skill.ordinal() : -1);
+        }
         PacketDistributor.sendToPlayer(player, new ProgressPayload(progress.level(), progress.xp(),
-                PlayerProgress.xpForNextLevel(progress.level()), progress.points(), ranks, progress.playerClass()));
+                PlayerProgress.xpForNextLevel(progress.level()), progress.points(), ranks, progress.playerClass(), slots));
     }
 }
