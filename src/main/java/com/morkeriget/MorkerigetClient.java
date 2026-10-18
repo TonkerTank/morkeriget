@@ -6,6 +6,8 @@ import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.LootBeams;
 import com.morkeriget.loot.LootTooltips;
+import com.morkeriget.merchant.Merchant;
+import com.morkeriget.merchant.MerchantScreen;
 import com.morkeriget.smithy.Gem;
 import com.morkeriget.smithy.Smithy;
 import com.morkeriget.smithy.SmithyScreen;
@@ -51,10 +53,11 @@ public class MorkerigetClient {
         });
         // Loot tooltips compare the item with what you are wearing
         NeoForge.EVENT_BUS.addListener(LootTooltips::onTooltip);
-        // The screens for the jewelry slots and the smithy
+        // The screens for the jewelry slots, the smithy and the merchant
         modEventBus.addListener((RegisterMenuScreensEvent event) -> {
             event.register(Jewelry.MENU.get(), JewelryScreen::new);
             event.register(Smithy.MENU.get(), SmithyScreen::new);
+            event.register(Merchant.MENU.get(), MerchantScreen::new);
         });
     }
 }

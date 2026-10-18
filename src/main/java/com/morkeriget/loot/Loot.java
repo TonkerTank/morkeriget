@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import com.morkeriget.Config;
@@ -218,10 +219,18 @@ public final class Loot {
     }
 
     private static Item randomItem(RandomSource random, int itemLevel) {
-        List<LootItem> possible = LOOT_ITEMS.stream()
+        return randomItem(random, itemLevel, item -> true);
+    }
+
+    // A random base item that can drop at this level and is the kind asked for, e.g. only helmets.
+    // null if there is none
+    private static Item randomItem(RandomSource random, int itemLevel, Predicate<Item> kind) {
+        List<Item> possible = LOOT_ITEMS.stream()
                 .filter(loot -> itemLevel >= loot.minLevel && itemLevel <= loot.maxLevel)
+                .map(loot -> loot.item.get())
+                .filter(kind)
                 .toList();
-        return possible.get(random.nextInt(possible.size())).item.get();
+        return possible.isEmpty() ? null : possible.get(random.nextInt(possible.size()));
     }
 
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel) {
@@ -236,6 +245,15 @@ public final class Loot {
     // Loot made from a chosen base item, e.g. for the /morkeriget loot command
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, Item item) {
         return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, null));
+    }
+
+    // Loot of one kind of base item, e.g. a random ring, for the merchant. Empty if no such item drops at this level
+    public static ItemStack createOfKind(RandomSource random, Rarity rarity, int itemLevel, PlayerClass forClass, Predicate<Item> kind) {
+        Item item = randomItem(random, itemLevel, kind);
+        if (item == null) {
+            return ItemStack.EMPTY;
+        }
+        return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, forClass));
     }
 
     // A legendary with a chosen power, for the /morkeriget legendary command

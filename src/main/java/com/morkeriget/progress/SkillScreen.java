@@ -3,6 +3,7 @@ package com.morkeriget.progress;
 import java.util.List;
 
 import com.morkeriget.jewelry.OpenJewelryPayload;
+import com.morkeriget.merchant.OpenMerchantPayload;
 import com.morkeriget.skill.SkillBar;
 import com.morkeriget.skill.SkillKeys;
 import com.morkeriget.smithy.OpenSmithyPayload;
@@ -53,6 +54,10 @@ public class SkillScreen extends Screen {
                 .build());
         addRenderableWidget(Button.builder(Component.literal("Smedje"), pressed -> PacketDistributor.sendToServer(OpenSmithyPayload.INSTANCE))
                 .bounds(left() + WIDTH - 124, top() - 4, 60, 16)
+                .build());
+        addRenderableWidget(Button.builder(Component.literal("Købmand"), pressed -> PacketDistributor.sendToServer(OpenMerchantPayload.INSTANCE))
+                // Next to "Skift klasse", since the middle is taken by the class and level
+                .bounds(left() + 74, top() - 4, 60, 16)
                 .build());
         addRenderableWidget(Button.builder(Component.literal("Skift klasse"), pressed -> minecraft.setScreen(new ClassScreen()))
                 .bounds(left(), top() - 4, 70, 16)

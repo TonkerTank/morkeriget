@@ -7,6 +7,7 @@ import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.merchant.Merchant;
 import com.morkeriget.portal.TownPortal;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.rift.Rifts;
@@ -44,6 +45,8 @@ public class Morkeriget {
         Jewelry.register(modEventBus);
         // Salvaging loot into essence and rerolling bonuses
         Smithy.register(modEventBus);
+        // The merchant sells random items of the kind you pick for essence
+        Merchant.register(modEventBus);
         // Rift stones open rifts with waves of monsters and a guardian at the end
         Rifts.register(modEventBus);
         // Town portal scrolls take you home and back again
