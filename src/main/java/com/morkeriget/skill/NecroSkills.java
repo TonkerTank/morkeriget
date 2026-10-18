@@ -149,8 +149,7 @@ final class NecroSkills {
     // Enemies around you become slow and weak, and take more damage from everything for a while
     static boolean curse(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        // 25% more damage, and each Curse upgrade rank adds 5%
-        int bonus = 25 + 5 * Progression.rank(player, Upgrade.CURSE);
+        int bonus = curseBonus(player);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(CURSE_RADIUS),
                 entity -> Minions.isEnemy(entity) && entity.distanceTo(player) <= CURSE_RADIUS)) {
             applyCurse(level, target, player, bonus);
@@ -160,8 +159,13 @@ final class NecroSkills {
         return true;
     }
 
+    // How much more damage cursed enemies take, in percent: 25%, and each Curse upgrade rank adds 5%
+    static int curseBonus(ServerPlayer player) {
+        return 25 + 5 * Progression.rank(player, Upgrade.CURSE);
+    }
+
     // The one who cursed it is saved too, so Contagious Curse knows whose power to check when it dies
-    private static void applyCurse(ServerLevel level, LivingEntity target, ServerPlayer player, int bonus) {
+    static void applyCurse(ServerLevel level, LivingEntity target, ServerPlayer player, int bonus) {
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, CURSE_DURATION, 0));
         target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, CURSE_DURATION, 0));
         CompoundTag data = target.getPersistentData();

@@ -101,6 +101,13 @@ public class SkillScreen extends Screen {
         for (int row = 0; row < SHARED.size(); row++) {
             plusButton(progress, playerClass, SHARED.get(row), sharedX() + SHARED_WIDTH - 16, nodeY(0) + row * SHARED_ROW_HEIGHT + 4);
         }
+        // Paragon points come after level 100
+        if (progress.level() >= Progression.MAX_LEVEL) {
+            String text = "Paragon" + (progress.paragonPoints() > 0 ? " (" + progress.paragonPoints() + ")" : "");
+            addRenderableWidget(Button.builder(Component.literal(text), pressed -> minecraft.setScreen(new ParagonScreen()))
+                    .bounds(sharedX(), keysY() - 22, SHARED_WIDTH, 18)
+                    .build());
+        }
         // Choosing the same class again gives every point back
         addRenderableWidget(Button.builder(Component.literal("Nulstil point"), pressed -> PacketDistributor.sendToServer(new ChooseClassPayload(playerClass)))
                 .bounds(sharedX(), keysY(), SHARED_WIDTH, 18)
@@ -135,11 +142,12 @@ public class SkillScreen extends Screen {
         int barLeft = left + 20;
         int barRight = left + WIDTH - 20;
         boolean maxLevel = progress.level() >= Progression.MAX_LEVEL;
-        float fraction = maxLevel ? 1 : (float) progress.xp() / progress.xpNeeded();
+        // At level 100 the bar fills up towards the next paragon level, in another colour
+        float fraction = (float) progress.xp() / Math.max(1, progress.xpNeeded());
         graphics.fill(barLeft - 1, top + 15, barRight + 1, top + 21, 0xFF000000);
         graphics.fill(barLeft, top + 16, barRight, top + 20, 0xFF2A1A3A);
-        graphics.fill(barLeft, top + 16, barLeft + Math.round((barRight - barLeft) * fraction), top + 20, 0xFF9B4DFF);
-        String xpText = maxLevel ? "Max level" : progress.xp() + " / " + progress.xpNeeded() + " XP";
+        graphics.fill(barLeft, top + 16, barLeft + Math.round((barRight - barLeft) * fraction), top + 20, maxLevel ? 0xFF33CCCC : 0xFF9B4DFF);
+        String xpText = (maxLevel ? "Paragon " + progress.paragonLevel() + " - " : "") + progress.xp() + " / " + progress.xpNeeded() + " XP";
         graphics.drawCenteredString(font, xpText, center, top + 24, 0xAAAAAA);
 
         int pointsColor = progress.points() > 0 ? 0x55FF55 : 0xAAAAAA;

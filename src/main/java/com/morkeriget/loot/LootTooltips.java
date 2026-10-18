@@ -37,7 +37,8 @@ public final class LootTooltips {
             new Special(Loot.CRUSHING_TAG, "%s%% knusende slag"),
             new Special(Loot.ARROW_DAMAGE_TAG, "%s%% pileskade"),
             new Special(Loot.THORNS_TAG, "%s%% torne"),
-            new Special(Gems.MANA_REGEN_TAG, "%s%% hurtigere mana"));
+            new Special(Gems.MANA_REGEN_TAG, "%s%% hurtigere mana"),
+            new Special(Loot.STAFF_MANA_TAG, "%s%% hurtigere mana (stav)"));
 
     private LootTooltips() {
     }

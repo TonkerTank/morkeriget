@@ -11,10 +11,12 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-// Packet sent from the server to the player with their level, XP, upgrades, class and keys, for the skill screen and
-// the HUD. ranks is in the same order as Upgrade.values(), playerClass is "" before a class is picked, and slots has
-// the Skill.ordinal() on each of the keys 1-4, or -1 for an empty key
-public record ProgressPayload(int level, int xp, int xpNeeded, int points, List<Integer> ranks, String playerClass, List<Integer> slots)
+// Packet sent from the server to the player with their level, XP, upgrades, class, keys and paragon, for the skill
+// screen and the HUD. ranks is in the same order as Upgrade.values() and paragon as Paragon.values(), playerClass is ""
+// before a class is picked, and slots has the Skill.ordinal() on each of the keys 1-4, or -1 for an empty key.
+// At level 100, xp and xpNeeded are towards the next paragon level
+public record ProgressPayload(int level, int xp, int xpNeeded, int points, List<Integer> ranks, String playerClass, List<Integer> slots,
+                              int paragonLevel, int paragonPoints, List<Integer> paragon)
         implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<ProgressPayload> TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "progress"));
 
@@ -30,10 +32,14 @@ public record ProgressPayload(int level, int xp, int xpNeeded, int points, List<
                 INT_LIST.encode(buffer, payload.ranks);
                 ByteBufCodecs.STRING_UTF8.encode(buffer, payload.playerClass);
                 INT_LIST.encode(buffer, payload.slots);
+                ByteBufCodecs.VAR_INT.encode(buffer, payload.paragonLevel);
+                ByteBufCodecs.VAR_INT.encode(buffer, payload.paragonPoints);
+                INT_LIST.encode(buffer, payload.paragon);
             },
             buffer -> new ProgressPayload(ByteBufCodecs.VAR_INT.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer),
                     ByteBufCodecs.VAR_INT.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer), INT_LIST.decode(buffer),
-                    ByteBufCodecs.STRING_UTF8.decode(buffer), INT_LIST.decode(buffer)));
+                    ByteBufCodecs.STRING_UTF8.decode(buffer), INT_LIST.decode(buffer), ByteBufCodecs.VAR_INT.decode(buffer),
+                    ByteBufCodecs.VAR_INT.decode(buffer), INT_LIST.decode(buffer)));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
@@ -42,6 +48,10 @@ public record ProgressPayload(int level, int xp, int xpNeeded, int points, List<
 
     public int rank(Upgrade upgrade) {
         return upgrade.ordinal() < ranks.size() ? ranks.get(upgrade.ordinal()) : 0;
+    }
+
+    public int rank(Paragon stat) {
+        return stat.ordinal() < paragon.size() ? paragon.get(stat.ordinal()) : 0;
     }
 
     // The skill on the key (0 to 3), or null

@@ -46,6 +46,9 @@ public final class Progression {
     private static final ResourceLocation RANGER_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "class_ranger");
     private static final ResourceLocation AGILE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_agile");
     private static final ResourceLocation GLASS_CANNON_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_glass_cannon");
+    private static final ResourceLocation PARAGON_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_damage");
+    private static final ResourceLocation PARAGON_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_health");
+    private static final ResourceLocation PARAGON_SPEED_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_speed");
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
     private static final Supplier<AttachmentType<PlayerProgress>> PROGRESS = ATTACHMENTS.register("progress",
@@ -78,6 +81,22 @@ public final class Progression {
                     context.getSource().sendSuccess(() -> Component.literal("Du er nu level " + level), false);
                     return 1;
                 }))));
+        // "/morkeriget paragon 20" gives 20 paragon levels with their points. Needs level 100
+        event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(Commands.literal("paragon")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("levels", IntegerArgumentType.integer(1, 1000)).executes(context -> {
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    int levels = IntegerArgumentType.getInteger(context, "levels");
+                    PlayerProgress progress = player.getData(PROGRESS);
+                    if (progress.level() < MAX_LEVEL) {
+                        context.getSource().sendFailure(Component.literal("Paragon starter ved level " + MAX_LEVEL + " - brug /morkeriget level " + MAX_LEVEL));
+                        return 0;
+                    }
+                    player.setData(PROGRESS, progress.withParagonLevel(progress.paragonLevel() + levels, 0, progress.paragonPoints() + levels));
+                    sync(player);
+                    context.getSource().sendSuccess(() -> Component.literal("Du er nu paragon " + (progress.paragonLevel() + levels)), false);
+                    return 1;
+                }))));
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -85,6 +104,7 @@ public final class Progression {
                 .playToServer(UpgradePayload.TYPE, UpgradePayload.STREAM_CODEC, Progression::handleUpgrade)
                 .playToServer(ChooseClassPayload.TYPE, ChooseClassPayload.STREAM_CODEC, Progression::handleChooseClass)
                 .playToServer(AssignSlotPayload.TYPE, AssignSlotPayload.STREAM_CODEC, Progression::handleAssignSlot)
+                .playToServer(ParagonPayload.TYPE, ParagonPayload.STREAM_CODEC, Progression::handleParagon)
                 // The lambda keeps ClientProgress (client only) from being loaded on a dedicated server
                 .playToClient(ProgressPayload.TYPE, ProgressPayload.STREAM_CODEC, (payload, context) -> ClientProgress.set(payload));
     }
@@ -131,6 +151,7 @@ public final class Progression {
     public static void addXp(ServerPlayer player, int amount) {
         PlayerProgress progress = player.getData(PROGRESS);
         if (progress.level() >= MAX_LEVEL) {
+            addParagonXp(player, progress, amount);
             return;
         }
         int level = progress.level();
@@ -153,6 +174,46 @@ public final class Progression {
             player.serverLevel().sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1, player.getZ(),
                     40, 0.4, 0.8, 0.4, 0.3);
         }
+        sync(player);
+    }
+
+    // After level 100 XP goes towards paragon levels, which never end
+    private static void addParagonXp(ServerPlayer player, PlayerProgress progress, int amount) {
+        int paragonLevel = progress.paragonLevel();
+        int xp = progress.xp() + amount;
+        int points = progress.paragonPoints();
+        while (xp >= Paragon.xpForNextLevel(paragonLevel)) {
+            xp -= Paragon.xpForNextLevel(paragonLevel);
+            paragonLevel++;
+            points++;
+        }
+        player.setData(PROGRESS, progress.withParagonLevel(paragonLevel, xp, points));
+        if (paragonLevel > progress.paragonLevel()) {
+            player.sendSystemMessage(Component.literal("Paragon " + paragonLevel + "! ").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
+                    .append(Component.literal("Du har " + points + " paragon-point" + (points == 1 ? "" : "s") + " - tryk K")
+                            .withStyle(ChatFormatting.YELLOW)));
+            player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
+            player.serverLevel().sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(),
+                    40, 0.4, 0.8, 0.4, 0.1);
+        }
+        sync(player);
+    }
+
+    public static int rank(ServerPlayer player, Paragon stat) {
+        return player.getData(PROGRESS).rank(stat);
+    }
+
+    private static void handleParagon(ParagonPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) {
+            return;
+        }
+        PlayerProgress progress = player.getData(PROGRESS);
+        if (progress.paragonPoints() <= 0 || progress.rank(payload.stat()) >= Paragon.MAX_RANK) {
+            return;
+        }
+        player.setData(PROGRESS, progress.withParagon(payload.stat()));
+        applyPassives(player);
+        player.playNotifySound(SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.PLAYERS, 0.6f, 1.2f);
         sync(player);
     }
 
@@ -212,6 +273,8 @@ public final class Progression {
             // Barbarians have 20% more health
             health.addOrUpdateTransientModifier(new AttributeModifier(BARBARIAN_ID,
                     playerClass == PlayerClass.BARBARIAN ? 0.2 : 0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            health.addOrUpdateTransientModifier(new AttributeModifier(PARAGON_HEALTH_ID,
+                    rank(player, Paragon.HEALTH) * 0.01, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             if (player.getHealth() > player.getMaxHealth()) {
                 player.setHealth(player.getMaxHealth());
             }
@@ -223,6 +286,8 @@ public final class Progression {
                     playerClass == PlayerClass.RANGER ? 0.1 : 0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
             speed.addOrUpdateTransientModifier(new AttributeModifier(AGILE_ID,
                     rank(player, Upgrade.AGILE) * 0.03, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
+            speed.addOrUpdateTransientModifier(new AttributeModifier(PARAGON_SPEED_ID,
+                    rank(player, Paragon.SPEED) * 0.005, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
         }
         AttributeInstance damage = player.getAttribute(Attributes.ATTACK_DAMAGE);
         if (damage != null) {
@@ -230,6 +295,8 @@ public final class Progression {
             damage.addOrUpdateTransientModifier(new AttributeModifier(STRENGTH_ID, rank * 0.05, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             damage.addOrUpdateTransientModifier(new AttributeModifier(GLASS_CANNON_ID,
                     rank(player, Upgrade.GLASS_CANNON) * 0.06, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            damage.addOrUpdateTransientModifier(new AttributeModifier(PARAGON_DAMAGE_ID,
+                    rank(player, Paragon.DAMAGE) * 0.01, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
     }
 
@@ -269,7 +336,12 @@ public final class Progression {
             Skill skill = progress.slot(i);
             slots.add(skill != null ? skill.ordinal() : -1);
         }
-        PacketDistributor.sendToPlayer(player, new ProgressPayload(progress.level(), progress.xp(),
-                PlayerProgress.xpForNextLevel(progress.level()), progress.points(), ranks, progress.playerClass(), slots));
+        List<Integer> paragon = new ArrayList<>();
+        for (Paragon stat : Paragon.values()) {
+            paragon.add(progress.rank(stat));
+        }
+        int xpNeeded = progress.level() >= MAX_LEVEL ? Paragon.xpForNextLevel(progress.paragonLevel()) : PlayerProgress.xpForNextLevel(progress.level());
+        PacketDistributor.sendToPlayer(player, new ProgressPayload(progress.level(), progress.xp(), xpNeeded, progress.points(), ranks,
+                progress.playerClass(), slots, progress.paragonLevel(), progress.paragonPoints(), paragon));
     }
 }

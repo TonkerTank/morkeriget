@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
+
+import com.mojang.serialization.Codec;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
@@ -49,15 +52,16 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
-import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
 // A rift stone opens a rift where the player stands: waves of monsters come out around them, and after the last wave
 // the rift's guardian, a boss. Killing it gives extra loot, essence and XP. The rift closes if the player dies,
@@ -69,9 +73,6 @@ public final class Rifts {
     static final int MAX_TIER = 10;
     private static final String TIER_TAG = "morkeriget_rift_tier";
     private static final String RIFT_TAG = "morkeriget_rift";
-    // The most of your max health one hit from the guardian can take. A vindicator's axe gets the boss multiplier too,
-    // so without this it killed you in one hit. 30% in tier I and 5% more per tier
-    private static final String GUARDIAN_MAX_HIT_TAG = "morkeriget_guardian_max_hit";
     // 20 ticks is one second
     private static final int TIME_LIMIT = 5 * 60 * 20;
     private static final int WAVE_PAUSE = 3 * 20;
@@ -93,32 +94,31 @@ public final class Rifts {
     // The rift each player is in. Only kept in memory, so rifts are gone if the server stops
     private static final Map<UUID, Rift> RIFTS = new HashMap<>();
 
+    // Each player's best time in ticks for each tier, with the tier as a string ("1" to "10"), since map keys in
+    // saved data have to be strings. Kept when the player dies
+    private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
+    private static final Supplier<AttachmentType<Map<String, Integer>>> RECORDS = ATTACHMENTS.register("rift_records",
+            () -> AttachmentType.<Map<String, Integer>>builder(() -> Map.of())
+                    .serialize(Codec.unboundedMap(Codec.STRING, Codec.INT)).copyOnDeath().build());
+    // Closing a rift in less than this gets more essence
+    private static final int FAST_TIME = TIME_LIMIT / 2;
+
     private Rifts() {
     }
 
     public static void register(IEventBus modEventBus) {
         ITEMS.register(modEventBus);
+        ATTACHMENTS.register(modEventBus);
         modEventBus.addListener(Rifts::addToCreativeTab);
         NeoForge.EVENT_BUS.addListener(Rifts::onServerTick);
         NeoForge.EVENT_BUS.addListener(Rifts::onJoinLevel);
         NeoForge.EVENT_BUS.addListener(Rifts::onDrops);
-        NeoForge.EVENT_BUS.addListener(Rifts::onDamagePre);
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> RIFTS.clear());
     }
 
     private static void addToCreativeTab(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.COMBAT) {
             event.accept(RIFT_STONE);
-        }
-    }
-
-    // Hits from the guardian, also from its slam and abilities, can't take more than its share of your max health
-    private static void onDamagePre(LivingDamageEvent.Pre event) {
-        if (event.getEntity() instanceof ServerPlayer player && event.getSource().getEntity() instanceof Monster guardian) {
-            float maxHit = guardian.getPersistentData().getFloat(GUARDIAN_MAX_HIT_TAG);
-            if (maxHit > 0) {
-                event.setNewDamage(Math.min(event.getNewDamage(), player.getMaxHealth() * maxHit));
-            }
         }
     }
 
@@ -144,6 +144,23 @@ public final class Rifts {
         return List.of("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X").get(Math.max(1, Math.min(MAX_TIER, tier)) - 1);
     }
 
+    // Ticks as minutes and seconds, e.g. "2:05"
+    static String time(int ticks) {
+        int seconds = (ticks + 19) / 20;
+        return seconds / 60 + ":" + String.format("%02d", seconds % 60);
+    }
+
+    // The player's best time for the tier in ticks, or 0 if they haven't closed it yet
+    private static int record(ServerPlayer player, int tier) {
+        return player.getData(RECORDS).getOrDefault(String.valueOf(tier), 0);
+    }
+
+    private static void setRecord(ServerPlayer player, int tier, int ticks) {
+        Map<String, Integer> records = new HashMap<>(player.getData(RECORDS));
+        records.put(String.valueOf(tier), ticks);
+        player.setData(RECORDS, Map.copyOf(records));
+    }
+
     // Returns false if the rift couldn't open, so the stone isn't used up
     static boolean start(ServerPlayer player, int tier) {
         if (RIFTS.containsKey(player.getUUID())) {
@@ -157,6 +174,9 @@ public final class Rifts {
         level.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 1, player.getZ(), 150, 2, 1, 2, 0.1);
         player.sendSystemMessage(Component.literal("Rift " + roman(tier) + " åbner sig! ").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
                 .append(Component.literal("Overlev " + WAVES + " bølger og dræb riftens vogter.").withStyle(ChatFormatting.LIGHT_PURPLE)));
+        int record = record(player, tier);
+        String recordText = record > 0 ? "Din rekord: " + time(record) + ". " : "";
+        player.sendSystemMessage(Component.literal(recordText + "Under " + time(FAST_TIME) + " giver 50% mere essens.").withStyle(ChatFormatting.GRAY));
         return true;
     }
 
@@ -271,7 +291,10 @@ public final class Rifts {
             });
             bar.setProgress(waveSize > 0 ? (float) alive.size() / waveSize : 0);
             if (!alive.isEmpty()) {
-                bar.setName(Component.literal(waveName + " - " + alive.size() + " tilbage").withStyle(ChatFormatting.LIGHT_PURPLE));
+                // The time left in yellow, red in the last minute
+                bar.setName(Component.literal(waveName + " - " + alive.size() + " tilbage  ").withStyle(ChatFormatting.LIGHT_PURPLE)
+                        .append(Component.literal(time(TIME_LIMIT - ticks))
+                                .withStyle(TIME_LIMIT - ticks < 60 * 20 ? ChatFormatting.RED : ChatFormatting.YELLOW)));
                 if (ticks % RECALL_INTERVAL == 0) {
                     recallStragglers(player);
                 }
@@ -341,7 +364,8 @@ public final class Rifts {
             }
             if (guardian) {
                 Bosses.makeBoss(monster);
-                monster.getPersistentData().putFloat(GUARDIAN_MAX_HIT_TAG, 0.3f + 0.05f * (tier - 1));
+                // The guardian can take 30% of your health in one hit in tier I, and 5% more per tier
+                Bosses.setMaxHit(monster, 0.3f + 0.05f * (tier - 1));
             } else if (elite) {
                 Elites.makeElite(monster, 1);
             }
@@ -394,7 +418,10 @@ public final class Rifts {
             for (int i = 0; i < 1 + (tier - 1) / 3; i++) {
                 rewards.add(Loot.create(random, Rarity.roll(random, minimum), monsterLevel, Progression.playerClass(player)));
             }
-            rewards.add(new ItemStack(Smithy.ESSENCE.get(), 4 + tier * 2 + random.nextInt(5)));
+            // 50% more essence for a fast rift
+            boolean fast = ticks < FAST_TIME;
+            int essence = 4 + tier * 2 + random.nextInt(5);
+            rewards.add(new ItemStack(Smithy.ESSENCE.get(), fast ? essence * 3 / 2 : essence));
             // One gem, and one more for every third tier. Every fourth tier makes them a tier better
             for (int i = 0; i < 1 + tier / 3; i++) {
                 rewards.add(Gems.random(random, monsterLevel, tier / 4));
@@ -412,8 +439,27 @@ public final class Rifts {
                     .append(Component.literal("Du fik en sæt-genstand, ekstra loot, ædelsten, essens, XP, en portalrulle og en riftsten "
                             + roman(nextTier) + ".")
                             .withStyle(ChatFormatting.YELLOW)));
+            announceTime(player, fast);
             level.playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
             level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1, player.getZ(), 80, 0.5, 1, 0.5, 0.4);
+        }
+
+        // The time it took, and whether it beat the player's record for the tier
+        private void announceTime(ServerPlayer player, boolean fast) {
+            int record = record(player, tier);
+            Component line;
+            if (record == 0 || ticks < record) {
+                setRecord(player, tier, ticks);
+                String before = record > 0 ? " (før " + time(record) + ")" : "";
+                line = Component.literal("Tid: " + time(ticks) + " - ny rekord!" + before).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+                player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.6f);
+            } else {
+                line = Component.literal("Tid: " + time(ticks) + " (rekord " + time(record) + ")").withStyle(ChatFormatting.GRAY);
+            }
+            if (fast) {
+                line = line.copy().append(Component.literal("  Hurtig-bonus: +50% essens").withStyle(ChatFormatting.AQUA));
+            }
+            player.sendSystemMessage(line);
         }
 
         // Takes the rift's monsters back out of the world. Always returns true, so tick can return it

@@ -16,5 +16,9 @@
   "item.morkeriget.gem_emerald": "Emerald",
   "item.morkeriget.gem_topaz": "Topaz",
   "item.morkeriget.gem_sapphire": "Sapphire",
-  "item.morkeriget.town_portal": "Town Portal Scroll"
+  "item.morkeriget.town_portal": "Town Portal Scroll",
+  "item.morkeriget.staff_oak": "Oak Staff",
+  "item.morkeriget.staff_blaze": "Blaze Staff",
+  "item.morkeriget.staff_storm": "Storm Staff",
+  "item.morkeriget.staff_star": "Star Staff"
 }

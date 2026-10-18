@@ -16,5 +16,9 @@
   "item.morkeriget.gem_emerald": "Smaragd",
   "item.morkeriget.gem_topaz": "Topas",
   "item.morkeriget.gem_sapphire": "Safir",
-  "item.morkeriget.town_portal": "Portalrulle"
+  "item.morkeriget.town_portal": "Portalrulle",
+  "item.morkeriget.staff_oak": "Egestav",
+  "item.morkeriget.staff_blaze": "Flammestav",
+  "item.morkeriget.staff_storm": "Stormstav",
+  "item.morkeriget.staff_star": "Stjernestav"
 }

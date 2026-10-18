@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 
@@ -90,7 +91,9 @@ final class TreeSkills {
         Vec3 center = flat.lengthSqr() < 0.01 ? player.position() : player.position().add(flat.normalize().scale(3));
         // Each Earthquake rank adds 20% damage
         float damage = attackDamage(player, 0.6, Upgrade.EARTHQUAKE, 0.2);
-        add(player, new Effect(Kind.EARTHQUAKE, center, damage, EARTHQUAKE_PULSES, level.getGameTime(), 0));
+        // Aftershock makes it go on twice as long
+        int pulses = LegendaryPower.has(player, LegendaryPower.AFTERSHOCK) ? EARTHQUAKE_PULSES * 2 : EARTHQUAKE_PULSES;
+        add(player, new Effect(Kind.EARTHQUAKE, center, damage, pulses, level.getGameTime(), 0));
         level.playSound(null, player.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.0f, 0.6f);
         return true;
     }
@@ -140,6 +143,15 @@ final class TreeSkills {
         float damage = attackDamage(player, 6.0, Upgrade.METEOR, 0.2);
         add(player, new Effect(Kind.METEOR, center, damage, 1, level.getGameTime() + METEOR_DELAY, 0));
         circle(level, center, METEOR_RADIUS, ParticleTypes.FLAME);
+        // Meteor Shower: two more a little after, a few blocks to the sides
+        if (LegendaryPower.has(player, LegendaryPower.METEOR_SHOWER)) {
+            for (int i = 0; i < 2; i++) {
+                double angle = player.getRandom().nextDouble() * Math.PI * 2;
+                Vec3 spot = center.add(Math.cos(angle) * 4, 0, Math.sin(angle) * 4);
+                add(player, new Effect(Kind.METEOR, spot, damage, 1, level.getGameTime() + METEOR_DELAY + 10 * (i + 1), 0));
+                circle(level, spot, METEOR_RADIUS, ParticleTypes.FLAME);
+            }
+        }
         level.playSound(null, player.blockPosition(), SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.0f, 0.5f);
         return true;
     }
@@ -187,15 +199,26 @@ final class TreeSkills {
         Vec3 center = event.getRayTraceResult().getLocation();
         // Each Explosive Arrow rank adds 15% damage
         float damage = (float) (EXPLOSIVE_DAMAGE * ClassSkills.bowScale(player) * (1 + 0.15 * Progression.rank(player, Upgrade.EXPLOSIVE_ARROW)));
-        for (LivingEntity target : ClassSkills.enemies(level, center, EXPLOSIVE_RADIUS)) {
-            target.invulnerableTime = 0;
-            target.hurt(player.damageSources().playerAttack(player), damage);
+        explode(level, player, center, EXPLOSIVE_RADIUS, damage);
+        // Cluster Bomb: three smaller ones around it, half as strong
+        if (LegendaryPower.has(player, LegendaryPower.CLUSTER_BOMB)) {
+            for (int i = 0; i < 3; i++) {
+                double angle = Math.PI * 2 * i / 3;
+                explode(level, player, center.add(Math.cos(angle) * 3, 0, Math.sin(angle) * 3), EXPLOSIVE_RADIUS * 0.7, damage * 0.5f);
+            }
         }
-        level.sendParticles(ParticleTypes.EXPLOSION, center.x, center.y, center.z, 3, 0.6, 0.4, 0.6, 0);
-        level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 1.2f);
         // The explosion did the damage, so the arrow itself goes away
         arrow.discard();
         event.setCanceled(true);
+    }
+
+    private static void explode(ServerLevel level, ServerPlayer player, Vec3 center, double radius, float damage) {
+        for (LivingEntity target : ClassSkills.enemies(level, center, radius)) {
+            target.invulnerableTime = 0;
+            target.hurt(player.damageSources().playerAttack(player), damage);
+        }
+        level.sendParticles(ParticleTypes.EXPLOSION, center.x, center.y, center.z, 3, radius / 5, 0.4, radius / 5, 0);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 1.2f);
     }
 
     // A trap on the ground where you aim. The first monster that steps in it gets hurt and can't move for a while
@@ -238,8 +261,13 @@ final class TreeSkills {
         Vec3 center = ClassSkills.arrowRainTarget(level, player);
         // Each Bone Prison rank holds them 0.3 seconds longer
         int duration = BONE_PRISON_DURATION + 6 * Progression.rank(player, Upgrade.BONE_PRISON);
+        boolean cage = LegendaryPower.has(player, LegendaryPower.DEATHS_CAGE);
         for (LivingEntity target : ClassSkills.enemies(level, center, BONE_PRISON_RADIUS)) {
             hold(target, duration);
+            // Death's Cage: the same curse as the Curse skill
+            if (cage) {
+                NecroSkills.applyCurse(level, target, player, NecroSkills.curseBonus(player));
+            }
             for (int i = 0; i < 8; i++) {
                 double angle = Math.PI * 2 * i / 8;
                 level.sendParticles(BONE, target.getX() + Math.cos(angle) * 0.8, target.getY() + 0.5, target.getZ() + Math.sin(angle) * 0.8,

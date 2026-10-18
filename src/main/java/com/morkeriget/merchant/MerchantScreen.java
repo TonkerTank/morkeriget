@@ -106,10 +106,12 @@ public class MerchantScreen extends AbstractContainerScreen<MerchantMenu> {
         // On the same line as the "Inventory" label, but at the right edge
         String essence = "Essens: " + essence();
         graphics.drawString(font, essence, imageWidth - 8 - font.width(essence), inventoryLabelY, 0xC080FF, false);
-        // In the empty place next to the last ware
-        String chance = percent(Merchant.LEGENDARY_CHANCE) + " legendarisk";
-        int row = (Ware.values().length - 1) / 2;
-        graphics.drawString(font, chance, 90 + (78 - font.width(chance)) / 2, BUTTON_Y + row * ROW + 5, 0xFF8800, false);
+        // In the empty place next to the last ware, if there is one. The buttons' tooltip has the chances too
+        if (Ware.values().length % 2 == 1) {
+            String chance = percent(Merchant.LEGENDARY_CHANCE) + " legendarisk";
+            int row = (Ware.values().length - 1) / 2;
+            graphics.drawString(font, chance, 90 + (78 - font.width(chance)) / 2, BUTTON_Y + row * ROW + 5, 0xFF8800, false);
+        }
     }
 
     // K closes the screen, just like the skill screen

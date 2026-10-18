@@ -62,6 +62,10 @@ public final class Loot {
     public static final String CRUSHING_TAG = "morkeriget_crushing";
     public static final String ARROW_DAMAGE_TAG = "morkeriget_arrow_damage";
     public static final String THORNS_TAG = "morkeriget_thorns";
+    // Every staff has this, on top of its affixes. Not the same tag as sapphires, since Gems writes that one over
+    public static final String STAFF_MANA_TAG = "morkeriget_staff_mana";
+    private static final int STAFF_MANA_MIN = 15;
+    private static final int STAFF_MANA_MAX = 35;
 
     // An item that can drop, and the item levels it drops at. Better base items only drop from higher level monsters.
     // The item is a supplier because rings and amulets are our own items, which don't exist until they are registered
@@ -82,6 +86,11 @@ public final class Loot {
             LootItem.of(Items.DIAMOND_AXE, 10, ANY_LEVEL),
             LootItem.of(Items.NETHERITE_SWORD, 20, ANY_LEVEL),
             LootItem.of(Items.NETHERITE_AXE, 20, ANY_LEVEL),
+            // Staffs drop at the same levels as the swords of their tier
+            new LootItem(Staffs.OAK::get, 1, 9),
+            new LootItem(Staffs.BLAZE::get, 3, ANY_LEVEL),
+            new LootItem(Staffs.STORM::get, 10, ANY_LEVEL),
+            new LootItem(Staffs.STAR::get, 20, ANY_LEVEL),
             LootItem.of(Items.BOW, 1, ANY_LEVEL),
             LootItem.of(Items.CROSSBOW, 5, ANY_LEVEL),
             LootItem.of(Items.SHIELD, 1, ANY_LEVEL),
@@ -152,6 +161,7 @@ public final class Loot {
     }
 
     public static void register(IEventBus modEventBus) {
+        Staffs.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(Loot::onLivingDrops);
         SetBonuses.register();
     }
@@ -304,6 +314,11 @@ public final class Loot {
         List<Affix> available = new ArrayList<>(AFFIXES.stream().filter(affix -> affix.kinds.contains(kind)).toList());
         ItemAttributeModifiers modifiers = stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
         List<Component> affixLore = new ArrayList<>();
+        if (Staffs.isStaff(stack)) {
+            int mana = STAFF_MANA_MIN + random.nextInt(STAFF_MANA_MAX - STAFF_MANA_MIN + 1);
+            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(STAFF_MANA_TAG, mana));
+            affixLore.add(Component.literal("+" + mana + "% hurtigere mana").withStyle(ChatFormatting.AQUA));
+        }
         double totalQuality = 0;
         for (int i = 0; i < rarity.affixCount && !available.isEmpty(); i++) {
             Affix affix = available.remove(random.nextInt(available.size()));

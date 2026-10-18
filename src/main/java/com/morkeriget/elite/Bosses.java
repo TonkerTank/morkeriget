@@ -38,6 +38,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
@@ -48,6 +49,10 @@ public final class Bosses {
     private static final String TITLE_TAG = "morkeriget_boss_title";
     private static final String MINION_TAG = "morkeriget_minion";
     private static final String ABILITY_TAG = "morkeriget_boss_ability";
+    // The most of your max health one hit from the boss can take, also from its slam and abilities. A vindicator's axe
+    // gets the boss multiplier too, so without this a boss could kill you in one hit. Rifts set their own for the guardian
+    private static final String MAX_HIT_TAG = "morkeriget_boss_max_hit";
+    private static final float MAX_HIT = 0.4f;
     private static final ResourceLocation BOSS_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "boss_boost");
     // Players closer than this see the boss bar
     private static final double BAR_RANGE = 32.0;
@@ -72,6 +77,20 @@ public final class Bosses {
         NeoForge.EVENT_BUS.addListener(Bosses::onEntityTick);
         NeoForge.EVENT_BUS.addListener(Bosses::onDeath);
         NeoForge.EVENT_BUS.addListener(Bosses::onLeaveLevel);
+        NeoForge.EVENT_BUS.addListener(Bosses::onDamagePre);
+    }
+
+    // As a share of the player's max health, e.g. 0.4 for 40%
+    public static void setMaxHit(Monster boss, float share) {
+        boss.getPersistentData().putFloat(MAX_HIT_TAG, share);
+    }
+
+    // Bosses from before the limit existed get the normal one
+    private static void onDamagePre(LivingDamageEvent.Pre event) {
+        if (event.getEntity() instanceof Player player && event.getSource().getEntity() instanceof Monster boss && isBoss(boss)) {
+            float share = boss.getPersistentData().contains(MAX_HIT_TAG) ? boss.getPersistentData().getFloat(MAX_HIT_TAG) : MAX_HIT;
+            event.setNewDamage(Math.min(event.getNewDamage(), player.getMaxHealth() * share));
+        }
     }
 
     public static boolean isBoss(Entity entity) {
