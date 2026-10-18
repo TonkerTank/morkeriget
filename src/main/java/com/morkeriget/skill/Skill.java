@@ -23,6 +23,14 @@ public enum Skill {
     RAISE_SKELETONS("Rejs skeletter", Config.RAISE_SKELETONS_MANA, Config.RAISE_SKELETONS_COOLDOWN),
     BONE_ARMOR("Knoglerustning", Config.BONE_ARMOR_MANA, Config.BONE_ARMOR_COOLDOWN),
     CURSE("Forbandelse", Config.CURSE_MANA, Config.CURSE_COOLDOWN),
+    EARTHQUAKE("Jordskælv", Config.EARTHQUAKE_MANA, Config.EARTHQUAKE_COOLDOWN),
+    RUSH("Stormløb", Config.RUSH_MANA, Config.RUSH_COOLDOWN),
+    METEOR("Meteor", Config.METEOR_MANA, Config.METEOR_COOLDOWN),
+    ICE_ARMOR("Isrustning", Config.ICE_ARMOR_MANA, Config.ICE_ARMOR_COOLDOWN),
+    EXPLOSIVE_ARROW("Eksplosiv pil", Config.EXPLOSIVE_ARROW_MANA, Config.EXPLOSIVE_ARROW_COOLDOWN),
+    BEAR_TRAP("Bjørnefælde", Config.BEAR_TRAP_MANA, Config.BEAR_TRAP_COOLDOWN),
+    BLOOD_NOVA("Blodnova", Config.BLOOD_NOVA_MANA, Config.BLOOD_NOVA_COOLDOWN),
+    BONE_PRISON("Knoglefængsel", Config.BONE_PRISON_MANA, Config.BONE_PRISON_COOLDOWN),
     HEALTH_POTION("Livsdrik", null, Config.HEALTH_POTION_COOLDOWN),
     MANA_POTION("Manadrik", null, Config.MANA_POTION_COOLDOWN);
 

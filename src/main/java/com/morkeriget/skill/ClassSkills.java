@@ -234,7 +234,7 @@ final class ClassSkills {
     }
 
     // The enemy you look at, or else the spot you look at, moved to the closest enemy near it if there is one
-    private static Vec3 arrowRainTarget(ServerLevel level, ServerPlayer player) {
+    static Vec3 arrowRainTarget(ServerLevel level, ServerPlayer player) {
         Vec3 eyes = player.getEyePosition();
         Vec3 end = level.clip(new ClipContext(eyes, eyes.add(player.getLookAngle().scale(ARROW_RAIN_RANGE)),
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player)).getLocation();
@@ -270,7 +270,7 @@ final class ClassSkills {
 
     // Arrows from a ranger's bow get stronger with the bow's item level and the ranger bonus, see PlayerHits.
     // Arrow Rain doesn't fire real arrows, so it does the same here
-    private static double bowScale(ServerPlayer player) {
+    static double bowScale(ServerPlayer player) {
         ItemStack bow = player.getMainHandItem();
         double scale = 1;
         if (ItemKind.of(bow) == ItemKind.RANGED && Loot.getRarity(bow) != null) {
@@ -282,7 +282,7 @@ final class ClassSkills {
         return scale * (1 + 0.06 * Progression.rank(player, Upgrade.MARKSMAN));
     }
 
-    private static void circle(ServerLevel level, Vec3 center, double radius) {
+    static void circle(ServerLevel level, Vec3 center, double radius) {
         for (int i = 0; i < 24; i++) {
             double angle = Math.PI * 2 * i / 24;
             level.sendParticles(ParticleTypes.CRIT, center.x + Math.cos(angle) * radius, center.y + 0.2,
@@ -361,7 +361,7 @@ final class ClassSkills {
 
     // An arrow from the player that can't be picked up. It counts as shot from the bow in your hand, if you hold one,
     // so the bow's bonuses work on it
-    private static Arrow arrow(ServerLevel level, ServerPlayer player, double damage) {
+    static Arrow arrow(ServerLevel level, ServerPlayer player, double damage) {
         ItemStack held = player.getMainHandItem();
         ItemStack bow = ItemKind.of(held) == ItemKind.RANGED ? held : null;
         Arrow arrow = new Arrow(level, player, new ItemStack(Items.ARROW), bow);
@@ -370,7 +370,7 @@ final class ClassSkills {
         return arrow;
     }
 
-    private static List<LivingEntity> enemies(ServerLevel level, Vec3 center, double radius) {
+    static List<LivingEntity> enemies(ServerLevel level, Vec3 center, double radius) {
         return level.getEntitiesOfClass(LivingEntity.class, new AABB(center, center).inflate(radius),
                 entity -> Minions.isEnemy(entity) && entity.position().distanceTo(center) <= radius + 1);
     }

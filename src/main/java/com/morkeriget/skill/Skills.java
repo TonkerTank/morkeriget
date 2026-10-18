@@ -56,6 +56,9 @@ public final class Skills {
         NeoForge.EVENT_BUS.addListener(Minions::onIncomingDamage);
         NeoForge.EVENT_BUS.addListener(NecroSkills::onDamagePre);
         NeoForge.EVENT_BUS.addListener(NecroSkills::onDeath);
+        NeoForge.EVENT_BUS.addListener(TreeSkills::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(TreeSkills::onDamagePost);
+        NeoForge.EVENT_BUS.addListener(TreeSkills::onProjectileImpact);
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -110,6 +113,15 @@ public final class Skills {
             case RAISE_SKELETONS -> NecroSkills.raiseSkeletons(player);
             case BONE_ARMOR -> NecroSkills.boneArmor(player);
             case CURSE -> NecroSkills.curse(player);
+            // The third row of the skill trees
+            case EARTHQUAKE -> TreeSkills.earthquake(player);
+            case RUSH -> TreeSkills.rush(player);
+            case METEOR -> TreeSkills.meteor(player);
+            case ICE_ARMOR -> TreeSkills.iceArmor(player);
+            case EXPLOSIVE_ARROW -> TreeSkills.explosiveArrow(player);
+            case BEAR_TRAP -> TreeSkills.bearTrap(player);
+            case BLOOD_NOVA -> TreeSkills.bloodNova(player);
+            case BONE_PRISON -> TreeSkills.bonePrison(player);
             case HEALTH_POTION -> healthPotion(player);
             case MANA_POTION -> manaPotion(player);
         };

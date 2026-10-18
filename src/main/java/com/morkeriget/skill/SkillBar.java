@@ -77,6 +77,14 @@ public final class SkillBar {
             case RAISE_SKELETONS -> new ItemStack(Items.WITHER_SKELETON_SKULL);
             case BONE_ARMOR -> new ItemStack(Items.BONE_BLOCK);
             case CURSE -> new ItemStack(Items.FERMENTED_SPIDER_EYE);
+            case EARTHQUAKE -> new ItemStack(Items.CRACKED_STONE_BRICKS);
+            case RUSH -> new ItemStack(Items.SADDLE);
+            case METEOR -> new ItemStack(Items.MAGMA_BLOCK);
+            case ICE_ARMOR -> new ItemStack(Items.PACKED_ICE);
+            case EXPLOSIVE_ARROW -> new ItemStack(Items.TNT);
+            case BEAR_TRAP -> new ItemStack(Items.TRIPWIRE_HOOK);
+            case BLOOD_NOVA -> new ItemStack(Items.REDSTONE_BLOCK);
+            case BONE_PRISON -> new ItemStack(Items.IRON_BARS);
             case HEALTH_POTION -> potion(0xE02020);
             case MANA_POTION -> potion(0x3060FF);
         };

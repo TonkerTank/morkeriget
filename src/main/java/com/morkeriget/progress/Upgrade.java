@@ -13,6 +13,8 @@ public enum Upgrade {
     BATTLE_CRY("Krigsråb", "+1 sek. varighed pr. rank", Skill.BATTLE_CRY, PlayerClass.BARBARIAN, 1),
     FRENZY("Raseri", "+1 sek. varighed pr. rank", Skill.FRENZY, PlayerClass.BARBARIAN, 1),
     BLOODTHIRSTY("Blodtørstig", "+2% livsstjæl pr. rank", null, PlayerClass.BARBARIAN, 1),
+    EARTHQUAKE("Jordskælv", "+20% skade pr. rank", Skill.EARTHQUAKE, PlayerClass.BARBARIAN, 2),
+    RUSH("Stormløb", "+20% skade pr. rank", Skill.RUSH, PlayerClass.BARBARIAN, 2),
     RELENTLESS("Ubarmhjertig", "+4% knusende slag pr. rank", null, PlayerClass.BARBARIAN, 2),
     // Sorcerer
     FROST_NOVA("Frostnova", "+0,5 blok og +0,5 sek. frys pr. rank", Skill.FROST_NOVA, PlayerClass.SORCERER, 0),
@@ -21,6 +23,8 @@ public enum Upgrade {
     CHAIN_LIGHTNING("Kædelyn", "+15% skade og +1 hop pr. rank", Skill.CHAIN_LIGHTNING, PlayerClass.SORCERER, 1),
     BLINK("Blink", "+2 blokke længere pr. rank", Skill.BLINK, PlayerClass.SORCERER, 1),
     ARCANE_FLOW("Arkan strøm", "-5% mana-pris pr. rank", null, PlayerClass.SORCERER, 1),
+    METEOR("Meteor", "+20% skade pr. rank", Skill.METEOR, PlayerClass.SORCERER, 2),
+    ICE_ARMOR("Isrustning", "+1 sek. varighed pr. rank", Skill.ICE_ARMOR, PlayerClass.SORCERER, 2),
     TIME_WARP("Tidsforvrængning", "-4% cooldown pr. rank", null, PlayerClass.SORCERER, 2),
     // Ranger
     MULTISHOT("Multiskud", "+15% skade pr. rank", Skill.MULTISHOT, PlayerClass.RANGER, 0),
@@ -29,6 +33,8 @@ public enum Upgrade {
     ARROW_RAIN("Pileregn", "+15% skade og større område pr. rank", Skill.ARROW_RAIN, PlayerClass.RANGER, 1),
     WOLVES("Ulveflok", "+15% styrke, +1 ulv hver 3. rank", Skill.WOLVES, PlayerClass.RANGER, 1),
     AGILE("Smidig", "+3% fart pr. rank", null, PlayerClass.RANGER, 1),
+    EXPLOSIVE_ARROW("Eksplosiv pil", "+15% skade pr. rank", Skill.EXPLOSIVE_ARROW, PlayerClass.RANGER, 2),
+    BEAR_TRAP("Bjørnefælde", "+15% skade pr. rank", Skill.BEAR_TRAP, PlayerClass.RANGER, 2),
     PACK_LEADER("Flokleder", "+10% ulve-styrke pr. rank", null, PlayerClass.RANGER, 2),
     // Necromancer
     BONE_SPEAR("Knoglespyd", "+20% skade pr. rank", Skill.BONE_SPEAR, PlayerClass.NECROMANCER, 0),
@@ -37,6 +43,8 @@ public enum Upgrade {
     RAISE_SKELETONS("Rejs skeletter", "+15% styrke, +1 pr. kast hver 3. rank", Skill.RAISE_SKELETONS, PlayerClass.NECROMANCER, 1),
     CURSE("Forbandelse", "+5% ekstra skade pr. rank", Skill.CURSE, PlayerClass.NECROMANCER, 1),
     DEATH_LORD("Dødens herre", "+10% minion-styrke pr. rank", null, PlayerClass.NECROMANCER, 1),
+    BLOOD_NOVA("Blodnova", "+20% skade pr. rank", Skill.BLOOD_NOVA, PlayerClass.NECROMANCER, 2),
+    BONE_PRISON("Knoglefængsel", "+0,3 sek. fanget pr. rank", Skill.BONE_PRISON, PlayerClass.NECROMANCER, 2),
     SOUL_HARVEST("Sjælehøst", "+1% ekstra heling pr. dræb pr. rank", null, PlayerClass.NECROMANCER, 2),
     // For everyone
     VITALITY("Vitalitet", "+1 hjerte pr. rank", null, null, 0),

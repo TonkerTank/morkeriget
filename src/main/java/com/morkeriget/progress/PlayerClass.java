@@ -8,13 +8,13 @@ import com.morkeriget.skill.Skill;
 // Progression, Mana and PlayerHits). The class can be changed in the skill screen, which gives all skill points back
 public enum PlayerClass {
     BARBARIAN("Barbar", 0xFF5544, "Kæmper tæt på og tåler meget", "+20% max liv",
-            List.of(Skill.WHIRLWIND, Skill.BATTLE_CRY, Skill.LEAP, Skill.FRENZY)),
+            List.of(Skill.WHIRLWIND, Skill.BATTLE_CRY, Skill.LEAP, Skill.FRENZY, Skill.EARTHQUAKE, Skill.RUSH)),
     SORCERER("Troldmand", 0xB070FF, "Kaster is, lyn og ild", "+40% hurtigere mana",
-            List.of(Skill.FROST_NOVA, Skill.CHAIN_LIGHTNING, Skill.BLINK, Skill.FIREBALL)),
+            List.of(Skill.FROST_NOVA, Skill.CHAIN_LIGHTNING, Skill.BLINK, Skill.FIREBALL, Skill.METEOR, Skill.ICE_ARMOR)),
     RANGER("Jæger", 0x55DD55, "Skyder på afstand og har ulve med", "+10% fart og +25% pileskade",
-            List.of(Skill.MULTISHOT, Skill.ARROW_RAIN, Skill.SMOKE_BOMB, Skill.WOLVES)),
+            List.of(Skill.MULTISHOT, Skill.ARROW_RAIN, Skill.SMOKE_BOMB, Skill.WOLVES, Skill.EXPLOSIVE_ARROW, Skill.BEAR_TRAP)),
     NECROMANCER("Nekromantiker", 0x50C8B4, "Rejser de døde og forbander sine fjender", "Heler 5% når en fjende dør nær dig",
-            List.of(Skill.BONE_SPEAR, Skill.RAISE_SKELETONS, Skill.BONE_ARMOR, Skill.CURSE));
+            List.of(Skill.BONE_SPEAR, Skill.RAISE_SKELETONS, Skill.BONE_ARMOR, Skill.CURSE, Skill.BLOOD_NOVA, Skill.BONE_PRISON));
 
     public final String displayName;
     public final int color;
