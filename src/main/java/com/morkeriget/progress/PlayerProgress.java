@@ -104,11 +104,11 @@ public record PlayerProgress(int level, int xp, int points, Map<String, Integer>
         return new PlayerProgress(level, newXp, points, ranks, playerClass, slots, newParagonLevel, newParagonPoints, paragon);
     }
 
-    // Spends one paragon point on the stat
-    public PlayerProgress withParagon(Paragon stat) {
+    // Spends amount paragon points on the stat
+    public PlayerProgress withParagon(Paragon stat, int amount) {
         Map<String, Integer> newParagon = new HashMap<>(paragon);
-        newParagon.put(stat.name(), rank(stat) + 1);
-        return new PlayerProgress(level, xp, points, ranks, playerClass, slots, paragonLevel, paragonPoints - 1, Map.copyOf(newParagon));
+        newParagon.put(stat.name(), rank(stat) + amount);
+        return new PlayerProgress(level, xp, points, ranks, playerClass, slots, paragonLevel, paragonPoints - amount, Map.copyOf(newParagon));
     }
 
     private static Skill skillByName(String name) {

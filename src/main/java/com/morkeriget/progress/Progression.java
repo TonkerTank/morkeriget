@@ -141,7 +141,9 @@ public final class Progression {
             return;
         }
         int bonus = Bosses.isBoss(monster) ? 5 : Elites.isElite(monster) ? 2 : 1;
-        int xp = (int) Math.max(1, Math.round(monster.getMaxHealth() / 2 * bonus * Config.XP_MULTIPLIER.get()));
+        // Each paragon Wisdom point adds 1%
+        double wisdom = 1 + 0.01 * rank(player, Paragon.WISDOM);
+        int xp = (int) Math.max(1, Math.round(monster.getMaxHealth() / 2 * bonus * wisdom * Config.XP_MULTIPLIER.get()));
         addXp(player, xp);
         if (bonus > 1) {
             player.displayClientMessage(Component.literal("+" + xp + " XP").withStyle(ChatFormatting.LIGHT_PURPLE), true);
@@ -208,10 +210,12 @@ public final class Progression {
             return;
         }
         PlayerProgress progress = player.getData(PROGRESS);
-        if (progress.paragonPoints() <= 0 || progress.rank(payload.stat()) >= Paragon.MAX_RANK) {
+        // Never more than the player has, or than what is left up to the stat's max
+        int amount = Math.min(Math.min(payload.amount(), progress.paragonPoints()), payload.stat().maxRank - progress.rank(payload.stat()));
+        if (amount <= 0) {
             return;
         }
-        player.setData(PROGRESS, progress.withParagon(payload.stat()));
+        player.setData(PROGRESS, progress.withParagon(payload.stat(), amount));
         applyPassives(player);
         player.playNotifySound(SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.PLAYERS, 0.6f, 1.2f);
         sync(player);

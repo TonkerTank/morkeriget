@@ -7,6 +7,7 @@ import com.morkeriget.Config;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.SetBonuses;
+import com.morkeriget.progress.Paragon;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
@@ -127,11 +128,13 @@ public final class Skills {
         };
         if (used) {
             Mana.spend(player, manaCost);
-            // Four Stormcaller pieces make skill cooldowns 30% shorter, and each Time Warp rank 4% (not the potions)
+            // Four Stormcaller pieces make skill cooldowns 30% shorter, each Time Warp rank 4% and each paragon
+            // Cooldown point 0.2% (not the potions)
             float cooldownScale = 1;
             if (!skill.isPotion()) {
                 cooldownScale *= SetBonuses.has(player, ItemSet.STORMCALLER, 4) ? 0.7f : 1;
                 cooldownScale *= 1 - 0.04f * Progression.rank(player, Upgrade.TIME_WARP);
+                cooldownScale *= 1 - 0.002f * Progression.rank(player, Paragon.COOLDOWN);
             }
             int cooldown = Math.round(skill.cooldown() * cooldownScale);
             player.getPersistentData().putLong(readyTag, now + cooldown);

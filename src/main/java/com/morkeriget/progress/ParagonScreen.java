@@ -8,18 +8,20 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-// Spending paragon points, opened from the skill screen once you are level 100. One row with a + button for each stat.
-// Client only
+// Spending paragon points, opened from the skill screen once you are level 100. The stats are in two columns, each
+// with a + button. Shift-click spends 10 points at once. Client only
 public class ParagonScreen extends Screen {
-    private static final int WIDTH = 240;
+    private static final int COLUMN_WIDTH = 190;
+    private static final int COLUMN_GAP = 20;
     private static final int ROW_HEIGHT = 30;
+    private static final int ROWS = (Paragon.values().length + 1) / 2;
 
     public ParagonScreen() {
         super(Component.literal("Paragon"));
     }
 
-    private int left() {
-        return (width - WIDTH) / 2;
+    private int columnLeft(Paragon stat) {
+        return (width - 2 * COLUMN_WIDTH - COLUMN_GAP) / 2 + (stat.ordinal() / ROWS) * (COLUMN_WIDTH + COLUMN_GAP);
     }
 
     private int top() {
@@ -30,18 +32,23 @@ public class ParagonScreen extends Screen {
         return top() + 36 + row * ROW_HEIGHT;
     }
 
+    private int rowTop(Paragon stat) {
+        return rowTop(stat.ordinal() % ROWS);
+    }
+
     @Override
     protected void init() {
         ProgressPayload progress = ClientProgress.get();
         for (Paragon stat : Paragon.values()) {
-            Button button = Button.builder(Component.literal("+"), pressed -> PacketDistributor.sendToServer(new ParagonPayload(stat)))
-                    .bounds(left() + WIDTH - 20, rowTop(stat.ordinal()) + 4, 20, 20)
+            Button button = Button.builder(Component.literal("+"),
+                            pressed -> PacketDistributor.sendToServer(new ParagonPayload(stat, hasShiftDown() ? 10 : 1)))
+                    .bounds(columnLeft(stat) + COLUMN_WIDTH - 20, rowTop(stat) + 4, 20, 20)
                     .build();
-            button.active = progress.paragonPoints() > 0 && progress.rank(stat) < Paragon.MAX_RANK;
+            button.active = progress.paragonPoints() > 0 && progress.rank(stat) < stat.maxRank;
             addRenderableWidget(button);
         }
         addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new SkillScreen()))
-                .bounds(width / 2 - 40, rowTop(Paragon.values().length) + 6, 80, 18)
+                .bounds(width / 2 - 40, rowTop(ROWS) + 6, 80, 18)
                 .build());
     }
 
@@ -57,13 +64,14 @@ public class ParagonScreen extends Screen {
         int center = width / 2;
         graphics.drawCenteredString(font, "Paragon " + progress.paragonLevel(), center, top(), 0x55FFFF);
         int pointsColor = progress.paragonPoints() > 0 ? 0x55FF55 : 0xAAAAAA;
-        graphics.drawCenteredString(font, "Paragon-points: " + progress.paragonPoints(), center, top() + 14, pointsColor);
+        graphics.drawCenteredString(font, "Paragon-points: " + progress.paragonPoints() + "  (shift-klik giver 10)", center, top() + 14, pointsColor);
         for (Paragon stat : Paragon.values()) {
-            int y = rowTop(stat.ordinal());
+            int x = columnLeft(stat);
+            int y = rowTop(stat);
             int rank = progress.rank(stat);
-            graphics.drawString(font, stat.displayName + "  " + rank + "/" + Paragon.MAX_RANK, left(), y + 4,
-                    rank >= Paragon.MAX_RANK ? 0xFFD700 : 0xFFFFFF);
-            graphics.drawString(font, stat.description, left(), y + 16, 0x888888);
+            graphics.drawString(font, stat.displayName + "  " + rank + "/" + stat.maxRank, x, y + 4,
+                    rank >= stat.maxRank ? 0xFFD700 : 0xFFFFFF);
+            graphics.drawString(font, stat.description, x, y + 16, 0x888888);
         }
     }
 

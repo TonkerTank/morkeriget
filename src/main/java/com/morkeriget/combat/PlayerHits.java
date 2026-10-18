@@ -10,6 +10,7 @@ import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.SetBonuses;
+import com.morkeriget.progress.Paragon;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
@@ -48,9 +49,10 @@ public final class PlayerHits {
     }
 
     private static void onDamagePre(LivingDamageEvent.Pre event) {
-        // Each Unyielding rank takes 3% off the damage the player takes
+        // Each Unyielding rank takes 3% off the damage the player takes, and each paragon Toughness point 0.2%
         if (event.getEntity() instanceof ServerPlayer victim) {
-            event.setNewDamage(event.getNewDamage() * (1 - 0.03f * Progression.rank(victim, Upgrade.UNYIELDING)));
+            event.setNewDamage(event.getNewDamage() * (1 - 0.03f * Progression.rank(victim, Upgrade.UNYIELDING))
+                    * (1 - 0.002f * Progression.rank(victim, Paragon.TOUGHNESS)));
         }
         ServerPlayer player = attacker(event.getEntity(), event.getSource());
         if (player == null) {
@@ -99,9 +101,9 @@ public final class PlayerHits {
         PacketDistributor.sendToPlayer(player, new DamageNumberPayload(event.getEntity().getId(), event.getNewDamage(), crushing));
 
         List<ItemStack> items = affixItems(player, weapon(player, event.getSource()));
-        // Two Bloodhunter pieces add 6%, and each Bloodthirsty rank 2%
-        int lifesteal = Math.min(MAX_LIFESTEAL, total(items, Loot.LIFESTEAL_TAG) + (SetBonuses.has(player, ItemSet.BLOODHUNTER, 2) ? 6 : 0)
-                + 2 * Progression.rank(player, Upgrade.BLOODTHIRSTY));
+        // Two Bloodhunter pieces add 6%, each Bloodthirsty rank 2% and each paragon Lifesteal point 0.1%
+        float lifesteal = Math.min(MAX_LIFESTEAL, total(items, Loot.LIFESTEAL_TAG) + (SetBonuses.has(player, ItemSet.BLOODHUNTER, 2) ? 6 : 0)
+                + 2 * Progression.rank(player, Upgrade.BLOODTHIRSTY) + 0.1f * Progression.rank(player, Paragon.LIFESTEAL));
         if (lifesteal > 0) {
             player.heal(event.getNewDamage() * lifesteal / 100f);
         }
