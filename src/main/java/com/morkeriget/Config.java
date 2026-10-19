@@ -11,6 +11,8 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue AFFIX_PER_LEVEL;
     public static final ModConfigSpec.DoubleValue SET_CHANCE_BOSS;
     public static final ModConfigSpec.DoubleValue SET_CHANCE_ELITE;
+    public static final ModConfigSpec.DoubleValue MYTHIC_CHANCE_BOSS;
+    public static final ModConfigSpec.DoubleValue MYTHIC_CHANCE_RIFT;
     public static final ModConfigSpec.DoubleValue ELITE_CHANCE;
     public static final ModConfigSpec.DoubleValue SECOND_MODIFIER_CHANCE;
     public static final ModConfigSpec.DoubleValue ELITE_HEALTH;
@@ -89,6 +91,10 @@ public final class Config {
                 .defineInRange("setChanceBoss", 0.3, 0, 1);
         SET_CHANCE_ELITE = BUILDER.comment("Chance for at en elite dropper en sæt-genstand i stedet for sin normale genstand (0.02 = 2 %)")
                 .defineInRange("setChanceElite", 0.02, 0, 1);
+        MYTHIC_CHANCE_BOSS = BUILDER.comment("Chance for at en boss dropper en mytisk genstand i stedet for sin legendariske (0.03 = 3 %)")
+                .defineInRange("mythicChanceBoss", 0.03, 0, 1);
+        MYTHIC_CHANCE_RIFT = BUILDER.comment("Chance pr. rift-niveau for en mytisk genstand, når en rift lukkes (0.01 = 1 %, så rift X giver 10 %)")
+                .defineInRange("mythicChancePerRiftTier", 0.01, 0, 1);
         BUILDER.pop();
 
         BUILDER.push("elites");

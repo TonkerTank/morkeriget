@@ -415,6 +415,12 @@ public final class Rifts {
             // A set piece, one normal item more for every third tier (at least rare from tier V), more essence per tier,
             // and a stone for the next tier
             rewards.add(Loot.createSet(random, monsterLevel));
+            // Higher tiers have a better chance of a mythic item
+            if (random.nextDouble() < Config.MYTHIC_CHANCE_RIFT.get() * tier) {
+                ItemStack mythic = Loot.createMythic(random, monsterLevel, Progression.playerClass(player));
+                rewards.add(mythic);
+                Loot.announceMythic(player, mythic);
+            }
             Rarity minimum = tier >= 5 ? Rarity.RARE : Rarity.MAGIC;
             for (int i = 0; i < 1 + (tier - 1) / 3; i++) {
                 rewards.add(Loot.create(random, Rarity.roll(random, minimum), monsterLevel, Progression.playerClass(player)));

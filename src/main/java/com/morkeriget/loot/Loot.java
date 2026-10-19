@@ -178,7 +178,9 @@ public final class Loot {
         PlayerClass killerClass = event.getEntity().getKillCredit() instanceof ServerPlayer killer ? Progression.playerClass(killer) : null;
         List<Rarity> drops = new ArrayList<>();
         if (Bosses.isBoss(event.getEntity())) {
-            drops.add(random.nextDouble() < Config.SET_CHANCE_BOSS.get() ? Rarity.SET : Rarity.LEGENDARY);
+            // The rarest drop in the game takes the place of the boss' legendary
+            drops.add(random.nextDouble() < Config.MYTHIC_CHANCE_BOSS.get() ? Rarity.MYTHIC
+                    : random.nextDouble() < Config.SET_CHANCE_BOSS.get() ? Rarity.SET : Rarity.LEGENDARY);
             drops.add(Rarity.roll(random, Rarity.RARE));
             drops.add(Rarity.roll(random, Rarity.RARE));
         } else if (Elites.isElite(event.getEntity())) {
@@ -188,7 +190,14 @@ public final class Loot {
         }
         Rarity best = null;
         for (Rarity rarity : drops) {
-            ItemStack stack = rarity == Rarity.SET ? createSet(random, itemLevel) : create(random, rarity, itemLevel, killerClass);
+            ItemStack stack = switch (rarity) {
+                case SET -> createSet(random, itemLevel);
+                case MYTHIC -> createMythic(random, itemLevel, killerClass);
+                default -> create(random, rarity, itemLevel, killerClass);
+            };
+            if (rarity == Rarity.MYTHIC && event.getEntity().getKillCredit() instanceof ServerPlayer finder) {
+                announceMythic(finder, stack);
+            }
             event.getDrops().add(new ItemEntity(event.getEntity().level(),
                     event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), stack));
             if (best == null || rarity.ordinal() > best.ordinal()) {
@@ -206,7 +215,14 @@ public final class Loot {
         double y = position.y + 0.5;
         double z = position.z;
         BlockPos pos = BlockPos.containing(position);
-        if (rarity == Rarity.SET) {
+        if (rarity == Rarity.MYTHIC) {
+            level.playSound(null, pos, SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 1.0f, 1.2f);
+            level.playSound(null, pos, SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
+            level.sendParticles(ParticleTypes.FLASH, x, y, z, 1, 0, 0, 0, 0);
+            level.sendParticles(ParticleTypes.DRAGON_BREATH, x, y, z, 80, 0.6, 0.8, 0.6, 0.05);
+            level.sendParticles(ParticleTypes.REVERSE_PORTAL, x, y, z, 100, 0.4, 1.0, 0.4, 0.3);
+            level.sendParticles(ParticleTypes.END_ROD, x, y, z, 40, 0.1, 3.0, 0.1, 0.02);
+        } else if (rarity == Rarity.SET) {
             level.playSound(null, pos, SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 1.0f, 1.5f);
             level.playSound(null, pos, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.8f);
             level.sendParticles(ParticleTypes.FLASH, x, y, z, 1, 0, 0, 0, 0);
@@ -226,6 +242,15 @@ public final class Loot {
             level.playSound(null, pos, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 1.0f, 1.6f);
             level.sendParticles(ParticleTypes.ENCHANT, x, y, z, 20, 0.3, 0.4, 0.3, 0.5);
         }
+    }
+
+    // Everyone on the server hears about it when someone finds a mythic item
+    public static void announceMythic(ServerPlayer finder, ItemStack stack) {
+        Component message = Component.literal("✦ ").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
+                .append(finder.getDisplayName().copy().withStyle(ChatFormatting.WHITE))
+                .append(Component.literal(" fandt en mytisk genstand: ").withStyle(ChatFormatting.LIGHT_PURPLE))
+                .append(stack.getHoverName());
+        finder.server.getPlayerList().broadcastSystemMessage(message, false);
     }
 
     private static Item randomItem(RandomSource random, int itemLevel) {
@@ -249,12 +274,12 @@ public final class Loot {
 
     // forClass is the class of the one who found it, so a legendary mostly gets a power they can use. It may be null
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, PlayerClass forClass) {
-        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass));
+        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass), null);
     }
 
     // Loot made from a chosen base item, e.g. for the /morkeriget loot command
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, Item item) {
-        return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, null));
+        return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, null), null);
     }
 
     // Loot of one kind of base item, e.g. a random ring, for the merchant. Empty if no such item drops at this level
@@ -263,12 +288,12 @@ public final class Loot {
         if (item == null) {
             return ItemStack.EMPTY;
         }
-        return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, forClass));
+        return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, forClass), null);
     }
 
     // A legendary with a chosen power, for the /morkeriget legendary command
     public static ItemStack createLegendary(RandomSource random, int itemLevel, LegendaryPower power) {
-        return roll(new ItemStack(randomItem(random, itemLevel)), random, Rarity.LEGENDARY, itemLevel, null, null, power);
+        return roll(new ItemStack(randomItem(random, itemLevel)), random, Rarity.LEGENDARY, itemLevel, null, null, power, null);
     }
 
     private static LegendaryPower power(RandomSource random, Rarity rarity, PlayerClass forClass) {
@@ -282,10 +307,19 @@ public final class Loot {
     }
 
     public static ItemStack createSet(RandomSource random, int itemLevel, ItemSet set, ItemSet.Piece piece) {
-        return roll(new ItemStack(piece.baseItem(itemLevel)), random, Rarity.SET, itemLevel, set, piece, null);
+        return roll(new ItemStack(piece.baseItem(itemLevel)), random, Rarity.SET, itemLevel, set, piece, null, null);
     }
 
-    // The same base item with the same rarity, level, set and legendary power, but new bonuses. Used by the smithy.
+    // A mythic item, mostly one the class of the one who found it can use. forClass may be null
+    public static ItemStack createMythic(RandomSource random, int itemLevel, PlayerClass forClass) {
+        return createMythic(random, itemLevel, MythicItem.roll(random, forClass));
+    }
+
+    public static ItemStack createMythic(RandomSource random, int itemLevel, MythicItem mythic) {
+        return roll(new ItemStack(mythic.baseItem()), random, Rarity.MYTHIC, itemLevel, null, null, null, mythic);
+    }
+
+    // The same base item with the same rarity, level, set, legendary power and mythic, but new bonuses. Used by the smithy.
     // Legendaries from before powers existed get one
     public static ItemStack reroll(ItemStack old, RandomSource random) {
         ItemStack stack = new ItemStack(old.getItem());
@@ -294,7 +328,7 @@ public final class Loot {
         }
         Rarity rarity = getRarity(old) != null ? getRarity(old) : Rarity.COMMON;
         LegendaryPower power = LegendaryPower.of(old) != null ? LegendaryPower.of(old) : power(random, rarity, null);
-        ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power);
+        ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power, MythicItem.of(old));
         // The sockets and gems stay as they were
         Gems.copy(old, rerolled);
         return rerolled;
@@ -327,9 +361,9 @@ public final class Loot {
     }
 
     // Gives a fresh item its affixes, name and lore. set and piece are null for items that aren't part of a set,
-    // and power is null for items that aren't legendary
+    // power is null for items that aren't legendary, and mythic for items that aren't mythic
     private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece,
-                                  LegendaryPower power) {
+                                  LegendaryPower power, MythicItem mythic) {
         // Flat affixes get stronger with the item level, see Scaling
         double fullScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
         double halfScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1) / 2;
@@ -348,7 +382,8 @@ public final class Loot {
         double totalQuality = 0;
         for (int i = 0; i < rarity.affixCount && !available.isEmpty(); i++) {
             Affix affix = available.remove(random.nextInt(available.size()));
-            double quality = random.nextDouble();
+            // Mythic bonuses always roll in the top 40%
+            double quality = mythic != null ? 0.6 + 0.4 * random.nextDouble() : random.nextDouble();
             totalQuality += quality;
             double scale = switch (affix.scaling) {
                 case FULL -> fullScale;
@@ -376,7 +411,9 @@ public final class Loot {
 
         Component baseName = stack.getItem().getDescription();
         Component name;
-        if (set != null) {
+        if (mythic != null) {
+            name = Component.literal(mythic.displayName);
+        } else if (set != null) {
             name = Component.literal(set.displayName + " ").append(baseName);
         } else if (rarity == Rarity.LEGENDARY) {
             name = Component.literal(LEGENDARY_NAMES.get(random.nextInt(LEGENDARY_NAMES.size())) + " ").append(baseName);
@@ -395,6 +432,12 @@ public final class Loot {
             lore.addAll(powerLore(power));
             power.markOn(stack);
         }
+        if (mythic != null) {
+            lore.add(Component.empty());
+            lore.add(Component.literal("✦ " + mythic.displayName).withStyle(ChatFormatting.LIGHT_PURPLE));
+            lore.add(Component.literal(mythic.description).withStyle(ChatFormatting.DARK_PURPLE));
+            mythic.markOn(stack);
+        }
         if (set != null) {
             List<String> pieceNames = set.pieces.stream().map(p -> p.displayName).toList();
             lore.add(Component.empty());
@@ -407,7 +450,7 @@ public final class Loot {
             lore.add(Component.literal("Tag på i Smykker (K)").withStyle(ChatFormatting.DARK_GRAY));
         }
         stack.set(DataComponents.LORE, new ItemLore(lore));
-        if (rarity == Rarity.LEGENDARY || rarity == Rarity.SET) {
+        if (rarity == Rarity.LEGENDARY || rarity == Rarity.SET || rarity == Rarity.MYTHIC) {
             stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
         }
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {

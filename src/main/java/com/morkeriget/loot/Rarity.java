@@ -10,7 +10,9 @@ public enum Rarity {
     RARE("Sjælden", ChatFormatting.YELLOW, 2, 15, 0xFFFF33),
     LEGENDARY("Legendarisk", ChatFormatting.GOLD, 4, 5, 0xFF8800),
     // Set items are never rolled at random (weight 0). They drop on purpose, see Loot.createSet
-    SET("Sæt", ChatFormatting.GREEN, 3, 0, 0x33FF55);
+    SET("Sæt", ChatFormatting.GREEN, 3, 0, 0x33FF55),
+    // Mythic items are never rolled at random either. They are the rarest drops, see Loot.createMythic
+    MYTHIC("Mytisk", ChatFormatting.LIGHT_PURPLE, 4, 0, 0xCC55FF);
 
     public final String displayName;
     public final ChatFormatting color;

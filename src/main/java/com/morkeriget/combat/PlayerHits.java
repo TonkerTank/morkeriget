@@ -46,6 +46,7 @@ public final class PlayerHits {
         NeoForge.EVENT_BUS.addListener(PlayerHits::onDamagePre);
         NeoForge.EVENT_BUS.addListener(PlayerHits::onDamagePost);
         LegendaryEffects.register();
+        MythicEffects.register();
     }
 
     private static void onDamagePre(LivingDamageEvent.Pre event) {
@@ -100,7 +101,8 @@ public final class PlayerHits {
         }
         PacketDistributor.sendToPlayer(player, new DamageNumberPayload(event.getEntity().getId(), event.getNewDamage(), crushing));
 
-        List<ItemStack> items = affixItems(player, weapon(player, event.getSource()));
+        ItemStack weapon = weapon(player, event.getSource());
+        List<ItemStack> items = affixItems(player, weapon);
         // Two Bloodhunter pieces add 6%, each Bloodthirsty rank 2% and each paragon Lifesteal point 0.1%
         float lifesteal = Math.min(MAX_LIFESTEAL, total(items, Loot.LIFESTEAL_TAG) + (SetBonuses.has(player, ItemSet.BLOODHUNTER, 2) ? 6 : 0)
                 + 2 * Progression.rank(player, Upgrade.BLOODTHIRSTY) + 0.1f * Progression.rank(player, Paragon.LIFESTEAL));
@@ -111,6 +113,7 @@ public final class PlayerHits {
         if (fireSeconds > 0) {
             event.getEntity().igniteForSeconds(fireSeconds);
         }
+        MythicEffects.afterHit(player, event.getEntity(), event.getSource(), weapon, event.getNewDamage());
     }
 
     // Sends part of the damage back to whoever hit the player

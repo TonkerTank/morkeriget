@@ -98,6 +98,27 @@ public final class SetBonuses {
             }));
         }
         event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(legendary));
+
+        // "/morkeriget mythic doombringer" gives that mythic item at your level. Without a name it lists them
+        LiteralArgumentBuilder<CommandSourceStack> mythic = Commands.literal("mythic").requires(source -> source.hasPermission(2))
+                .executes(context -> {
+                    context.getSource().sendSuccess(() -> Component.literal("Skriv /morkeriget mythic og en af disse:").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+                    for (MythicItem item : MythicItem.values()) {
+                        context.getSource().sendSuccess(() -> Component.literal(item.name().toLowerCase()).withStyle(ChatFormatting.LIGHT_PURPLE)
+                                .append(Component.literal(" - " + item.displayName + ": " + item.description).withStyle(ChatFormatting.GRAY)), false);
+                    }
+                    return 1;
+                });
+        for (MythicItem item : MythicItem.values()) {
+            mythic.then(Commands.literal(item.name().toLowerCase()).executes(context -> {
+                ServerPlayer player = context.getSource().getPlayerOrException();
+                ItemStack stack = Loot.createMythic(player.getRandom(), Progression.level(player), item);
+                player.getInventory().placeItemBackInInventory(stack);
+                context.getSource().sendSuccess(() -> Component.literal("Du fik ").append(stack.getHoverName()), false);
+                return 1;
+            }));
+        }
+        event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(mythic));
     }
 
     private static int giveLoot(CommandSourceStack source, Rarity rarity, int level, Item item) throws CommandSyntaxException {

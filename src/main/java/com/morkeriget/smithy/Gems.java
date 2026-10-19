@@ -67,6 +67,7 @@ public final class Gems {
             case MAGIC -> random.nextDouble() < 0.2 ? 1 : 0;
             case RARE -> random.nextDouble() < 0.35 ? 1 + random.nextInt(2) : 0;
             case LEGENDARY, SET -> random.nextDouble() < 0.5 ? 1 + random.nextInt(2) : 0;
+            case MYTHIC -> 2;
         };
     }
 

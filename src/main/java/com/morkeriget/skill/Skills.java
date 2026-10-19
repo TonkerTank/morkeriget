@@ -6,6 +6,7 @@ import java.util.List;
 import com.morkeriget.Config;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.LegendaryPower;
+import com.morkeriget.loot.MythicItem;
 import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.Paragon;
 import com.morkeriget.progress.PlayerClass;
@@ -92,6 +93,11 @@ public final class Skills {
         }
         // Each Arcane Flow rank makes skills 5% cheaper
         float manaCost = skill.manaCost() * (1 - 0.05f * Progression.rank(player, Upgrade.ARCANE_FLOW));
+        // The Jester's Crown takes off another 25%, and 25% of the cooldown below
+        boolean crown = !skill.isPotion() && MythicItem.has(player, MythicItem.JESTERS_CROWN);
+        if (crown) {
+            manaCost *= 0.75f;
+        }
         if (Mana.get(player) < manaCost) {
             player.displayClientMessage(Component.literal("Ikke nok mana til " + skill.displayName), true);
             return;
@@ -135,6 +141,7 @@ public final class Skills {
                 cooldownScale *= SetBonuses.has(player, ItemSet.STORMCALLER, 4) ? 0.7f : 1;
                 cooldownScale *= 1 - 0.04f * Progression.rank(player, Upgrade.TIME_WARP);
                 cooldownScale *= 1 - 0.002f * Progression.rank(player, Paragon.COOLDOWN);
+                cooldownScale *= crown ? 0.75f : 1;
             }
             int cooldown = Math.round(skill.cooldown() * cooldownScale);
             player.getPersistentData().putLong(readyTag, now + cooldown);
@@ -310,6 +317,16 @@ public final class Skills {
         level.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1, player.getZ(), 30, 0.4, 0.6, 0.4, 0.5);
         level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0f, 1.3f);
         return true;
+    }
+
+    // Makes every skill ready to use again, but not the potions. Used by the Starless Ring
+    public static void resetCooldowns(ServerPlayer player) {
+        for (Skill skill : Skill.values()) {
+            if (!skill.isPotion()) {
+                player.getPersistentData().remove("morkeriget_" + skill.name().toLowerCase() + "_ready");
+                PacketDistributor.sendToPlayer(player, new CooldownPayload(skill, 0));
+            }
+        }
     }
 
     // A roar that makes you stronger and tougher for a while and weakens the monsters around you
