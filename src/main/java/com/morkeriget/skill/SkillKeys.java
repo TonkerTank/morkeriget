@@ -5,6 +5,7 @@ import java.util.List;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.morkeriget.loot.LootFilter;
 import com.morkeriget.progress.ClassScreen;
 import com.morkeriget.progress.ClientProgress;
 import com.morkeriget.progress.PlayerClass;
@@ -36,6 +37,9 @@ public final class SkillKeys {
             SKILL_SLOTS.get(3), HEALTH_POTION, MANA_POTION);
     public static final KeyMapping SKILLS = new KeyMapping("key.morkeriget.skills",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.morkeriget");
+    // Switches what the loot filter hides, see LootFilter
+    public static final KeyMapping LOOT_FILTER = new KeyMapping("key.morkeriget.loot_filter",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.morkeriget");
 
     // 20 ticks is one second
     static final int DODGE_COOLDOWN = 2 * 20;
@@ -61,6 +65,7 @@ public final class SkillKeys {
         event.register(HEALTH_POTION);
         event.register(MANA_POTION);
         event.register(SKILLS);
+        event.register(LOOT_FILTER);
     }
 
     // A hotbar key that is also a skill key would switch item every time you use the skill, so its presses are thrown
@@ -109,6 +114,9 @@ public final class SkillKeys {
         while (SKILLS.consumeClick()) {
             // The first time, you pick a class
             Minecraft.getInstance().setScreen(playerClass == null ? new ClassScreen() : new SkillScreen());
+        }
+        while (LOOT_FILTER.consumeClick()) {
+            PacketDistributor.sendToServer(new LootFilter.CyclePayload());
         }
     }
 

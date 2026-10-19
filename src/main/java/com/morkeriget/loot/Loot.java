@@ -17,6 +17,7 @@ import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.skill.Minions;
 import com.morkeriget.smithy.Gems;
+import com.morkeriget.smithy.Smithy;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -162,6 +163,7 @@ public final class Loot {
 
     public static void register(IEventBus modEventBus) {
         Staffs.register(modEventBus);
+        LootFilter.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(Loot::onLivingDrops);
         SetBonuses.register();
     }
@@ -175,7 +177,8 @@ public final class Loot {
         // Loot gets the level of the monster. Monsters from before monster levels existed count as level 1
         int itemLevel = Math.max(1, MonsterLevels.get(event.getEntity()));
         // Legendary powers are mostly for the class of the one who got the kill
-        PlayerClass killerClass = event.getEntity().getKillCredit() instanceof ServerPlayer killer ? Progression.playerClass(killer) : null;
+        ServerPlayer killer = event.getEntity().getKillCredit() instanceof ServerPlayer player ? player : null;
+        PlayerClass killerClass = killer != null ? Progression.playerClass(killer) : null;
         List<Rarity> drops = new ArrayList<>();
         if (Bosses.isBoss(event.getEntity())) {
             // The rarest drop in the game takes the place of the boss' legendary
@@ -189,20 +192,30 @@ public final class Loot {
             drops.add(Rarity.roll(random, Rarity.COMMON));
         }
         Rarity best = null;
+        // What the killer's loot filter salvaged, dropped as one stack of essence
+        int essence = 0;
         for (Rarity rarity : drops) {
+            if (killer != null && LootFilter.hides(killer, rarity)) {
+                essence += Smithy.salvageValue(rarity);
+                continue;
+            }
             ItemStack stack = switch (rarity) {
                 case SET -> createSet(random, itemLevel);
                 case MYTHIC -> createMythic(random, itemLevel, killerClass);
                 default -> create(random, rarity, itemLevel, killerClass);
             };
-            if (rarity == Rarity.MYTHIC && event.getEntity().getKillCredit() instanceof ServerPlayer finder) {
-                announceMythic(finder, stack);
+            if (rarity == Rarity.MYTHIC && killer != null) {
+                announceMythic(killer, stack);
             }
             event.getDrops().add(new ItemEntity(event.getEntity().level(),
                     event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), stack));
             if (best == null || rarity.ordinal() > best.ordinal()) {
                 best = rarity;
             }
+        }
+        if (essence > 0) {
+            event.getDrops().add(new ItemEntity(event.getEntity().level(),
+                    event.getEntity().getX(), event.getEntity().getY(), event.getEntity().getZ(), new ItemStack(Smithy.ESSENCE.get(), essence)));
         }
         if (best != null && event.getEntity().level() instanceof ServerLevel level) {
             celebrate(level, event.getEntity().position(), best);
