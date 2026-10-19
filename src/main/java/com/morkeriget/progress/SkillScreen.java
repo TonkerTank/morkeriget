@@ -82,6 +82,11 @@ public class SkillScreen extends Screen {
         return compact() ? COMPACT_NODE_HEIGHT : NODE_HEIGHT;
     }
 
+    // Closer together when compact, so the class bonus stays above the stash and bounty buttons
+    private int sharedRowHeight() {
+        return compact() ? 22 : SHARED_ROW_HEIGHT;
+    }
+
     private int rowHeight() {
         return compact() ? COMPACT_NODE_HEIGHT + 3 : TREE_ROW_HEIGHT;
     }
@@ -149,7 +154,7 @@ public class SkillScreen extends Screen {
             }
         }
         for (int row = 0; row < SHARED.size(); row++) {
-            plusButton(progress, playerClass, SHARED.get(row), sharedX() + SHARED_WIDTH - 16, nodeY(0) + row * SHARED_ROW_HEIGHT + 4);
+            plusButton(progress, playerClass, SHARED.get(row), sharedX() + SHARED_WIDTH - 16, nodeY(0) + row * sharedRowHeight() + 4);
         }
         // Paragon points come after level 100
         if (progress.level() >= Progression.MAX_LEVEL) {
@@ -203,7 +208,7 @@ public class SkillScreen extends Screen {
         }
 
         // The shared upgrades and the class bonus in one box, stopping above the stash and bounty buttons
-        int bonusY = nodeY(0) + SHARED.size() * SHARED_ROW_HEIGHT + 4;
+        int bonusY = nodeY(0) + SHARED.size() * sharedRowHeight() + 4;
         int bonusLines = font.split(Component.literal("Klassebonus: " + playerClass.bonus), SHARED_WIDTH).size();
         int boxBottom = Math.min(bonusY + bonusLines * font.lineHeight + 2, keysY() - 47);
         UiTheme.box(graphics, sharedX() - 3, nodeY(0) - 2, SHARED_WIDTH + 5, boxBottom - nodeY(0) + 2, 0, true);
@@ -287,13 +292,13 @@ public class SkillScreen extends Screen {
 
         for (int row = 0; row < SHARED.size(); row++) {
             Upgrade upgrade = SHARED.get(row);
-            int y = nodeY(0) + row * SHARED_ROW_HEIGHT;
+            int y = nodeY(0) + row * sharedRowHeight();
             int rank = progress.rank(upgrade);
             graphics.drawString(font, upgrade.displayName + "  " + rank + "/" + upgrade.maxRank(), sharedX(), y + 3,
                     rank >= upgrade.maxRank() ? 0xFFD700 : UiTheme.TEXT);
             graphics.drawString(font, upgrade.description, sharedX(), y + 14, UiTheme.MUTED);
         }
-        graphics.drawWordWrap(font, Component.literal("Klassebonus: " + playerClass.bonus), sharedX(), nodeY(0) + SHARED.size() * SHARED_ROW_HEIGHT + 4,
+        graphics.drawWordWrap(font, Component.literal("Klassebonus: " + playerClass.bonus), sharedX(), nodeY(0) + SHARED.size() * sharedRowHeight() + 4,
                 SHARED_WIDTH, playerClass.color);
 
         drawKeys(graphics, progress);

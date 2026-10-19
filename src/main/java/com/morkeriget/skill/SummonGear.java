@@ -17,6 +17,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.DyedItemColor;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 // Summons get better gear every RANKS_PER_TIER ranks in their skill, so you can see them grow: the necromancer's
 // skeletons go from a stone sword to full netherite, and the ranger's wolves get wolf armour in better and better
@@ -66,6 +67,14 @@ final class SummonGear {
         }
         neverDrop(wolf);
         grow(wolf, tier);
+    }
+
+    // The owner of a wolf can shear its armour off, which would give free wolf armour every cast. Not from summons
+    static void onInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getTarget() instanceof Wolf wolf && wolf.getPersistentData().getLong(ClassSkills.SUMMON_UNTIL_TAG) > 0
+                && event.getItemStack().is(Items.SHEARS)) {
+            event.setCanceled(true);
+        }
     }
 
     // The best tier glints like an enchanted item

@@ -26,11 +26,14 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
@@ -65,6 +68,14 @@ public final class Skills {
         NeoForge.EVENT_BUS.addListener(TreeSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onDamagePost);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onProjectileImpact);
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> TreeSkills.forget(event.getEntity()));
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> TreeSkills.forget(event.getEntity()));
+        NeoForge.EVENT_BUS.addListener((LivingDeathEvent event) -> {
+            if (event.getEntity() instanceof Player player) {
+                TreeSkills.forget(player);
+            }
+        });
+        NeoForge.EVENT_BUS.addListener(SummonGear::onInteract);
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {

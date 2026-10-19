@@ -23,11 +23,13 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
@@ -305,6 +307,10 @@ final class TreeSkills {
         if (event.getProjectile() instanceof Arrow hurricane && hurricane.getPersistentData().getBoolean(HURRICANE_TAG)
                 && hurricane.level() instanceof ServerLevel level) {
             Vec3 hit = event.getRayTraceResult().getLocation();
+            // Two arrows a volley at the same monster would otherwise bounce off while it is still flashing from the last
+            if (event.getRayTraceResult() instanceof EntityHitResult entityHit) {
+                entityHit.getEntity().invulnerableTime = 0;
+            }
             level.sendParticles(ParticleTypes.CRIT, hit.x, hit.y, hit.z, 10, 0.2, 0.2, 0.2, 0.3);
             level.sendParticles(SkillVisuals.GOLD, hit.x, hit.y, hit.z, 8, 0.25, 0.25, 0.25, 0);
             hurricane.getPersistentData().remove(HURRICANE_TAG);
@@ -526,8 +532,9 @@ final class TreeSkills {
         double outer = inner + width;
         Vec3 center = effect.center;
         for (LivingEntity target : ClassSkills.enemies(level, center, outer)) {
+            // enemies() reaches a little past the radius, so the outer edge is checked too
             double distance = target.position().distanceTo(center);
-            if (distance < inner) {
+            if (distance < inner || distance >= outer) {
                 continue;
             }
             target.invulnerableTime = 0;
@@ -703,6 +710,12 @@ final class TreeSkills {
     }
 
     // Runs what the skills left behind when its time comes
+    // What a skill left behind stops when the player dies, logs out or goes to another dimension, so it doesn't
+    // go on at the old spot or come back later
+    static void forget(Player player) {
+        EFFECTS.remove(player.getUUID());
+    }
+
     static void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
@@ -741,7 +754,9 @@ final class TreeSkills {
                         doomSlamLanding(level, player);
                         next.add(new Effect(Kind.DOOM_SLAM_WAVE, player.position(), effect.damage, DOOM_SLAM_WAVES, now, 0));
                     } else {
-                        // A trail on the way down
+                        // A trail on the way down. The fall is reset every tick, like Leap, since the server hands
+                        // out fall damage as soon as you land, before this sees it
+                        player.resetFallDistance();
                         level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY(), player.getZ(), 2, 0.2, 0.1, 0.2, 0);
                         next.add(new Effect(effect.kind, effect.center, effect.damage, 1, now + 1, effect.until));
                     }

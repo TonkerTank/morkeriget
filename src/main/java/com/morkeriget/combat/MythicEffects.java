@@ -31,6 +31,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 // What the mythic items do, see MythicItem. Server only
@@ -48,6 +49,9 @@ public final class MythicEffects {
     private static final ResourceLocation AMULET_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "mythic_ancestors_amulet");
     // True while a mythic power hurts monsters itself, so that damage doesn't set the power off again
     private static boolean striking;
+    // What the player last swung their weapon at. Skills hurt monsters as the player too, so this is how Doombringer
+    // tells a real swing from a skill. Set right before the swing's damage, on the server thread
+    private static Entity swingTarget;
 
     private MythicEffects() {
     }
@@ -56,6 +60,12 @@ public final class MythicEffects {
         NeoForge.EVENT_BUS.addListener(MythicEffects::onDamagePre);
         NeoForge.EVENT_BUS.addListener(MythicEffects::onDeath);
         NeoForge.EVENT_BUS.addListener(MythicEffects::onPlayerTick);
+        // Only the server's own swing, since in singleplayer the client runs in the same game and swings too
+        NeoForge.EVENT_BUS.addListener((AttackEntityEvent event) -> {
+            if (!event.getEntity().level().isClientSide()) {
+                swingTarget = event.getTarget();
+            }
+        });
     }
 
     private static void onDamagePre(LivingDamageEvent.Pre event) {
@@ -76,7 +86,11 @@ public final class MythicEffects {
             return;
         }
         MythicItem mythic = MythicItem.of(weapon);
-        if (mythic == MythicItem.DOOMBRINGER && source.getDirectEntity() == player) {
+        boolean swing = source.getDirectEntity() == player && target == swingTarget;
+        if (swing) {
+            swingTarget = null;
+        }
+        if (mythic == MythicItem.DOOMBRINGER && swing) {
             int hits = player.getPersistentData().getInt(DOOMBRINGER_HITS_TAG) + 1;
             player.getPersistentData().putInt(DOOMBRINGER_HITS_TAG, hits % DOOMBRINGER_HITS);
             if (hits >= DOOMBRINGER_HITS) {
@@ -131,7 +145,12 @@ public final class MythicEffects {
         }
     }
 
+    // damage comes from a hit that already had the Ancestors' Amulet on it, and these hits get it again in onDamagePre,
+    // so it is taken out first
     private static void hurtAll(ServerPlayer player, List<LivingEntity> targets, float damage) {
+        if (MythicItem.has(player, MythicItem.ANCESTORS_AMULET)) {
+            damage /= AMULET_DAMAGE;
+        }
         striking = true;
         try {
             for (LivingEntity entity : targets) {
