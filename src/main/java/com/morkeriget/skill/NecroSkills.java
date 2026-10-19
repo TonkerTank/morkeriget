@@ -71,17 +71,34 @@ final class NecroSkills {
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.2 * upgrade);
         List<LivingEntity> hit = new ArrayList<>();
         double distance = end.distanceTo(eyes);
+        // Bone splinters and a wisp of soul where it leaves your hand
+        Vec3 hand = eyes.add(look.scale(0.8)).subtract(0, 0.3, 0);
+        level.sendParticles(BONE, hand.x, hand.y, hand.z, 8, 0.15, 0.15, 0.15, 0);
+        level.sendParticles(ParticleTypes.SOUL, hand.x, hand.y, hand.z, 3, 0.1, 0.1, 0.1, 0.02);
+        int steps = 0;
         for (double travelled = 0.5; travelled <= distance; travelled += 0.5) {
             Vec3 point = eyes.add(look.scale(travelled));
             level.sendParticles(BONE, point.x, point.y, point.z, 2, 0.05, 0.05, 0.05, 0);
+            // A pale streak behind the spear, with a soul now and then
+            level.sendParticles(SkillVisuals.BONE_DUST, point.x, point.y, point.z, 1, 0.03, 0.03, 0.03, 0);
+            if (steps++ % 4 == 0) {
+                level.sendParticles(ParticleTypes.SCULK_SOUL, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0.01);
+            }
             for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, new AABB(point, point).inflate(0.8),
                     entity -> Minions.isEnemy(entity) && !hit.contains(entity))) {
                 hit.add(target);
                 target.hurt(player.damageSources().playerAttack(player), damage);
+                level.sendParticles(BONE, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 10, 0.25, 0.3, 0.25, 0.1);
+                level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 5, 0.2, 0.2, 0.2, 0.3);
             }
         }
+        // It shatters on the wall at the end
+        level.sendParticles(BONE, end.x, end.y, end.z, 15, 0.2, 0.2, 0.2, 0.15);
+        level.sendParticles(ParticleTypes.POOF, end.x, end.y, end.z, 4, 0.1, 0.1, 0.1, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.SKELETON_SHOOT, SoundSource.PLAYERS, 1.0f, 0.6f);
         level.playSound(null, player.blockPosition(), SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, player.blockPosition(), SoundEvents.TRIDENT_THROW.value(), SoundSource.PLAYERS, 0.6f, 0.7f);
+        level.playSound(null, end.x, end.y, end.z, SoundEvents.BONE_BLOCK_HIT, SoundSource.PLAYERS, 1.0f, 0.7f);
         return true;
     }
 
@@ -121,11 +138,18 @@ final class NecroSkills {
             skeleton.setHealth(skeleton.getMaxHealth());
             skeleton.getPersistentData().putLong(ClassSkills.SUMMON_UNTIL_TAG, level.getGameTime() + SKELETON_LIFETIME);
             level.addFreshEntity(skeleton);
-            level.sendParticles(ParticleTypes.SOUL, skeleton.getX(), skeleton.getY() + 0.5, skeleton.getZ(), 15, 0.3, 0.5, 0.3, 0.02);
-            level.sendParticles(BONE, skeleton.getX(), skeleton.getY() + 0.2, skeleton.getZ(), 20, 0.4, 0.1, 0.4, 0);
+            level.sendParticles(ParticleTypes.SOUL, skeleton.getX(), skeleton.getY() + 0.5, skeleton.getZ(), 10, 0.3, 0.5, 0.3, 0.02);
+            level.sendParticles(BONE, skeleton.getX(), skeleton.getY() + 0.2, skeleton.getZ(), 15, 0.4, 0.1, 0.4, 0);
+            // Blue soul fire rising out of a dark patch on the ground where it climbs up
+            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, skeleton.getX(), skeleton.getY() + 0.1, skeleton.getZ(), 6, 0.3, 0.05, 0.3, 0.03);
+            SkillVisuals.ring(level, skeleton.position(), 0.05, 0.7, 8, SkillVisuals.SHADOW);
         }
+        // A ring of soul fire rolling out from you
+        SkillVisuals.burst(level, player.position(), 0.2, 16, 0.15, ParticleTypes.SOUL_FIRE_FLAME);
+        level.sendParticles(ParticleTypes.SCULK_SOUL, player.getX(), player.getY() + 1, player.getZ(), 6, 0.4, 0.5, 0.4, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_PREPARE_SUMMON, SoundSource.PLAYERS, 1.0f, 0.7f);
         level.playSound(null, player.blockPosition(), SoundEvents.WITHER_SKELETON_AMBIENT, SoundSource.PLAYERS, 1.0f, 1.0f);
+        level.playSound(null, player.blockPosition(), SoundEvents.SOUL_ESCAPE.value(), SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;
     }
 
@@ -142,8 +166,14 @@ final class NecroSkills {
             level.sendParticles(BONE, player.getX() + Math.cos(angle) * 1.2, player.getY() + 1, player.getZ() + Math.sin(angle) * 1.2,
                     3, 0.05, 0.4, 0.05, 0);
         }
+        // Bones winding up around you and pulled in tight, like the armour closing
+        SkillVisuals.spiral(level, player.position(), 1.0, 2.2, 2, 32, SkillVisuals.BONE_DUST);
+        SkillVisuals.implode(level, player.position(), 1.0, 2.0, 12, 0.15, ParticleTypes.WHITE_ASH);
+        level.sendParticles(ParticleTypes.SOUL, player.getX(), player.getY() + 1, player.getZ(), 5, 0.4, 0.5, 0.4, 0.02);
+        player.getPersistentData().putLong(SkillVisuals.BONE_ARMOR_UNTIL_TAG, level.getGameTime() + BONE_ARMOR_DURATION);
         level.playSound(null, player.blockPosition(), SoundEvents.BONE_BLOCK_PLACE, SoundSource.PLAYERS, 1.0f, 0.6f);
         level.playSound(null, player.blockPosition(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, player.blockPosition(), SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.6f, 0.7f);
         return true;
     }
 
@@ -156,8 +186,23 @@ final class NecroSkills {
             applyCurse(level, target, player, bonus);
         }
         level.sendParticles(ParticleTypes.SCULK_SOUL, player.getX(), player.getY() + 1, player.getZ(), 30, 3, 0.5, 3, 0.02);
+        // A sickly wave out to where it reaches and dark magic winding up around you
+        SkillVisuals.shockwave(level, player.position(), 0.2, CURSE_RADIUS, 3, SkillVisuals.CURSE_FADE);
+        SkillVisuals.spiral(level, player.position(), 0.9, 2.2, 2, 24, ParticleTypes.WITCH);
+        level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.3, player.getZ(), 8, 0.6, 0.1, 0.6, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_CAST_SPELL, SoundSource.PLAYERS, 1.0f, 0.5f);
+        level.playSound(null, player.blockPosition(), SoundEvents.ELDER_GUARDIAN_CURSE, SoundSource.PLAYERS, 0.3f, 1.3f);
         return true;
+    }
+
+    // A cursed enemy smokes a little once a second while the curse lasts. Called from ClassSkills.onEntityTick
+    static void curseGlow(ServerLevel level, LivingEntity entity) {
+        if (entity.getPersistentData().getLong(CURSED_UNTIL_TAG) > level.getGameTime() && entity.isAlive()) {
+            double top = entity.getY() + entity.getBbHeight();
+            level.sendParticles(ParticleTypes.WITCH, entity.getX(), top, entity.getZ(), 3, 0.25, 0.1, 0.25, 0.01);
+            level.sendParticles(SkillVisuals.CURSE_FADE, entity.getX(), entity.getY() + entity.getBbHeight() / 2, entity.getZ(),
+                    3, 0.3, 0.4, 0.3, 0);
+        }
     }
 
     // How much more damage cursed enemies take, in percent: 25%, and each Curse upgrade rank adds 5%
@@ -174,6 +219,7 @@ final class NecroSkills {
         data.putInt(CURSE_BONUS_TAG, bonus);
         data.putUUID(CURSED_BY_TAG, player.getUUID());
         level.sendParticles(ParticleTypes.SOUL, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(), 6, 0.3, 0.2, 0.3, 0.01);
+        level.sendParticles(ParticleTypes.WITCH, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 4, 0.3, 0.4, 0.3, 0.02);
     }
 
     // Cursed enemies take more damage from everything, also from other players, minions and fire

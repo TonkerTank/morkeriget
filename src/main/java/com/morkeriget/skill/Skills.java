@@ -13,6 +13,7 @@ import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -24,6 +25,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -45,6 +47,7 @@ public final class Skills {
     private static final int CHAIN_LIGHTNING_JUMPS = 3;
     private static final double BATTLE_CRY_RADIUS = 8.0;
     private static final int BATTLE_CRY_DURATION = 6 * 20;
+    private static final BlockParticleOption ICE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.PACKED_ICE.defaultBlockState());
 
     private Skills() {
     }
@@ -172,14 +175,33 @@ public final class Skills {
             } else {
                 target.knockback(0.6, -push.x, -push.z);
             }
+            level.sendParticles(ParticleTypes.ENCHANTED_HIT, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(),
+                    6, 0.3, 0.3, 0.3, 0.2);
         }
 
+        // Two rings of blades, a swirl of wind around you and dust kicked up from the ground
+        Vec3 center = player.position();
         for (int i = 0; i < 12; i++) {
             double angle = Math.PI * 2 * i / 12;
             level.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX() + Math.cos(angle) * 2.5, player.getY() + 1,
                     player.getZ() + Math.sin(angle) * 2.5, 1, 0, 0, 0, 0);
         }
+        for (int i = 0; i < 8; i++) {
+            double angle = Math.PI * 2 * (i + 0.5) / 8;
+            level.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX() + Math.cos(angle) * 1.5, player.getY() + 0.5,
+                    player.getZ() + Math.sin(angle) * 1.5, 1, 0, 0, 0, 0);
+        }
+        SkillVisuals.spiral(level, center, 2.0, 2.0, 2, 32, ParticleTypes.CRIT);
+        level.sendParticles(ParticleTypes.SMALL_GUST, player.getX(), player.getY() + 1, player.getZ(), 4, 1.2, 0.4, 1.2, 0);
+        if (maelstrom) {
+            // The wind pulls in, like the monsters
+            SkillVisuals.implode(level, center, 0.3, WHIRLWIND_RADIUS, 20, 0.35, ParticleTypes.CLOUD);
+        } else {
+            SkillVisuals.burst(level, center, 0.2, 20, 0.3, ParticleTypes.CLOUD);
+        }
         level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.8f, 1.3f);
+        level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 0.5f, 1.2f);
         return true;
     }
 
@@ -203,6 +225,7 @@ public final class Skills {
             target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 9));
             // Makes them shake and turn blue like in powder snow. It thaws by 2 every tick
             target.setTicksFrozen(target.getTicksRequiredToFreeze() + duration * 2);
+            level.sendParticles(ICE, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 6, 0.3, 0.4, 0.3, 0);
         }
 
         // Snowflakes flying outwards in a ring (count 0 means the offsets are used as speed)
@@ -211,8 +234,15 @@ public final class Skills {
             level.sendParticles(ParticleTypes.SNOWFLAKE, center.x, center.y + 0.5, center.z,
                     0, Math.cos(angle), 0, Math.sin(angle), 0.4);
         }
+        // A slower ring of snow behind it, frost on the ground out to the edge and a cold flash in the middle
+        SkillVisuals.burst(level, center, 0.2, 24, 0.25, ParticleTypes.ITEM_SNOWBALL);
+        SkillVisuals.shockwave(level, center, 0.1, radius, 3, SkillVisuals.FROST_FADE);
+        SkillVisuals.ring(level, center, 0.3, radius, 20, ICE);
+        level.sendParticles(ParticleTypes.END_ROD, center.x, center.y + 1, center.z, 12, 0.3, 0.5, 0.3, 0.08);
+        level.sendParticles(ParticleTypes.SNOWFLAKE, center.x, center.y + 1, center.z, 15, 0.4, 0.6, 0.4, 0.05);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.0f, 1.4f);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.PLAYERS, 0.8f, 0.7f);
     }
 
     // Teleports you a few blocks in the direction you are looking. Stops in front of walls
@@ -238,7 +268,16 @@ public final class Skills {
                     player.connection.teleport(feet.x, feet.y, feet.z, player.getYRot(), player.getXRot());
                     player.resetFallDistance();
                     level.sendParticles(ParticleTypes.REVERSE_PORTAL, feet.x, feet.y + 1, feet.z, 30, 0.3, 0.6, 0.3, 0.05);
+                    // A purple puff where you were, a streak of light along the way and a flash of sparks where you land
+                    level.sendParticles(SkillVisuals.ARCANE, from.x, from.y + 1, from.z, 15, 0.3, 0.6, 0.3, 0);
+                    level.sendParticles(ParticleTypes.WITCH, from.x, from.y + 1, from.z, 8, 0.3, 0.5, 0.3, 0.05);
+                    SkillVisuals.line(level, from.add(0, 1, 0), feet.add(0, 1, 0), 0.5, ParticleTypes.END_ROD);
+                    SkillVisuals.line(level, from.add(0, 0.6, 0), feet.add(0, 0.6, 0), 0.7, SkillVisuals.ARCANE);
+                    SkillVisuals.burst(level, feet, 0.1, 16, 0.15, ParticleTypes.END_ROD);
+                    level.sendParticles(ParticleTypes.ENCHANTED_HIT, feet.x, feet.y + 1, feet.z, 10, 0.3, 0.6, 0.3, 0.1);
+                    level.playSound(null, from.x, from.y, from.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.6f, 1.5f);
                     level.playSound(null, player.blockPosition(), SoundEvents.CHORUS_FRUIT_TELEPORT, SoundSource.PLAYERS, 1.0f, 1.2f);
+                    level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 1.6f);
                     if (LegendaryPower.has(player, LegendaryPower.FROST_TRAIL)) {
                         frostNovaAt(player, from);
                         frostNovaAt(player, feet);
@@ -265,15 +304,20 @@ public final class Skills {
             return false;
         }
         Vec3 from = player.position().add(0, player.getBbHeight() * 0.6, 0);
+        level.sendParticles(ParticleTypes.ELECTRIC_SPARK, from.x, from.y, from.z, 10, 0.3, 0.3, 0.3, 0.2);
         while (target != null && hit.size() <= jumps) {
             hit.add(target);
             Vec3 to = target.position().add(0, target.getBbHeight() / 2, 0);
             sparks(level, from, to);
             target.hurt(player.damageSources().playerAttack(player), damage);
+            // A crackle on each monster, a little higher for every jump
+            level.playSound(null, to.x, to.y, to.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.4f,
+                    Math.min(2.0f, 1.4f + 0.1f * hit.size()));
             from = to;
             target = closestEnemy(level, target, CHAIN_LIGHTNING_JUMP_RANGE, hit);
         }
         level.playSound(null, player.blockPosition(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.0f, 1.6f);
+        level.playSound(null, player.blockPosition(), SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.3f, 2.0f);
         return true;
     }
 
@@ -290,14 +334,11 @@ public final class Skills {
         return closest;
     }
 
-    // A line of electric sparks between two points
+    // A jagged bolt of electric sparks between two points, and a small burst of sparks where it hits
     private static void sparks(ServerLevel level, Vec3 from, Vec3 to) {
-        Vec3 step = to.subtract(from);
-        int count = (int) Math.ceil(step.length() / 0.4);
-        for (int i = 0; i <= count; i++) {
-            Vec3 point = from.add(step.scale((double) i / count));
-            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0);
-        }
+        SkillVisuals.zigzag(level, from, to, ParticleTypes.ELECTRIC_SPARK, SkillVisuals.SPARK);
+        level.sendParticles(ParticleTypes.ELECTRIC_SPARK, to.x, to.y, to.z, 8, 0.2, 0.3, 0.2, 0.3);
+        level.sendParticles(ParticleTypes.END_ROD, to.x, to.y, to.z, 3, 0.2, 0.2, 0.2, 0.05);
     }
 
     // Gives back part of your max health at once. Not used up if you already have full health
@@ -309,7 +350,10 @@ public final class Skills {
         player.heal(player.getMaxHealth() * Config.HEALTH_POTION_HEAL.get().floatValue());
         ServerLevel level = player.serverLevel();
         level.sendParticles(ParticleTypes.HEART, player.getX(), player.getY() + 1.8, player.getZ(), 6, 0.4, 0.3, 0.4, 0);
+        SkillVisuals.spiral(level, player.position(), 0.7, 2.0, 1.5, 18, SkillVisuals.LIFE);
+        level.sendParticles(ParticleTypes.HAPPY_VILLAGER, player.getX(), player.getY() + 1, player.getZ(), 6, 0.4, 0.5, 0.4, 0);
         level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0f, 1.0f);
+        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.6f, 1.2f);
         return true;
     }
 
@@ -322,7 +366,10 @@ public final class Skills {
         Mana.add(player, Config.MANA_POTION_MANA.get().floatValue());
         ServerLevel level = player.serverLevel();
         level.sendParticles(ParticleTypes.ENCHANT, player.getX(), player.getY() + 1, player.getZ(), 30, 0.4, 0.6, 0.4, 0.5);
+        SkillVisuals.spiral(level, player.position(), 0.7, 2.0, 1.5, 18, SkillVisuals.MANA);
+        level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 5, 0.3, 0.5, 0.3, 0.03);
         level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 1.0f, 1.3f);
+        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.6f, 1.8f);
         return true;
     }
 
@@ -348,6 +395,8 @@ public final class Skills {
             target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0));
             level.sendParticles(ParticleTypes.ANGRY_VILLAGER, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(),
                     3, 0.3, 0.2, 0.3, 0);
+            level.sendParticles(ParticleTypes.SMOKE, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(),
+                    4, 0.3, 0.4, 0.3, 0.01);
         }
 
         for (int i = 0; i < 24; i++) {
@@ -355,8 +404,16 @@ public final class Skills {
             level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1, player.getZ(),
                     0, Math.cos(angle), 0.1, Math.sin(angle), 0.8);
         }
+        // A golden shockwave out to where it reaches, a swirl going up around you and dust blown away from your feet
+        Vec3 center = player.position();
+        SkillVisuals.shockwave(level, center, 0.2, BATTLE_CRY_RADIUS, 3, SkillVisuals.GOLD);
+        SkillVisuals.spiral(level, center, 1.0, 2.4, 2, 28, SkillVisuals.RAGE);
+        SkillVisuals.burst(level, center, 0.1, 16, 0.3, ParticleTypes.POOF);
+        level.sendParticles(ParticleTypes.FLAME, player.getX(), player.getY() + 0.2, player.getZ(), 10, 0.5, 0.1, 0.5, 0.03);
+        player.getPersistentData().putLong(SkillVisuals.BATTLE_CRY_UNTIL_TAG, level.getGameTime() + duration);
         level.playSound(null, player.blockPosition(), SoundEvents.POLAR_BEAR_WARNING, SoundSource.PLAYERS, 1.0f, 0.9f);
         level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.0f, 0.6f);
+        level.playSound(null, player.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 0.6f, 1.3f);
         return true;
     }
 }

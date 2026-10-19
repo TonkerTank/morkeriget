@@ -15,6 +15,7 @@ import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -37,6 +38,7 @@ import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -94,7 +96,11 @@ final class ClassSkills {
         player.hurtMarked = true;
         LEAPING.put(player.getUUID(), player.serverLevel().getGameTime());
         player.serverLevel().sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.2, player.getZ(), 15, 0.4, 0.1, 0.4, 0.05);
+        // Dust pushed away from where you jumped off
+        SkillVisuals.burst(player.serverLevel(), player.position(), 0.1, 16, 0.25, ParticleTypes.POOF);
+        player.serverLevel().sendParticles(ParticleTypes.DUST_PLUME, player.getX(), player.getY() + 0.1, player.getZ(), 8, 0.4, 0.05, 0.4, 0.02);
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0f, 0.6f);
+        player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 0.5f, 0.8f);
         return true;
     }
 
@@ -103,6 +109,7 @@ final class ClassSkills {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
+        SkillVisuals.buffAuras(player);
         Rain rain = RAINS.get(player.getUUID());
         if (rain != null && player.serverLevel().getGameTime() >= rain.nextWave) {
             rainWave(player.serverLevel(), player, rain);
@@ -119,6 +126,11 @@ final class ClassSkills {
         }
         player.resetFallDistance();
         long time = player.serverLevel().getGameTime() - start;
+        // A trail of wind behind you in the air
+        if (!player.onGround()) {
+            player.serverLevel().sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.5, player.getZ(), 2, 0.2, 0.3, 0.2, 0);
+            player.serverLevel().sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1, player.getZ(), 1, 0.3, 0.4, 0.3, 0);
+        }
         if ((time > 5 && player.onGround()) || time > 60 || !player.isAlive()) {
             LEAPING.remove(player.getUUID());
             if (player.isAlive()) {
@@ -150,8 +162,19 @@ final class ClassSkills {
             level.sendParticles(ParticleTypes.EXPLOSION, player.getX() + Math.cos(angle) * 2.5, player.getY() + 0.2,
                     player.getZ() + Math.sin(angle) * 2.5, 1, 0, 0, 0, 0);
         }
+        // Bits of the ground thrown up, a ring of dust rolling out and cracks of dust out to the edge
+        BlockState ground = level.getBlockState(player.blockPosition().below());
+        if (!ground.isAir()) {
+            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), player.getX(), player.getY() + 0.1, player.getZ(),
+                    40, 1.2, 0.1, 1.2, 0.3);
+        }
+        Vec3 center = player.position();
+        SkillVisuals.burst(level, center, 0.2, 24, 0.4, ParticleTypes.CLOUD);
+        SkillVisuals.burst(level, center, 0.5, 16, 0.6, ParticleTypes.CRIT);
+        SkillVisuals.ring(level, center, 0.1, LEAP_RADIUS, 20, ParticleTypes.DUST_PLUME);
         level.playSound(null, player.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.8f, 0.6f);
         level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 1.4f);
+        level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.5f, 0.5f);
     }
 
     // Faster attacks and running for a while, and heals a little right away
@@ -164,7 +187,13 @@ final class ClassSkills {
         player.heal(player.getMaxHealth() * 0.15f);
         ServerLevel level = player.serverLevel();
         level.sendParticles(ParticleTypes.ANGRY_VILLAGER, player.getX(), player.getY() + 1, player.getZ(), 8, 0.5, 0.6, 0.5, 0);
+        // Red rage winding up around you, sparks flying off and a few hearts for the healing
+        SkillVisuals.spiral(level, player.position(), 0.9, 2.2, 2.5, 30, SkillVisuals.RAGE);
+        SkillVisuals.burst(level, player.position(), 1.0, 16, 0.5, ParticleTypes.CRIT);
+        level.sendParticles(ParticleTypes.HEART, player.getX(), player.getY() + 2, player.getZ(), 3, 0.4, 0.2, 0.4, 0);
+        player.getPersistentData().putLong(SkillVisuals.FRENZY_UNTIL_TAG, level.getGameTime() + duration);
         level.playSound(null, player.blockPosition(), SoundEvents.PIGLIN_BRUTE_ANGRY, SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, player.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 0.5f, 1.5f);
         return true;
     }
 
@@ -176,9 +205,19 @@ final class ClassSkills {
         Vec3 impact = level.clip(new ClipContext(eyes, eyes.add(look.scale(FIREBALL_RANGE)),
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player)).getLocation();
         double distance = impact.distanceTo(eyes);
+        // Sparks of fire in your hand as you throw it
+        Vec3 hand = eyes.add(look.scale(0.8)).subtract(0, 0.3, 0);
+        level.sendParticles(ParticleTypes.FLAME, hand.x, hand.y, hand.z, 8, 0.15, 0.15, 0.15, 0.03);
+        level.sendParticles(ParticleTypes.SMOKE, hand.x, hand.y, hand.z, 4, 0.1, 0.1, 0.1, 0.01);
+        int steps = 0;
         for (double travelled = 0.5; travelled <= distance; travelled += 0.5) {
             Vec3 point = eyes.add(look.scale(travelled));
             level.sendParticles(ParticleTypes.FLAME, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0);
+            // A glowing tail of embers and smoke behind it
+            level.sendParticles(SkillVisuals.FIRE_FADE, point.x, point.y, point.z, 1, 0.08, 0.08, 0.08, 0);
+            if (steps++ % 2 == 0) {
+                level.sendParticles(ParticleTypes.SMOKE, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0);
+            }
             if (!enemies(level, point, 0.6).isEmpty()) {
                 impact = point;
                 break;
@@ -194,8 +233,15 @@ final class ClassSkills {
         }
         level.sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y, impact.z, 3, 0.5, 0.5, 0.5, 0);
         level.sendParticles(ParticleTypes.FLAME, impact.x, impact.y, impact.z, 40, 0.8, 0.8, 0.8, 0.1);
+        // A ring of fire rolling out, lava drops, smoke and a burning edge where it reaches
+        SkillVisuals.burst(level, impact, 0, 20, 0.25, ParticleTypes.FLAME);
+        level.sendParticles(ParticleTypes.LAVA, impact.x, impact.y, impact.z, 10, 0.5, 0.3, 0.5, 0);
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, impact.x, impact.y + 0.5, impact.z, 10, 0.6, 0.5, 0.6, 0.02);
+        SkillVisuals.ring(level, impact, 0, FIREBALL_RADIUS, 20, SkillVisuals.FIRE_FADE);
         level.playSound(null, player.blockPosition(), SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.0f, 1.0f);
+        level.playSound(null, player.blockPosition(), SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.7f, 0.8f);
         level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 1.3f);
+        level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.LAVA_POP, SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;
     }
 
@@ -211,7 +257,14 @@ final class ClassSkills {
             Arrow arrow = arrow(level, player, damage);
             arrow.shootFromRotation(player, player.getXRot(), player.getYRot() + i * spread, 0, 3.0f, 1.0f);
             level.addFreshEntity(arrow);
+            // A streak flying off the bow along each arrow, so the fan can be seen
+            Vec3 way = Vec3.directionFromRotation(player.getXRot(), player.getYRot() + i * spread);
+            Vec3 start = player.getEyePosition().add(way.scale(1.2)).subtract(0, 0.2, 0);
+            level.sendParticles(ParticleTypes.CRIT, start.x, start.y, start.z, 0, way.x, way.y, way.z, 1.2);
+            level.sendParticles(ParticleTypes.ENCHANTED_HIT, start.x, start.y, start.z, 0, way.x, way.y, way.z, 0.8);
         }
+        Vec3 bow = player.getEyePosition().add(player.getLookAngle().scale(1.0)).subtract(0, 0.2, 0);
+        level.sendParticles(ParticleTypes.POOF, bow.x, bow.y, bow.z, 5, 0.15, 0.15, 0.15, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 1.0f, 0.9f);
         level.playSound(null, player.blockPosition(), SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 1.0f, 1.2f);
         return true;
@@ -229,7 +282,15 @@ final class ClassSkills {
         int waves = LegendaryPower.has(player, LegendaryPower.ENDLESS_RAIN) ? ARROW_RAIN_WAVES * 2 : ARROW_RAIN_WAVES;
         RAINS.put(player.getUUID(), new Rain(center, radius, damage, waves, level.getGameTime() + ARROW_RAIN_WAVE_TIME));
         circle(level, center, radius);
+        // A golden mark on the ground where it will come down, and a volley shot up into the sky
+        SkillVisuals.ring(level, center, 0.1, radius * 0.5, 12, SkillVisuals.GOLD);
+        level.sendParticles(SkillVisuals.GOLD, center.x, center.y + 0.1, center.z, 6, 0.2, 0, 0.2, 0);
+        for (int i = 0; i < 8; i++) {
+            level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.5, player.getZ(),
+                    0, (player.getRandom().nextDouble() - 0.5) * 0.3, 1, (player.getRandom().nextDouble() - 0.5) * 0.3, 1.5);
+        }
         level.playSound(null, player.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 1.0f, 0.6f);
+        level.playSound(null, player.blockPosition(), SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 0.7f, 0.8f);
         return true;
     }
 
@@ -252,14 +313,20 @@ final class ClassSkills {
     // One wave of arrows: falling arrow particles over the area and damage to every enemy in it
     private static void rainWave(ServerLevel level, ServerPlayer player, Rain rain) {
         RandomSource random = player.getRandom();
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < 14; i++) {
             double angle = random.nextDouble() * Math.PI * 2;
             double distance = random.nextDouble() * rain.radius;
             double x = rain.center.x + Math.cos(angle) * distance;
             double z = rain.center.z + Math.sin(angle) * distance;
             // Count 0 means the offsets are the speed, so these fly straight down
             level.sendParticles(ParticleTypes.CRIT, x, rain.center.y + 6, z, 0, 0, -1, 0, 1.5);
+            level.sendParticles(ParticleTypes.CRIT, x, rain.center.y + 4, z, 0, 0, -1, 0, 1.5);
+            // A puff of dust where it lands
+            if (i % 2 == 0) {
+                level.sendParticles(ParticleTypes.POOF, x, rain.center.y + 0.1, z, 1, 0.1, 0, 0.1, 0.01);
+            }
         }
+        SkillVisuals.ring(level, rain.center, 0.2, rain.radius, 12, ParticleTypes.CRIT);
         for (LivingEntity target : enemies(level, rain.center, rain.radius)) {
             // Each wave is its own hit, even if the monster was just hit
             target.invulnerableTime = 0;
@@ -303,9 +370,21 @@ final class ClassSkills {
             }
             target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 3 * 20, 0));
             target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 3 * 20, 1));
+            level.sendParticles(ParticleTypes.SQUID_INK, target.getX(), target.getY() + target.getBbHeight(), target.getZ(),
+                    4, 0.2, 0.1, 0.2, 0.02);
         }
+        Vec3 center = player.position();
+        // A flash and a pop, then a thick dark cloud that rolls outwards and smoke that hangs in the air for a while
+        level.sendParticles(ParticleTypes.FLASH, player.getX(), player.getY() + 1, player.getZ(), 1, 0, 0, 0, 0);
         level.sendParticles(ParticleTypes.LARGE_SMOKE, player.getX(), player.getY() + 1, player.getZ(), 80, 1.5, 1, 1.5, 0.02);
+        level.sendParticles(SkillVisuals.SHADOW, player.getX(), player.getY() + 1, player.getZ(), 30, 1.5, 0.8, 1.5, 0);
+        SkillVisuals.burst(level, center, 0.3, 20, 0.35, ParticleTypes.POOF);
+        level.sendParticles(ParticleTypes.SQUID_INK, player.getX(), player.getY() + 0.5, player.getZ(), 20, 0.8, 0.4, 0.8, 0.05);
+        level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, player.getX(), player.getY() + 0.3, player.getZ(), 8, 1.2, 0.2, 1.2, 0.01);
+        player.getPersistentData().putLong(SkillVisuals.SMOKE_BOMB_UNTIL_TAG, level.getGameTime() + duration);
         level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_EXTINGUISH_FIRE, SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.4f, 1.8f);
+        level.playSound(null, player.blockPosition(), SoundEvents.ILLUSIONER_MIRROR_MOVE, SoundSource.PLAYERS, 0.8f, 0.8f);
         return true;
     }
 
@@ -339,15 +418,31 @@ final class ClassSkills {
             }
             level.addFreshEntity(wolf);
             level.sendParticles(ParticleTypes.POOF, wolf.getX(), wolf.getY() + 0.5, wolf.getZ(), 10, 0.3, 0.3, 0.3, 0.02);
+            // Each wolf comes out of a swirl of pale mist
+            SkillVisuals.spiral(level, wolf.position(), 0.6, 1.2, 1.5, 14, SkillVisuals.BONE_DUST);
+            level.sendParticles(ParticleTypes.CLOUD, wolf.getX(), wolf.getY() + 0.2, wolf.getZ(), 6, 0.4, 0.1, 0.4, 0.02);
         }
+        SkillVisuals.burst(level, player.position(), 0.2, 16, 0.2, ParticleTypes.CLOUD);
+        level.sendParticles(ParticleTypes.ENCHANTED_HIT, player.getX(), player.getY() + 1, player.getZ(), 8, 0.4, 0.5, 0.4, 0.1);
         level.playSound(null, player.blockPosition(), SoundEvents.WOLF_HOWL, SoundSource.PLAYERS, 1.0f, 1.0f);
+        level.playSound(null, player.blockPosition(), SoundEvents.WOLF_GROWL, SoundSource.PLAYERS, 0.8f, 0.8f);
         return true;
     }
 
     // Summoned wolves go away again when their time is up
     static void onEntityTick(EntityTickEvent.Post event) {
-        if (!(event.getEntity().level() instanceof ServerLevel level) || event.getEntity().tickCount % 20 != 0) {
+        if (!(event.getEntity().level() instanceof ServerLevel level)) {
             return;
+        }
+        // Explosive Arrow leaves a trail of fire and smoke in the air
+        if (event.getEntity() instanceof Arrow arrow) {
+            TreeSkills.explosiveTrail(level, arrow);
+        }
+        if (event.getEntity().tickCount % 20 != 0) {
+            return;
+        }
+        if (event.getEntity() instanceof LivingEntity living) {
+            NecroSkills.curseGlow(level, living);
         }
         long until = event.getEntity().getPersistentData().getLong(SUMMON_UNTIL_TAG);
         if (until > 0 && level.getGameTime() > until) {

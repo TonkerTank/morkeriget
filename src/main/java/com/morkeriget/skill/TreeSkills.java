@@ -70,6 +70,9 @@ final class TreeSkills {
     private static final BlockParticleOption BONE =new BlockParticleOption(ParticleTypes.BLOCK, Blocks.BONE_BLOCK.defaultBlockState());
     private static final BlockParticleOption DIRT = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState());
     private static final DustParticleOptions BLOOD = new DustParticleOptions(new Vector3f(0.7f, 0.05f, 0.05f), 1.5f);
+    private static final BlockParticleOption STONE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.COBBLESTONE.defaultBlockState());
+    private static final BlockParticleOption ICE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.PACKED_ICE.defaultBlockState());
+    private static final BlockParticleOption MAGMA = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.MAGMA_BLOCK.defaultBlockState());
 
     // Something a skill left behind that happens later: earthquake pulses, a falling meteor, a trap waiting for a monster
     private enum Kind {
@@ -104,7 +107,12 @@ final class TreeSkills {
         // Aftershock makes it go on twice as long
         int pulses = LegendaryPower.has(player, LegendaryPower.AFTERSHOCK) ? EARTHQUAKE_PULSES * 2 : EARTHQUAKE_PULSES;
         add(player, new Effect(Kind.EARTHQUAKE, center, damage, pulses, level.getGameTime(), 0));
+        // You stamp the ground, and a crack of dust runs from your feet to the middle of it
+        level.sendParticles(DIRT, player.getX(), player.getY() + 0.1, player.getZ(), 20, 0.5, 0.05, 0.5, 0.2);
+        SkillVisuals.burst(level, player.position(), 0.1, 12, 0.25, ParticleTypes.POOF);
+        SkillVisuals.line(level, player.position().add(0, 0.1, 0), center.add(0, 0.1, 0), 0.4, ParticleTypes.DUST_PLUME);
         level.playSound(null, player.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.0f, 0.6f);
+        level.playSound(null, player.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.5f, 0.5f);
         return true;
     }
 
@@ -124,15 +132,25 @@ final class TreeSkills {
         float damage = attackDamage(player, 1.5, Upgrade.RUSH, 0.2);
         List<LivingEntity> hit = new ArrayList<>();
         double distance = end.distanceTo(start);
+        // A burst of dust behind you as you push off
+        level.sendParticles(ParticleTypes.POOF, start.x - flat.x * 0.5, start.y, start.z - flat.z * 0.5, 10, 0.3, 0.2, 0.3, 0.05);
+        int steps = 0;
         for (double travelled = 0; travelled <= distance; travelled += 0.5) {
             Vec3 point = start.add(flat.scale(travelled));
             level.sendParticles(ParticleTypes.CLOUD, point.x, point.y, point.z, 1, 0.2, 0.1, 0.2, 0);
+            // Dust kicked up along the ground and air cut to the sides
+            level.sendParticles(ParticleTypes.DUST_PLUME, point.x, point.y - 0.4, point.z, 1, 0.2, 0, 0.2, 0.01);
+            if (steps++ % 3 == 0) {
+                level.sendParticles(ParticleTypes.SWEEP_ATTACK, point.x, point.y + 0.5, point.z, 1, 0, 0, 0, 0);
+            }
             for (LivingEntity target : ClassSkills.enemies(level, point, 1.2)) {
                 if (!hit.contains(target)) {
                     hit.add(target);
                     target.hurt(player.damageSources().playerAttack(player), damage);
                     // Thrown to the side, out of the way
                     target.knockback(0.6, flat.z, -flat.x);
+                    level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(),
+                            10, 0.3, 0.3, 0.3, 0.3);
                 }
             }
         }
@@ -141,6 +159,10 @@ final class TreeSkills {
         player.hurtMarked = true;
         level.playSound(null, player.blockPosition(), SoundEvents.RAVAGER_STEP, SoundSource.PLAYERS, 1.0f, 1.2f);
         level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 0.5f, 1.0f);
+        if (!hit.isEmpty()) {
+            level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0f, 0.8f);
+        }
         return true;
     }
 
@@ -152,18 +174,31 @@ final class TreeSkills {
         // Each Meteor rank adds 20% damage
         float damage = attackDamage(player, 6.0, Upgrade.METEOR, 0.2);
         add(player, new Effect(Kind.METEOR, center, damage, 1, level.getGameTime() + METEOR_DELAY, 0));
-        circle(level, center, METEOR_RADIUS, ParticleTypes.FLAME);
+        meteorMark(level, center);
         // Meteor Shower: two more a little after, a few blocks to the sides
         if (LegendaryPower.has(player, LegendaryPower.METEOR_SHOWER)) {
             for (int i = 0; i < 2; i++) {
                 double angle = player.getRandom().nextDouble() * Math.PI * 2;
                 Vec3 spot = center.add(Math.cos(angle) * 4, 0, Math.sin(angle) * 4);
                 add(player, new Effect(Kind.METEOR, spot, damage, 1, level.getGameTime() + METEOR_DELAY + 10 * (i + 1), 0));
-                circle(level, spot, METEOR_RADIUS, ParticleTypes.FLAME);
+                meteorMark(level, spot);
             }
         }
+        // Fire gathering in your hands
+        SkillVisuals.spiral(level, player.position(), 0.7, 2.0, 2, 20, ParticleTypes.FLAME);
         level.playSound(null, player.blockPosition(), SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.0f, 0.5f);
+        level.playSound(null, player.blockPosition(), SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.8f, 0.6f);
         return true;
+    }
+
+    // The burning circle where a meteor will come down, and the glow in the sky above it
+    private static void meteorMark(ServerLevel level, Vec3 center) {
+        circle(level, center, METEOR_RADIUS, ParticleTypes.FLAME);
+        SkillVisuals.ring(level, center, 0.15, METEOR_RADIUS, 24, SkillVisuals.FIRE_FADE);
+        SkillVisuals.ring(level, center, 0.15, METEOR_RADIUS * 0.5, 12, SkillVisuals.FIRE);
+        level.sendParticles(ParticleTypes.SMOKE, center.x, center.y + 0.2, center.z, 10, METEOR_RADIUS / 3, 0.05, METEOR_RADIUS / 3, 0.01);
+        level.sendParticles(ParticleTypes.FLAME, center.x, center.y + 10, center.z, 10, 0.4, 0.4, 0.4, 0.02);
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, center.x, center.y + 10, center.z, 6, 0.5, 0.5, 0.5, 0.01);
     }
 
     // Extra hearts of ice for a while, and every monster that hits you freezes
@@ -174,9 +209,33 @@ final class TreeSkills {
         player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, 1));
         player.getPersistentData().putLong(ICE_ARMOR_UNTIL_TAG, level.getGameTime() + duration);
         level.sendParticles(ParticleTypes.SNOWFLAKE, player.getX(), player.getY() + 1, player.getZ(), 40, 0.5, 0.8, 0.5, 0.02);
+        // Frost winding up around you, ice shards pulled in to make the armour, and a cold glint
+        SkillVisuals.spiral(level, player.position(), 1.0, 2.2, 2, 30, SkillVisuals.FROST_FADE);
+        SkillVisuals.implode(level, player.position(), 1.0, 2.0, 12, 0.15, ParticleTypes.SNOWFLAKE);
+        level.sendParticles(ICE, player.getX(), player.getY() + 1, player.getZ(), 15, 0.4, 0.6, 0.4, 0);
+        level.sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(), 6, 0.4, 0.6, 0.4, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.GLASS_PLACE, SoundSource.PLAYERS, 1.0f, 0.6f);
         level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.0f, 1.2f);
+        level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 1.4f);
         return true;
+    }
+
+    // Frost going round you while Ice Armor lasts
+    private static void iceArmorGlow(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        long now = level.getGameTime();
+        if (now % 2 != 0 || player.getPersistentData().getLong(ICE_ARMOR_UNTIL_TAG) < now) {
+            return;
+        }
+        double angle = now * 0.3;
+        for (int i = 0; i < 2; i++) {
+            double a = angle + Math.PI * i;
+            level.sendParticles(SkillVisuals.FROST, player.getX() + Math.cos(a) * 0.8, player.getY() + 1 + Math.sin(now * 0.15) * 0.5,
+                    player.getZ() + Math.sin(a) * 0.8, 1, 0, 0, 0, 0);
+        }
+        if (now % 6 == 0) {
+            level.sendParticles(ParticleTypes.SNOWFLAKE, player.getX(), player.getY() + 1, player.getZ(), 2, 0.4, 0.6, 0.4, 0.01);
+        }
     }
 
     // Ice Armor freezes whoever hits you
@@ -188,6 +247,8 @@ final class TreeSkills {
         attacker.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 2 * 20, 9));
         attacker.setTicksFrozen(attacker.getTicksRequiredToFreeze() + 2 * 20 * 2);
         player.serverLevel().sendParticles(ParticleTypes.SNOWFLAKE, attacker.getX(), attacker.getY() + 1, attacker.getZ(), 10, 0.3, 0.5, 0.3, 0.02);
+        player.serverLevel().sendParticles(ICE, attacker.getX(), attacker.getY() + attacker.getBbHeight() / 2, attacker.getZ(), 8, 0.3, 0.4, 0.3, 0);
+        player.serverLevel().playSound(null, attacker.blockPosition(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.5f, 1.6f);
     }
 
     // One arrow that explodes where it hits, also on the ground
@@ -197,8 +258,20 @@ final class TreeSkills {
         arrow.getPersistentData().putBoolean(EXPLOSIVE_TAG, true);
         arrow.shootFromRotation(player, player.getXRot(), player.getYRot(), 0, 3.0f, 0.5f);
         level.addFreshEntity(arrow);
+        Vec3 bow = player.getEyePosition().add(player.getLookAngle().scale(1.0)).subtract(0, 0.2, 0);
+        level.sendParticles(ParticleTypes.FLAME, bow.x, bow.y, bow.z, 6, 0.1, 0.1, 0.1, 0.03);
+        level.sendParticles(ParticleTypes.SMOKE, bow.x, bow.y, bow.z, 4, 0.1, 0.1, 0.1, 0.02);
         level.playSound(null, player.blockPosition(), SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 1.0f, 0.7f);
+        level.playSound(null, player.blockPosition(), SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.5f, 1.4f);
         return true;
+    }
+
+    // Fire and smoke behind an Explosive Arrow while it flies. Called from ClassSkills.onEntityTick
+    static void explosiveTrail(ServerLevel level, Arrow arrow) {
+        if (arrow.getPersistentData().getBoolean(EXPLOSIVE_TAG)) {
+            level.sendParticles(ParticleTypes.FLAME, arrow.getX(), arrow.getY(), arrow.getZ(), 1, 0.05, 0.05, 0.05, 0);
+            level.sendParticles(ParticleTypes.SMOKE, arrow.getX(), arrow.getY(), arrow.getZ(), 1, 0.05, 0.05, 0.05, 0);
+        }
     }
 
     static void onProjectileImpact(ProjectileImpactEvent event) {
@@ -228,7 +301,13 @@ final class TreeSkills {
             target.hurt(player.damageSources().playerAttack(player), damage);
         }
         level.sendParticles(ParticleTypes.EXPLOSION, center.x, center.y, center.z, 3, radius / 5, 0.4, radius / 5, 0);
+        // Fire thrown out in a ring, smoke going up and a scorched edge
+        SkillVisuals.burst(level, center, 0.2, 20, 0.3, ParticleTypes.FLAME);
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, center.x, center.y + 0.5, center.z, 10, radius / 4, 0.4, radius / 4, 0.02);
+        level.sendParticles(ParticleTypes.LAVA, center.x, center.y + 0.3, center.z, 6, 0.4, 0.2, 0.4, 0);
+        SkillVisuals.ring(level, center, 0.1, radius, 16, SkillVisuals.FIRE_FADE);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 1.2f);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.5f, 0.6f);
     }
 
     // A trap on the ground where you aim. The first monster that steps in it gets hurt and can't move for a while
@@ -240,8 +319,17 @@ final class TreeSkills {
         long now = level.getGameTime();
         add(player, new Effect(Kind.BEAR_TRAP, center, damage, 1, now, now + BEAR_TRAP_LIFETIME));
         level.sendParticles(ParticleTypes.CRIT, center.x, center.y + 0.2, center.z, 10, 0.3, 0.05, 0.3, 0);
+        // The iron jaws as two rings on the ground, and dirt thrown up where it lands
+        trapJaws(level, center);
+        level.sendParticles(DIRT, center.x, center.y + 0.1, center.z, 10, 0.3, 0.05, 0.3, 0.1);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.PLAYERS, 0.7f, 1.4f);
         return true;
+    }
+
+    private static void trapJaws(ServerLevel level, Vec3 center) {
+        SkillVisuals.ring(level, center, 0.1, 0.7, 12, SkillVisuals.IRON);
+        SkillVisuals.ring(level, center, 0.15, 0.4, 8, SkillVisuals.IRON);
     }
 
     // Blood bursts out of you, hurts everything close by and heals you a little for every one it hits
@@ -260,8 +348,20 @@ final class TreeSkills {
             level.sendParticles(BLOOD, player.getX() + Math.cos(angle) * 2, player.getY() + 1, player.getZ() + Math.sin(angle) * 2,
                     1, Math.cos(angle) * 0.5, 0, Math.sin(angle) * 0.5, 0);
         }
+        // A wave of blood out to the edge, and from every one it hit a stream of blood back to you
+        Vec3 center = player.position();
+        SkillVisuals.shockwave(level, center, 0.6, BLOOD_NOVA_RADIUS, 2, SkillVisuals.BLOOD_FADE);
+        level.sendParticles(SkillVisuals.BLOOD_FADE, player.getX(), player.getY() + 1, player.getZ(), 15, 0.3, 0.5, 0.3, 0);
+        for (LivingEntity target : targets) {
+            level.sendParticles(BLOOD, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 6, 0.25, 0.3, 0.25, 0);
+            SkillVisuals.line(level, target.position().add(0, target.getBbHeight() / 2, 0), center.add(0, 1, 0), 0.6, BLOOD);
+        }
+        if (!targets.isEmpty()) {
+            level.sendParticles(ParticleTypes.HEART, player.getX(), player.getY() + 2, player.getZ(), 2, 0.3, 0.1, 0.3, 0);
+        }
         level.playSound(null, player.blockPosition(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.5f, 0.8f);
         level.playSound(null, player.blockPosition(), SoundEvents.SLIME_SQUISH, SoundSource.PLAYERS, 1.0f, 0.6f);
+        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_HURT_SWEET_BERRY_BUSH, SoundSource.PLAYERS, 0.8f, 0.6f);
         return true;
     }
 
@@ -283,10 +383,17 @@ final class TreeSkills {
                 level.sendParticles(BONE, target.getX() + Math.cos(angle) * 0.8, target.getY() + 0.5, target.getZ() + Math.sin(angle) * 0.8,
                         6, 0.05, 0.5, 0.05, 0);
             }
+            // The bars closing over its head, and the dust they threw up
+            SkillVisuals.ring(level, target.position(), target.getBbHeight() + 0.2, 0.5, 8, SkillVisuals.BONE_DUST);
+            level.sendParticles(ParticleTypes.WHITE_ASH, target.getX(), target.getY() + 0.1, target.getZ(), 6, 0.5, 0.05, 0.5, 0.02);
         }
         circle(level, center, BONE_PRISON_RADIUS, BONE);
+        SkillVisuals.ring(level, center, 0.1, BONE_PRISON_RADIUS, 24, SkillVisuals.BONE_DUST);
+        SkillVisuals.implode(level, center, 0.3, BONE_PRISON_RADIUS, 16, 0.25, ParticleTypes.SOUL);
+        level.sendParticles(ParticleTypes.SCULK_SOUL, center.x, center.y + 0.5, center.z, 8, 1.0, 0.3, 1.0, 0.02);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.BONE_BLOCK_PLACE, SoundSource.PLAYERS, 1.5f, 0.5f);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.SKELETON_AMBIENT, SoundSource.PLAYERS, 1.0f, 0.6f);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0f, 0.6f);
         return true;
     }
 
@@ -368,6 +475,7 @@ final class TreeSkills {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
+        iceArmorGlow(player);
         List<Effect> effects = EFFECTS.get(player.getUUID());
         if (effects == null) {
             return;
@@ -414,15 +522,33 @@ final class TreeSkills {
             target.invulnerableTime = 0;
             target.hurt(player.damageSources().playerAttack(player), effect.damage);
         }
-        level.sendParticles(DIRT, effect.center.x, effect.center.y + 0.1, effect.center.z, 40, EARTHQUAKE_RADIUS / 2, 0.1, EARTHQUAKE_RADIUS / 2, 0.2);
-        level.playSound(null, effect.center.x, effect.center.y, effect.center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.3f, 0.5f);
+        Vec3 center = effect.center;
+        level.sendParticles(DIRT, center.x, center.y + 0.1, center.z, 30, EARTHQUAKE_RADIUS / 2, 0.1, EARTHQUAKE_RADIUS / 2, 0.2);
+        // A ring of dust rolling out, the edge shaking and a couple of rocks bursting up from the ground
+        SkillVisuals.burst(level, center, 0.1, 12, 0.3, ParticleTypes.DUST_PLUME);
+        SkillVisuals.ring(level, center, 0.1, EARTHQUAKE_RADIUS, 16, SkillVisuals.EARTH_FADE);
+        RandomSource random = level.getRandom();
+        for (int i = 0; i < 2; i++) {
+            double angle = random.nextDouble() * Math.PI * 2;
+            double distance = random.nextDouble() * EARTHQUAKE_RADIUS;
+            level.sendParticles(STONE, center.x + Math.cos(angle) * distance, center.y + 0.2, center.z + Math.sin(angle) * distance,
+                    6, 0.15, 0.3, 0.15, 0.2);
+        }
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.3f, 0.5f);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.GRAVEL_BREAK, SoundSource.PLAYERS, 1.0f, 0.5f);
     }
 
     private static void meteorImpact(ServerLevel level, ServerPlayer player, Effect effect) {
         Vec3 center = effect.center;
-        // A trail of fire coming down from the sky
-        for (double y = 8; y > 0; y -= 0.5) {
-            level.sendParticles(ParticleTypes.FLAME, center.x, center.y + y, center.z, 2, 0.15, 0.1, 0.15, 0);
+        // A trail of fire and smoke coming down at a slant from the sky, from behind the player
+        Vec3 back = player.position().subtract(center).multiply(1, 0, 1);
+        back = back.lengthSqr() < 0.01 ? new Vec3(1, 0, 0) : back.normalize();
+        Vec3 sky = center.add(back.scale(4)).add(0, 10, 0);
+        for (double t = 0; t < 1; t += 0.05) {
+            Vec3 point = sky.lerp(center, t);
+            level.sendParticles(ParticleTypes.FLAME, point.x, point.y, point.z, 2, 0.15, 0.1, 0.15, 0);
+            level.sendParticles(ParticleTypes.LARGE_SMOKE, point.x, point.y, point.z, 1, 0.2, 0.2, 0.2, 0);
+            level.sendParticles(SkillVisuals.FIRE_FADE, point.x, point.y, point.z, 1, 0.25, 0.25, 0.25, 0);
         }
         for (LivingEntity target : ClassSkills.enemies(level, center, METEOR_RADIUS)) {
             target.invulnerableTime = 0;
@@ -431,7 +557,14 @@ final class TreeSkills {
         }
         level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y + 0.5, center.z, 1, 0, 0, 0, 0);
         level.sendParticles(ParticleTypes.LAVA, center.x, center.y + 0.5, center.z, 30, 1.5, 0.5, 1.5, 0);
+        // Fire rolling out over the ground, burning rock thrown up, a smoke cloud and the burnt edge
+        SkillVisuals.burst(level, center, 0.3, 32, 0.35, ParticleTypes.FLAME);
+        level.sendParticles(MAGMA, center.x, center.y + 0.3, center.z, 25, 1.0, 0.3, 1.0, 0.3);
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, center.x, center.y + 1, center.z, 20, 1.5, 0.8, 1.5, 0.03);
+        SkillVisuals.ring(level, center, 0.15, METEOR_RADIUS, 24, SkillVisuals.FIRE_FADE);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.2f, 0.7f);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 0.5f);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.LAVA_POP, SoundSource.PLAYERS, 1.2f, 0.6f);
     }
 
     // true if a monster stepped in the trap, so it is used up
@@ -439,8 +572,10 @@ final class TreeSkills {
         List<LivingEntity> caught = ClassSkills.enemies(level, effect.center, BEAR_TRAP_RADIUS);
         if (caught.isEmpty()) {
             // Glints a little now and then, so you can see where it is
-            if (level.getGameTime() % 20 == 0) {
+            // Once a second since it was put down. It is checked every BEAR_TRAP_CHECK ticks from then
+            if ((level.getGameTime() - (effect.until - BEAR_TRAP_LIFETIME)) % 20 == 0) {
                 level.sendParticles(ParticleTypes.CRIT, effect.center.x, effect.center.y + 0.1, effect.center.z, 3, 0.2, 0, 0.2, 0);
+                trapJaws(level, effect.center);
             }
             return false;
         }
@@ -448,7 +583,12 @@ final class TreeSkills {
         target.hurt(player.damageSources().playerAttack(player), effect.damage);
         hold(target, BEAR_TRAP_HOLD);
         level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 0.3, target.getZ(), 20, 0.3, 0.2, 0.3, 0.2);
+        // The jaws snap shut: two sweeps closing, blood and chips of iron
+        level.sendParticles(ParticleTypes.SWEEP_ATTACK, target.getX(), target.getY() + 0.3, target.getZ(), 2, 0.2, 0, 0.2, 0);
+        level.sendParticles(BLOOD, target.getX(), target.getY() + 0.4, target.getZ(), 10, 0.3, 0.2, 0.3, 0);
+        SkillVisuals.implode(level, target.position(), 0.2, 0.9, 12, 0.2, ParticleTypes.CRIT);
         level.playSound(null, target.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.6f, 1.6f);
+        level.playSound(null, target.blockPosition(), SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;
     }
 
