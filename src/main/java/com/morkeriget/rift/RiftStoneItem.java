@@ -23,7 +23,7 @@ public class RiftStoneItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (player instanceof ServerPlayer serverPlayer) {
-            if (!Rifts.start(serverPlayer, Rifts.tier(stack))) {
+            if (!Rifts.start(serverPlayer, Rifts.tier(stack), RiftAffix.of(stack))) {
                 return InteractionResultHolder.fail(stack);
             }
             stack.consume(1, player);
@@ -46,6 +46,15 @@ public class RiftStoneItem extends Item {
         if (tier > 1) {
             lines.add(Component.literal("Niveau " + Rifts.roman(tier) + ": monstre +" + (tier - 1) + " level, flere fjender og bedre loot")
                     .withStyle(ChatFormatting.DARK_PURPLE));
+        }
+        List<RiftAffix> affixes = RiftAffix.of(stack);
+        for (RiftAffix affix : affixes) {
+            lines.add(Component.literal("⚠ " + affix.displayName + ": ").withStyle(ChatFormatting.RED)
+                    .append(Component.literal(affix.description).withStyle(ChatFormatting.GRAY)));
+        }
+        if (!affixes.isEmpty()) {
+            lines.add(Component.literal("+" + affixes.size() + " ekstra genstande og +" + Math.round(affixes.size() * RiftAffix.REWARD_PER_AFFIX * 100)
+                    + "% essens, XP og chance for mytisk").withStyle(ChatFormatting.GOLD));
         }
         if (tier < Rifts.MAX_TIER) {
             lines.add(Component.literal("Luk riften for at få en riftsten " + Rifts.roman(tier + 1)).withStyle(ChatFormatting.DARK_GRAY));
