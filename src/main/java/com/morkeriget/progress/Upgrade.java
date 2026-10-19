@@ -16,6 +16,7 @@ public enum Upgrade {
     EARTHQUAKE("Jordskælv", "+20% skade pr. rank", Skill.EARTHQUAKE, PlayerClass.BARBARIAN, 2),
     RUSH("Stormløb", "+20% skade pr. rank", Skill.RUSH, PlayerClass.BARBARIAN, 2),
     RELENTLESS("Ubarmhjertig", "+4% knusende slag pr. rank", null, PlayerClass.BARBARIAN, 2),
+    DOOM_SLAM("Dommedagsslag", "+20% skade og større chokbølger pr. rank", Skill.DOOM_SLAM, PlayerClass.BARBARIAN, 3),
     // Sorcerer
     FROST_NOVA("Frostnova", "+0,5 blok og +0,5 sek. frys pr. rank", Skill.FROST_NOVA, PlayerClass.SORCERER, 0),
     FIREBALL("Ildkugle", "+20% skade pr. rank", Skill.FIREBALL, PlayerClass.SORCERER, 0),
@@ -37,6 +38,7 @@ public enum Upgrade {
     EXPLOSIVE_ARROW("Eksplosiv pil", "+15% skade pr. rank", Skill.EXPLOSIVE_ARROW, PlayerClass.RANGER, 2),
     BEAR_TRAP("Bjørnefælde", "+15% skade pr. rank", Skill.BEAR_TRAP, PlayerClass.RANGER, 2),
     PACK_LEADER("Flokleder", "+10% ulve-styrke pr. rank", null, PlayerClass.RANGER, 2),
+    ARROW_HURRICANE("Pileorkan", "+15% skade og +2 pile hver 2. rank", Skill.ARROW_HURRICANE, PlayerClass.RANGER, 3),
     // Necromancer
     BONE_SPEAR("Knoglespyd", "+20% skade pr. rank", Skill.BONE_SPEAR, PlayerClass.NECROMANCER, 0),
     BONE_ARMOR("Knoglerustning", "+5% af dit liv som skjold pr. rank", Skill.BONE_ARMOR, PlayerClass.NECROMANCER, 0),
@@ -47,6 +49,7 @@ public enum Upgrade {
     BLOOD_NOVA("Blodnova", "+20% skade pr. rank", Skill.BLOOD_NOVA, PlayerClass.NECROMANCER, 2),
     BONE_PRISON("Knoglefængsel", "+0,3 sek. fanget pr. rank", Skill.BONE_PRISON, PlayerClass.NECROMANCER, 2),
     SOUL_HARVEST("Sjælehøst", "+1% ekstra heling pr. dræb pr. rank", null, PlayerClass.NECROMANCER, 2),
+    ARMY_OF_THE_DEAD("De Dødes Hær", "+20% skade og +1 arm hver 2. rank", Skill.ARMY_OF_THE_DEAD, PlayerClass.NECROMANCER, 3),
     // For everyone
     VITALITY("Vitalitet", "+1 hjerte pr. rank", null, null, 0),
     SPIRIT("Ånd", "+20% hurtigere mana pr. rank", null, null, 0),

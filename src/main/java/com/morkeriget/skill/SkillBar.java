@@ -66,6 +66,9 @@ public final class SkillBar {
             case BLINK -> new ItemStack(Items.ENDER_PEARL);
             case CHAIN_LIGHTNING -> new ItemStack(Items.LIGHTNING_ROD);
             case THUNDERSTORM -> new ItemStack(Items.TRIDENT);
+            case DOOM_SLAM -> new ItemStack(Items.MACE);
+            case ARROW_HURRICANE -> new ItemStack(Items.TIPPED_ARROW);
+            case ARMY_OF_THE_DEAD -> new ItemStack(Items.WITHER_SKELETON_SKULL);
             case BATTLE_CRY -> new ItemStack(Items.GOAT_HORN);
             case LEAP -> new ItemStack(Items.RABBIT_FOOT);
             case FRENZY -> new ItemStack(Items.REDSTONE);

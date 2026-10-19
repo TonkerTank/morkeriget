@@ -34,7 +34,8 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import org.joml.Vector3f;
 
 // The skills in the third row of the skill trees: the barbarian's Earthquake and Rush, the sorcerer's Meteor and Ice
-// Armor, the ranger's Explosive Arrow and Bear Trap, and the necromancer's Blood Nova and Bone Prison. Server only,
+// Armor, the ranger's Explosive Arrow and Bear Trap, and the necromancer's Blood Nova and Bone Prison. Also the big
+// skill of each class in the fourth row: Doom Slam, Thunderstorm, Arrow Hurricane and Army of the Dead. Server only,
 // called from Skills.use
 final class TreeSkills {
     // 20 ticks is one second
@@ -76,8 +77,26 @@ final class TreeSkills {
 
     // Something a skill left behind that happens later: earthquake pulses, a falling meteor, a trap waiting for a monster
     private enum Kind {
-        EARTHQUAKE, METEOR, BEAR_TRAP, THUNDERSTORM
+        EARTHQUAKE, METEOR, BEAR_TRAP, THUNDERSTORM, DOOM_SLAM_FALL, DOOM_SLAM_WAVE, ARROW_HURRICANE, ARMY_OF_THE_DEAD
     }
+
+    // Doom Slam: you jump up, and when you land three shockwaves roll out, each further than the last
+    private static final double DOOM_SLAM_JUMP = 0.9;
+    private static final int DOOM_SLAM_WAVES = 3;
+    private static final double DOOM_SLAM_WAVE_WIDTH = 3.0;
+    private static final int DOOM_SLAM_WAVE_TIME = 4;
+    // Lands on its own after this, e.g. if you jumped onto a ledge and never "landed"
+    private static final int DOOM_SLAM_MAX_AIR = 40;
+    // Arrow Hurricane: two arrows at the monsters around you every HURRICANE_TIME
+    private static final double HURRICANE_RANGE = 16.0;
+    private static final int HURRICANE_VOLLEYS = 10;
+    private static final int HURRICANE_TIME = 5;
+    private static final double HURRICANE_ARROW_DAMAGE = 2.0;
+    // Army of the Dead: arms of bone come up under the monsters in the area, one every ARMY_TIME
+    private static final double ARMY_RADIUS = 7.0;
+    private static final double ARMY_HIT_RADIUS = 1.8;
+    private static final int ARMY_ARMS = 10;
+    private static final int ARMY_TIME = 4;
 
     private record Effect(Kind kind, Vec3 center, float damage, int left, long next, long until) {
     }
@@ -464,6 +483,153 @@ final class TreeSkills {
         level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.4f, 1.6f);
     }
 
+    // The barbarian jumps high, and slams down so hard the ground throws every monster around into the air
+    static boolean doomSlam(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        // Each Doom Slam rank adds 20% damage
+        float damage = attackDamage(player, 3.0, Upgrade.DOOM_SLAM, 0.2);
+        player.setDeltaMovement(player.getDeltaMovement().x * 0.3, DOOM_SLAM_JUMP, player.getDeltaMovement().z * 0.3);
+        player.hurtMarked = true;
+        long now = level.getGameTime();
+        // Waits a few ticks before checking for the ground, since you are still on it right when you jump
+        add(player, new Effect(Kind.DOOM_SLAM_FALL, player.position(), damage, 1, now + 5, now + DOOM_SLAM_MAX_AIR));
+        SkillVisuals.ring(level, player.position(), 0.1, 1.5, 20, ParticleTypes.CLOUD);
+        SkillVisuals.spiral(level, player.position(), 1.0, 2.5, 2, 30, SkillVisuals.RAGE);
+        level.playSound(null, player.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.2f, 0.7f);
+        level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0f, 0.5f);
+        return true;
+    }
+
+    private static void doomSlamLanding(ServerLevel level, ServerPlayer player) {
+        Vec3 center = player.position();
+        level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y + 0.3, center.z, 1, 0, 0, 0, 0);
+        level.sendParticles(DIRT, center.x, center.y + 0.2, center.z, 60, 1.5, 0.3, 1.5, 0.4);
+        SkillVisuals.burst(level, center, 0.3, 30, 0.5, ParticleTypes.CRIT);
+        level.playSound(null, player.blockPosition(), SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS, 1.5f, 0.6f);
+        level.playSound(null, player.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.0f, 0.5f);
+    }
+
+    // One shockwave. It hurts the monsters in its own band of distance, so each monster is only hit by one of them
+    private static void doomSlamWave(ServerLevel level, ServerPlayer player, Effect effect) {
+        int wave = DOOM_SLAM_WAVES - effect.left;
+        // Each rank makes the waves a little wider, up to rank 10
+        double width = DOOM_SLAM_WAVE_WIDTH + 0.1 * Upgrade.utility(Progression.rank(player, Upgrade.DOOM_SLAM));
+        double inner = wave * width;
+        double outer = inner + width;
+        Vec3 center = effect.center;
+        for (LivingEntity target : ClassSkills.enemies(level, center, outer)) {
+            double distance = target.position().distanceTo(center);
+            if (distance < inner) {
+                continue;
+            }
+            target.invulnerableTime = 0;
+            target.hurt(player.damageSources().playerAttack(player), effect.damage);
+            target.setDeltaMovement(target.getDeltaMovement().add(0, 0.7, 0));
+            target.hurtMarked = true;
+            level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 0.5, target.getZ(), 8, 0.3, 0.3, 0.3, 0.2);
+        }
+        SkillVisuals.ring(level, center, 0.2, outer, (int) (outer * 8), DIRT);
+        SkillVisuals.ring(level, center, 0.4, outer, (int) (outer * 5), SkillVisuals.EARTH_FADE);
+        SkillVisuals.ring(level, center, 0.1, outer - 0.5, (int) (outer * 4), ParticleTypes.CLOUD);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 0.6f + wave * 0.15f);
+    }
+
+    // The ranger turns into a storm of arrows: for a few seconds two arrows fly at the monsters around them every
+    // quarter of a second, by themselves
+    static boolean arrowHurricane(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        // Each Arrow Hurricane rank adds 15% damage, and every second rank a volley of two arrows
+        int rank = Progression.rank(player, Upgrade.ARROW_HURRICANE);
+        float damage = (float) (HURRICANE_ARROW_DAMAGE * (1 + 0.15 * rank));
+        int volleys = HURRICANE_VOLLEYS + Upgrade.utility(rank) / 2;
+        add(player, new Effect(Kind.ARROW_HURRICANE, player.position(), damage, volleys, level.getGameTime(), 0));
+        SkillVisuals.spiral(level, player.position(), 1.5, 3.0, 3, 45, ParticleTypes.CLOUD);
+        SkillVisuals.ring(level, player.position(), 0.1, 2.0, 24, SkillVisuals.GOLD);
+        level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1.0f, 0.8f);
+        level.playSound(null, player.blockPosition(), SoundEvents.CROSSBOW_LOADING_END.value(), SoundSource.PLAYERS, 1.0f, 1.2f);
+        return true;
+    }
+
+    private static void hurricaneVolley(ServerLevel level, ServerPlayer player, Effect effect) {
+        // Wind swirling around the ranger the whole time
+        double turn = level.getGameTime() * 0.6;
+        for (int i = 0; i < 3; i++) {
+            double angle = turn + Math.PI * 2 * i / 3;
+            level.sendParticles(ParticleTypes.CLOUD, player.getX() + Math.cos(angle) * 1.4, player.getY() + 0.3 + i * 0.6,
+                    player.getZ() + Math.sin(angle) * 1.4, 1, 0, 0.05, 0, 0.01);
+            level.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX() + Math.cos(angle + 1) * 1.2, player.getY() + 1,
+                    player.getZ() + Math.sin(angle + 1) * 1.2, 1, 0, 0, 0, 0);
+        }
+        List<LivingEntity> targets = new ArrayList<>(ClassSkills.enemies(level, player.position(), HURRICANE_RANGE));
+        if (targets.isEmpty()) {
+            return;
+        }
+        RandomSource random = player.getRandom();
+        Vec3 from = player.getEyePosition().subtract(0, 0.2, 0);
+        for (int i = 0; i < 2; i++) {
+            LivingEntity target = targets.get(random.nextInt(targets.size()));
+            Arrow arrow = ClassSkills.arrow(level, player, effect.damage);
+            arrow.setPos(from.x, from.y, from.z);
+            Vec3 aim = target.position().add(0, target.getBbHeight() * 0.6, 0).subtract(from);
+            // A little higher the further away, so the arrow doesn't drop short
+            arrow.shoot(aim.x, aim.y + aim.horizontalDistance() * 0.05, aim.z, 2.6f, 1.5f);
+            level.addFreshEntity(arrow);
+        }
+        level.playSound(null, player.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 0.7f, 1.2f + random.nextFloat() * 0.4f);
+    }
+
+    // The necromancer calls the dead up from the ground where they aim: arms of bone burst up under the monsters there,
+    // hurt them and hold them for a moment
+    static boolean armyOfTheDead(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        Vec3 center = ClassSkills.arrowRainTarget(level, player);
+        // Each Army of the Dead rank adds 20% damage, and every second rank an arm
+        int rank = Progression.rank(player, Upgrade.ARMY_OF_THE_DEAD);
+        float damage = attackDamage(player, 1.8, Upgrade.ARMY_OF_THE_DEAD, 0.2);
+        int arms = ARMY_ARMS + Upgrade.utility(rank) / 2;
+        add(player, new Effect(Kind.ARMY_OF_THE_DEAD, center, damage, arms, level.getGameTime() + 10, 0));
+        SkillVisuals.ring(level, center, 0.1, ARMY_RADIUS, 48, SkillVisuals.SHADOW);
+        SkillVisuals.ring(level, center, 0.1, ARMY_RADIUS - 0.5, 32, ParticleTypes.SOUL);
+        level.sendParticles(ParticleTypes.SCULK_SOUL, center.x, center.y + 0.3, center.z, 30, ARMY_RADIUS / 2, 0.2, ARMY_RADIUS / 2, 0.02);
+        level.sendParticles(ParticleTypes.SQUID_INK, center.x, center.y + 0.1, center.z, 25, ARMY_RADIUS / 2, 0.05, ARMY_RADIUS / 2, 0.01);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.WITHER_AMBIENT, SoundSource.PLAYERS, 0.6f, 0.6f);
+        level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_PREPARE_SUMMON, SoundSource.PLAYERS, 1.0f, 0.5f);
+        return true;
+    }
+
+    // One arm, under a random monster in the area, or a random spot if there are none
+    private static void boneArm(ServerLevel level, ServerPlayer player, Effect effect) {
+        RandomSource random = player.getRandom();
+        List<LivingEntity> inside = ClassSkills.enemies(level, effect.center, ARMY_RADIUS);
+        Vec3 spot;
+        if (!inside.isEmpty()) {
+            spot = inside.get(random.nextInt(inside.size())).position();
+        } else {
+            double angle = random.nextDouble() * Math.PI * 2;
+            double distance = random.nextDouble() * ARMY_RADIUS;
+            spot = effect.center.add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+        }
+        for (LivingEntity target : ClassSkills.enemies(level, spot, ARMY_HIT_RADIUS)) {
+            target.invulnerableTime = 0;
+            target.hurt(player.damageSources().playerAttack(player), effect.damage);
+            hold(target, 15);
+        }
+        // A column of bone shooting up, with grasping fingers spread out at the top and souls rising from the hole
+        for (double y = 0; y < 2.2; y += 0.25) {
+            level.sendParticles(BONE, spot.x, spot.y + y, spot.z, 2, 0.12, 0.05, 0.12, 0);
+        }
+        for (int i = 0; i < 5; i++) {
+            double angle = Math.PI * 2 * i / 5;
+            level.sendParticles(SkillVisuals.BONE_DUST, spot.x + Math.cos(angle) * 0.4, spot.y + 2.3, spot.z + Math.sin(angle) * 0.4,
+                    2, 0.03, 0.15, 0.03, 0);
+        }
+        SkillVisuals.ring(level, spot, 0.1, 1.0, 12, SkillVisuals.SHADOW);
+        level.sendParticles(ParticleTypes.SOUL, spot.x, spot.y + 0.5, spot.z, 4, 0.3, 0.3, 0.3, 0.03);
+        level.sendParticles(DIRT, spot.x, spot.y + 0.1, spot.z, 12, 0.4, 0.1, 0.4, 0.15);
+        level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.PLAYERS, 1.0f, 0.6f + random.nextFloat() * 0.3f);
+        level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 0.5f, 0.5f);
+    }
+
     // Can't move and barely hurts
     private static void hold(LivingEntity target, int duration) {
         target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 9));
@@ -501,6 +667,35 @@ final class TreeSkills {
                     lightningStrike(level, player, effect);
                     if (effect.left > 1) {
                         next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + STORM_BOLT_TIME, 0));
+                    }
+                }
+                case DOOM_SLAM_FALL -> {
+                    if (player.onGround() || now >= effect.until) {
+                        player.resetFallDistance();
+                        doomSlamLanding(level, player);
+                        next.add(new Effect(Kind.DOOM_SLAM_WAVE, player.position(), effect.damage, DOOM_SLAM_WAVES, now, 0));
+                    } else {
+                        // A trail on the way down
+                        level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY(), player.getZ(), 2, 0.2, 0.1, 0.2, 0);
+                        next.add(new Effect(effect.kind, effect.center, effect.damage, 1, now + 1, effect.until));
+                    }
+                }
+                case DOOM_SLAM_WAVE -> {
+                    doomSlamWave(level, player, effect);
+                    if (effect.left > 1) {
+                        next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + DOOM_SLAM_WAVE_TIME, 0));
+                    }
+                }
+                case ARROW_HURRICANE -> {
+                    hurricaneVolley(level, player, effect);
+                    if (effect.left > 1) {
+                        next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + HURRICANE_TIME, 0));
+                    }
+                }
+                case ARMY_OF_THE_DEAD -> {
+                    boneArm(level, player, effect);
+                    if (effect.left > 1) {
+                        next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + ARMY_TIME, 0));
                     }
                 }
                 case BEAR_TRAP -> {

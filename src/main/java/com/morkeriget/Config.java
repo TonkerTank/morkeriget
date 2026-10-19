@@ -74,6 +74,12 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue BONE_PRISON_COOLDOWN;
     public static final ModConfigSpec.DoubleValue THUNDERSTORM_MANA;
     public static final ModConfigSpec.DoubleValue THUNDERSTORM_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue DOOM_SLAM_MANA;
+    public static final ModConfigSpec.DoubleValue DOOM_SLAM_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue ARROW_HURRICANE_MANA;
+    public static final ModConfigSpec.DoubleValue ARROW_HURRICANE_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue ARMY_OF_THE_DEAD_MANA;
+    public static final ModConfigSpec.DoubleValue ARMY_OF_THE_DEAD_COOLDOWN;
     public static final ModConfigSpec.DoubleValue HEALTH_POTION_HEAL;
     public static final ModConfigSpec.DoubleValue HEALTH_POTION_COOLDOWN;
     public static final ModConfigSpec.DoubleValue MANA_POTION_MANA;
@@ -184,6 +190,12 @@ public final class Config {
         BONE_PRISON_COOLDOWN = BUILDER.comment("Knoglefængsel (nekromantiker): cooldown i sekunder").defineInRange("bonePrisonCooldown", 14.0, 0, 600);
         THUNDERSTORM_MANA = BUILDER.comment("Tordenvejr (troldmand): mana det koster").defineInRange("thunderstormMana", 60.0, 0, 100);
         THUNDERSTORM_COOLDOWN = BUILDER.comment("Tordenvejr (troldmand): cooldown i sekunder").defineInRange("thunderstormCooldown", 16.0, 0, 600);
+        DOOM_SLAM_MANA = BUILDER.comment("Dommedagsslag (barbar): mana det koster").defineInRange("doomSlamMana", 60.0, 0, 100);
+        DOOM_SLAM_COOLDOWN = BUILDER.comment("Dommedagsslag (barbar): cooldown i sekunder").defineInRange("doomSlamCooldown", 16.0, 0, 600);
+        ARROW_HURRICANE_MANA = BUILDER.comment("Pileorkan (jæger): mana det koster").defineInRange("arrowHurricaneMana", 60.0, 0, 100);
+        ARROW_HURRICANE_COOLDOWN = BUILDER.comment("Pileorkan (jæger): cooldown i sekunder").defineInRange("arrowHurricaneCooldown", 18.0, 0, 600);
+        ARMY_OF_THE_DEAD_MANA = BUILDER.comment("De Dødes Hær (nekromantiker): mana det koster").defineInRange("armyOfTheDeadMana", 60.0, 0, 100);
+        ARMY_OF_THE_DEAD_COOLDOWN = BUILDER.comment("De Dødes Hær (nekromantiker): cooldown i sekunder").defineInRange("armyOfTheDeadCooldown", 16.0, 0, 600);
         HEALTH_POTION_HEAL = BUILDER.comment("Livsdrik: hvor meget af dit max liv den giver tilbage (0.4 = 40 %)")
                 .defineInRange("healthPotionHeal", 0.4, 0, 1);
         HEALTH_POTION_COOLDOWN = BUILDER.comment("Livsdrik: cooldown i sekunder").defineInRange("healthPotionCooldown", 20.0, 0, 600);

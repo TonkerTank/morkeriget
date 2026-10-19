@@ -134,6 +134,9 @@ public final class Skills {
             case BONE_PRISON -> TreeSkills.bonePrison(player);
             // The fourth row
             case THUNDERSTORM -> TreeSkills.thunderstorm(player);
+            case DOOM_SLAM -> TreeSkills.doomSlam(player);
+            case ARROW_HURRICANE -> TreeSkills.arrowHurricane(player);
+            case ARMY_OF_THE_DEAD -> TreeSkills.armyOfTheDead(player);
             case HEALTH_POTION -> healthPotion(player);
             case MANA_POTION -> manaPotion(player);
         };

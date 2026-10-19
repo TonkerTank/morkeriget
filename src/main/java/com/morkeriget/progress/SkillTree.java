@@ -7,7 +7,7 @@ import java.util.function.ToIntFunction;
 // start, and the next rows open when you have spent enough points in the tree. The ranks come in as a function,
 // since the server has them in PlayerProgress and the client in ProgressPayload
 public final class SkillTree {
-    // The most rows a tree can have. Not every class has something in the last one yet, see rows()
+    // The most rows a tree can have. The fourth has each class's big skill, see rows()
     public static final int ROWS = 4;
     // Points spent in the tree it takes to open each row
     private static final int[] ROW_POINTS = {0, 4, 10, 20};
