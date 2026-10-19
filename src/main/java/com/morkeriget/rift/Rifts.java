@@ -42,6 +42,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.BossEvent;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -63,16 +64,19 @@ import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -138,7 +142,10 @@ public final class Rifts {
         NeoForge.EVENT_BUS.addListener(Rifts::onServerTick);
         NeoForge.EVENT_BUS.addListener(Rifts::onJoinLevel);
         NeoForge.EVENT_BUS.addListener(Rifts::onDrops);
-        NeoForge.EVENT_BUS.addListener(Rifts::onDamagePre);
+        // Before the boss limit on how hard one hit can be, so Furious can't push the guardian past it
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, Rifts::onDamagePre);
+        NeoForge.EVENT_BUS.addListener(Rifts::onConversion);
+        NeoForge.EVENT_BUS.addListener(Rifts::onLogout);
         NeoForge.EVENT_BUS.addListener(Rifts::onDamagePost);
         NeoForge.EVENT_BUS.addListener(Rifts::onHeal);
         NeoForge.EVENT_BUS.addListener(Rifts::onDeath);
@@ -153,8 +160,10 @@ public final class Rifts {
                 .then(Commands.argument("tier", IntegerArgumentType.integer(1, MAX_TIER)).executes(context -> {
                     ServerPlayer player = context.getSource().getPlayerOrException();
                     ItemStack stone = stone(IntegerArgumentType.getInteger(context, "tier"), player.getRandom());
+                    // The name before the stack goes into the inventory, which empties it
+                    Component name = stone.getHoverName();
                     player.getInventory().placeItemBackInInventory(stone);
-                    context.getSource().sendSuccess(() -> Component.literal("Du fik ").append(stone.getHoverName()), false);
+                    context.getSource().sendSuccess(() -> Component.literal("Du fik ").append(name), false);
                     return 1;
                 }))));
     }
@@ -215,6 +224,11 @@ public final class Rifts {
     static boolean start(ServerPlayer player, int tier, List<RiftAffix> affixes) {
         if (RIFTS.containsKey(player.getUUID())) {
             player.displayClientMessage(Component.literal("Du er allerede i en rift"), true);
+            return false;
+        }
+        // Monsters are taken away right away on Peaceful
+        if (player.serverLevel().getDifficulty() == Difficulty.PEACEFUL) {
+            player.displayClientMessage(Component.literal("Rifts virker ikke på Peaceful"), true);
             return false;
         }
         Rift rift = new Rift(player, tier, affixes);
@@ -284,20 +298,20 @@ public final class Rifts {
         return null;
     }
 
-    // Furious: more damage from rift monsters, also from their arrows and potions
+    // Furious: more damage from the rift's own monsters, also from their arrows and potions
     private static void onDamagePre(LivingDamageEvent.Pre event) {
         Rift rift = RIFTS.get(event.getEntity().getUUID());
         Entity attacker = event.getSource().getEntity();
-        if (rift != null && attacker != null && attacker.getPersistentData().getBoolean(RIFT_TAG) && rift.has(RiftAffix.FURIOUS)) {
+        if (rift != null && attacker != null && rift.alive.contains(attacker.getUUID()) && rift.has(RiftAffix.FURIOUS)) {
             event.setNewDamage(event.getNewDamage() * 1.25f);
         }
     }
 
-    // Vampiric: a rift monster that hurts the player heals 5% of its health
+    // Vampiric: a monster from the rift that hurts its player heals 5% of its health
     private static void onDamagePost(LivingDamageEvent.Post event) {
         Rift rift = RIFTS.get(event.getEntity().getUUID());
         if (rift != null && event.getNewDamage() > 0 && event.getSource().getEntity() instanceof LivingEntity attacker
-                && attacker.getPersistentData().getBoolean(RIFT_TAG) && rift.has(RiftAffix.VAMPIRIC)) {
+                && rift.alive.contains(attacker.getUUID()) && rift.has(RiftAffix.VAMPIRIC)) {
             attacker.heal(attacker.getMaxHealth() * 0.05f);
             rift.level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, attacker.getX(), attacker.getY() + attacker.getBbHeight(), attacker.getZ(),
                     4, 0.2, 0.2, 0.2, 0.1);
@@ -318,8 +332,29 @@ public final class Rifts {
             return;
         }
         Rift rift = riftWith(event.getEntity());
-        if (rift != null && rift.has(RiftAffix.EXPLOSIVE)) {
+        if (rift == null) {
+            return;
+        }
+        rift.died.add(event.getEntity().getUUID());
+        if (rift.has(RiftAffix.EXPLOSIVE)) {
             rift.explodeLater(event.getEntity());
+        }
+    }
+
+    // A husk that turns into a zombie in water would come back as a new monster the rift doesn't know, so it can't
+    private static void onConversion(LivingConversionEvent.Pre event) {
+        if (event.getEntity().getPersistentData().getBoolean(RIFT_TAG)) {
+            event.setCanceled(true);
+        }
+    }
+
+    // The rift closes, and the player gets their food from before it back, since it is saved with them
+    private static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        Rift rift = RIFTS.remove(event.getEntity().getUUID());
+        if (rift != null && event.getEntity() instanceof ServerPlayer player) {
+            rift.bar.removeAllPlayers();
+            rift.giveBackFood(player);
+            rift.fail(null, null);
         }
     }
 
@@ -334,6 +369,8 @@ public final class Rifts {
         private final float saturationBefore;
         // The monsters of the current wave that are still alive
         private final Set<UUID> alive = new HashSet<>();
+        // The ones that really died, as opposed to just being gone
+        private final Set<UUID> died = new HashSet<>();
         private final ServerBossEvent bar = new ServerBossEvent(Component.literal("Rift"),
                 BossEvent.BossBarColor.PURPLE, BossEvent.BossBarOverlay.PROGRESS);
         // 0 before the first wave, then 1 to WAVES, and WAVES + 1 is the guardian
@@ -365,7 +402,13 @@ public final class Rifts {
         // A player who died gets new food when they respawn anyway
         void giveBackFood() {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerId);
-            if (player != null && player.isAlive()) {
+            if (player != null) {
+                giveBackFood(player);
+            }
+        }
+
+        void giveBackFood(ServerPlayer player) {
+            if (player.isAlive()) {
                 player.getFoodData().setFoodLevel(foodBefore);
                 player.getFoodData().setSaturation(saturationBefore);
             }
@@ -400,10 +443,20 @@ public final class Rifts {
                 hazards.add(new Hazard(player.position(), ticks + HAZARD_WARNING, METEOR_RADIUS, METEOR_DAMAGE, true));
                 level.playSound(null, player.blockPosition(), SoundEvents.BLAZE_SHOOT, SoundSource.HOSTILE, 1.0f, 0.5f);
             }
-            alive.removeIf(id -> {
+            // Only monsters that died count. One that is gone without dying, e.g. taken away on Peaceful, would
+            // otherwise let the rift close by itself with all its rewards
+            boolean vanished = false;
+            for (Iterator<UUID> it = alive.iterator(); it.hasNext(); ) {
+                UUID id = it.next();
                 Entity entity = level.getEntity(id);
-                return entity == null || !entity.isAlive();
-            });
+                if (entity == null || !entity.isAlive()) {
+                    vanished |= !died.contains(id);
+                    it.remove();
+                }
+            }
+            if (vanished) {
+                return fail(player, "Riftens monstre forsvandt - riften lukkede");
+            }
             bar.setProgress(waveSize > 0 ? (float) alive.size() / waveSize : 0);
             if (!alive.isEmpty()) {
                 // The time left in yellow, red in the last minute

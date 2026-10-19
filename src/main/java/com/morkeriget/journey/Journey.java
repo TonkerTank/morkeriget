@@ -26,6 +26,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.neoforged.bus.api.IEventBus;
@@ -128,19 +129,59 @@ public final class Journey {
         }
     }
 
-    // Legendaries and set items count when they are picked up. Mythics count in Loot.announceMythic, since some are
-    // given right into the inventory
-    private static void onPickup(ItemEntityPickupEvent.Pre event) {
-        if (!(event.getPlayer() instanceof ServerPlayer player)) {
+    // Legendaries, set items and mythics count when someone really picks them up, after it happened, so walking over
+    // one with a full inventory doesn't count. Ones given right into the inventory are counted with found()
+    private static void onPickup(ItemEntityPickupEvent.Post event) {
+        ItemStack original = event.getOriginalStack();
+        Achievement.Stat stat = statFor(original);
+        if (!(event.getPlayer() instanceof ServerPlayer player) || stat == null || isFound(original)
+                || event.getCurrentStack().getCount() >= original.getCount()) {
             return;
         }
-        ItemStack stack = event.getItemEntity().getItem();
+        // The stack on the ground is copied into the inventory, so the mark goes on the one there. Loot like this has
+        // its own random bonuses, so the same item and components means the same piece
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (ItemStack.isSameItemSameComponents(stack, original)) {
+                markFound(stack);
+                break;
+            }
+        }
+        add(player, stat);
+    }
+
+    // For loot given right into the inventory, e.g. by the world boss. Marks it, so picking it up later doesn't count
+    public static void found(ServerPlayer player, ItemStack stack) {
+        Achievement.Stat stat = statFor(stack);
+        if (stat != null && !isFound(stack)) {
+            markFound(stack);
+            add(player, stat);
+        }
+    }
+
+    // A rerolled item is a new stack, but the same piece, so it keeps the mark
+    public static void copyFound(ItemStack from, ItemStack to) {
+        if (isFound(from)) {
+            markFound(to);
+        }
+    }
+
+    // What finding the item counts towards, or null
+    private static Achievement.Stat statFor(ItemStack stack) {
         Rarity rarity = Loot.getRarity(stack);
-        if ((rarity != Rarity.LEGENDARY && rarity != Rarity.SET) || Loot.affix(stack, FOUND_TAG) > 0) {
-            return;
+        if (rarity == Rarity.LEGENDARY || rarity == Rarity.SET) {
+            return Achievement.Stat.LEGENDARIES;
         }
+        return rarity == Rarity.MYTHIC ? Achievement.Stat.MYTHICS : null;
+    }
+
+    private static boolean isFound(ItemStack stack) {
+        return Loot.affix(stack, FOUND_TAG) > 0;
+    }
+
+    private static void markFound(ItemStack stack) {
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(FOUND_TAG, 1));
-        add(player, Achievement.Stat.LEGENDARIES);
     }
 
     // The level isn't counted, so it is checked every few seconds

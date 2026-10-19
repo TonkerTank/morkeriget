@@ -27,6 +27,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.BossEvent;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
@@ -77,9 +78,11 @@ public final class WorldBoss {
         NeoForge.EVENT_BUS.addListener(WorldBoss::onDeath);
         NeoForge.EVENT_BUS.addListener(WorldBoss::onJoinLevel);
         NeoForge.EVENT_BUS.addListener(WorldBoss::registerCommands);
+        // In singleplayer the game can go on to another world, which must start without this one's boss
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent stopping) -> {
             if (event != null) {
                 event.end(null);
+                event = null;
             }
             untilNext = -1;
         });
@@ -92,6 +95,7 @@ public final class WorldBoss {
                 .executes(context -> {
                     ServerPlayer player = context.getSource().getPlayerOrException();
                     if (event != null) {
+                        event.removeBoss();
                         event.end(null);
                     }
                     event = new Event(player.serverLevel(), player, 10);
@@ -114,7 +118,11 @@ public final class WorldBoss {
         if (untilNext < 0) {
             untilNext = Config.WORLD_BOSS_INTERVAL.get() * 60 - WARNING;
         }
-        if (--untilNext <= 0 && !level.players().isEmpty()) {
+        if (untilNext > 0) {
+            untilNext--;
+        }
+        // Waits at 0 until someone is in the overworld, and no world boss comes on Peaceful, where it would vanish
+        if (untilNext == 0 && !level.players().isEmpty() && level.getDifficulty() != Difficulty.PEACEFUL) {
             ServerPlayer player = level.players().get(level.getRandom().nextInt(level.players().size()));
             event = new Event(level, player, WARNING);
         }
@@ -140,9 +148,10 @@ public final class WorldBoss {
     private static final class Event {
         private final ServerLevel level;
         private final Kind kind;
-        // Where it wakes up. The height is found when it spawns, since the chunk may not be loaded before
-        private final int x;
-        private final int z;
+        // Where it wakes up, and once awake where it was last seen. The height is found when it spawns, since the chunk
+        // may not be loaded before
+        private int x;
+        private int z;
         private int untilWake;
         private final int warning;
         private UUID bossId;
@@ -188,11 +197,17 @@ public final class WorldBoss {
                 }
             } else {
                 Entity boss = level.getEntity(bossId);
+                if (boss != null) {
+                    // Remembered, so the bar still points the right way if its chunk is unloaded
+                    x = (int) boss.getX();
+                    z = (int) boss.getZ();
+                } else if (level.hasChunkAt(new BlockPos(x, 64, z))) {
+                    // Its chunk is loaded but it isn't there, so something took it away without killing it
+                    end(kind.name + " forsvandt");
+                    return true;
+                }
                 if (++awake > LIFETIME) {
-                    if (boss != null) {
-                        level.sendParticles(ParticleTypes.REVERSE_PORTAL, boss.getX(), boss.getY() + 1, boss.getZ(), 80, 1, 1.5, 1, 0.1);
-                        boss.discard();
-                    }
+                    removeBoss();
                     end(kind.name + " forsvandt tilbage i mørket");
                     return true;
                 }
@@ -270,6 +285,8 @@ public final class WorldBoss {
                 rewards.add(Gems.random(random, itemLevel, 1));
                 rewards.add(Gems.random(random, itemLevel, 1));
                 for (ItemStack reward : rewards) {
+                    // Counts as found for the season journey, since it is never picked up off the ground
+                    Journey.found(player, reward);
                     player.getInventory().placeItemBackInInventory(reward);
                 }
                 Progression.addXp(player, 500 + 50 * itemLevel);
@@ -281,6 +298,15 @@ public final class WorldBoss {
             end(null);
             broadcast(Component.literal("☠ " + kind.name + " er besejret").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(Component.literal(names.isEmpty() ? "!" : " af " + String.join(", ", names) + "!").withStyle(ChatFormatting.YELLOW)));
+        }
+
+        // Takes the boss out of the world, if it is awake and there
+        void removeBoss() {
+            Entity boss = bossId != null ? level.getEntity(bossId) : null;
+            if (boss != null) {
+                level.sendParticles(ParticleTypes.REVERSE_PORTAL, boss.getX(), boss.getY() + 1, boss.getZ(), 80, 1, 1.5, 1, 0.1);
+                boss.discard();
+            }
         }
 
         // message is null when nobody needs to be told
@@ -307,18 +333,12 @@ public final class WorldBoss {
 
         // To the boss once it is awake, otherwise to where it will wake up
         private double distance(ServerPlayer player) {
-            Entity boss = bossId != null ? level.getEntity(bossId) : null;
-            double toX = boss != null ? boss.getX() : x;
-            double toZ = boss != null ? boss.getZ() : z;
-            return Math.sqrt(Mth.square(player.getX() - toX) + Mth.square(player.getZ() - toZ));
+            return Math.sqrt(Mth.square(player.getX() - x) + Mth.square(player.getZ() - z));
         }
 
         // E.g. "nord-øst", from the player towards the boss
         private String direction(ServerPlayer player) {
-            Entity boss = bossId != null ? level.getEntity(bossId) : null;
-            double toX = boss != null ? boss.getX() : x;
-            double toZ = boss != null ? boss.getZ() : z;
-            double angle = Math.toDegrees(Math.atan2(toZ - player.getZ(), toX - player.getX()));
+            double angle = Math.toDegrees(Math.atan2(z - player.getZ(), x - player.getX()));
             // 0 degrees is east and 90 is south, since z goes south in Minecraft
             String[] names = {"øst", "syd-øst", "syd", "syd-vest", "vest", "nord-vest", "nord", "nord-øst"};
             return names[Math.floorMod((int) Math.round(angle / 45), 8)];

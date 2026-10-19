@@ -13,7 +13,6 @@ import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
-import com.morkeriget.journey.Achievement;
 import com.morkeriget.journey.Journey;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
@@ -39,6 +38,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Item;
@@ -228,8 +228,11 @@ public final class Loot {
     }
 
     // Zombies, husks and drowned fill your inventory with rotten flesh when you kill lots of them, so they only drop
-    // a single piece now and then
+    // a single piece now and then. Only zombies of every kind, so a player who dies keeps all of theirs
     private static void lessRottenFlesh(LivingDropsEvent event) {
+        if (!(event.getEntity() instanceof Zombie)) {
+            return;
+        }
         RandomSource random = event.getEntity().getRandom();
         boolean keepOne = random.nextDouble() < ROTTEN_FLESH_CHANCE;
         event.getDrops().removeIf(drop -> {
@@ -276,14 +279,14 @@ public final class Loot {
         }
     }
 
-    // Everyone on the server hears about it when someone finds a mythic item
+    // Everyone on the server hears about it when someone finds a mythic item. It counts for the season journey when
+    // it is picked up, see Journey, since someone else could get there first
     public static void announceMythic(ServerPlayer finder, ItemStack stack) {
         Component message = Component.literal("✦ ").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
                 .append(finder.getDisplayName().copy().withStyle(ChatFormatting.WHITE))
                 .append(Component.literal(" fandt en mytisk genstand: ").withStyle(ChatFormatting.LIGHT_PURPLE))
                 .append(stack.getHoverName());
         finder.server.getPlayerList().broadcastSystemMessage(message, false);
-        Journey.add(finder, Achievement.Stat.MYTHICS);
     }
 
     private static Item randomItem(RandomSource random, int itemLevel) {
@@ -362,8 +365,9 @@ public final class Loot {
         Rarity rarity = getRarity(old) != null ? getRarity(old) : Rarity.COMMON;
         LegendaryPower power = LegendaryPower.of(old) != null ? LegendaryPower.of(old) : power(random, rarity, null);
         ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power, MythicItem.of(old));
-        // The sockets and gems stay as they were
+        // The sockets and gems stay as they were, and it is still the same find for the season journey
         Gems.copy(old, rerolled);
+        Journey.copyFound(old, rerolled);
         return rerolled;
     }
 
