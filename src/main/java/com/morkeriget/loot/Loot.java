@@ -10,6 +10,7 @@ import java.util.function.Supplier;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
+import com.morkeriget.elite.ElitePacks;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
@@ -193,6 +194,11 @@ public final class Loot {
             drops.add(Rarity.roll(random, Rarity.RARE));
         } else if (Elites.isElite(event.getEntity())) {
             drops.add(random.nextDouble() < Config.SET_CHANCE_ELITE.get() ? Rarity.SET : Rarity.roll(random, Rarity.RARE));
+        } else if (ElitePacks.isMember(event.getEntity())) {
+            // The monsters in an elite's pack drop more often than normal ones, and at least magic
+            if (random.nextDouble() < ElitePacks.memberLootChance()) {
+                drops.add(Rarity.roll(random, Rarity.MAGIC));
+            }
         } else if (random.nextFloat() < Config.DROP_CHANCE.get()) {
             drops.add(Rarity.roll(random, Rarity.COMMON));
         }

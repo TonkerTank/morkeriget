@@ -47,6 +47,7 @@ public final class Elites {
         NeoForge.EVENT_BUS.addListener(Elites::onEntityTick);
         Bosses.register();
         WorldBoss.register();
+        ElitePacks.register();
     }
 
     public static boolean isElite(Entity entity) {
@@ -73,6 +74,8 @@ public final class Elites {
             Bosses.makeBoss(monster);
         } else if (elite) {
             makeElite(monster, monster.getRandom().nextFloat() < Config.SECOND_MODIFIER_CHANCE.get() ? 2 : 1);
+            // Elites out in the world lead a pack of their own kind
+            ElitePacks.makeLeader(monster);
         }
     }
 
@@ -112,10 +115,15 @@ public final class Elites {
         return chosen;
     }
 
-    // When an elite hits something
+    // Elites and the monsters in their packs have modifiers
+    private static boolean hasModifiers(Entity entity) {
+        return isElite(entity) || ElitePacks.isMember(entity);
+    }
+
+    // When an elite or one of its pack hits something
     private static void onDamagePost(LivingDamageEvent.Post event) {
         if (event.getEntity().level().isClientSide() || !(event.getSource().getEntity() instanceof Monster elite)
-                || !isElite(elite) || event.getNewDamage() <= 0) {
+                || !hasModifiers(elite) || event.getNewDamage() <= 0) {
             return;
         }
         LivingEntity target = event.getEntity();
@@ -132,7 +140,7 @@ public final class Elites {
 
     private static void onEntityTick(EntityTickEvent.Post event) {
         if (!(event.getEntity() instanceof Monster monster) || !(monster.level() instanceof ServerLevel level)
-                || monster.tickCount % 5 != 0 || !isElite(monster)) {
+                || monster.tickCount % 5 != 0 || !hasModifiers(monster)) {
             return;
         }
         if (EliteModifier.BURNING.isOn(monster)) {

@@ -17,6 +17,8 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue SECOND_MODIFIER_CHANCE;
     public static final ModConfigSpec.DoubleValue ELITE_HEALTH;
     public static final ModConfigSpec.DoubleValue ELITE_DAMAGE;
+    public static final ModConfigSpec.IntValue PACK_MIN_SIZE;
+    public static final ModConfigSpec.IntValue PACK_MAX_SIZE;
     public static final ModConfigSpec.DoubleValue BOSS_CHANCE;
     public static final ModConfigSpec.DoubleValue BOSS_HEALTH;
     public static final ModConfigSpec.DoubleValue BOSS_DAMAGE;
@@ -117,6 +119,10 @@ public final class Config {
                 .defineInRange("healthMultiplier", 3.0, 1, 100);
         ELITE_DAMAGE = BUILDER.comment("Hvor mange gange mere skade en elite gør end et almindeligt monster")
                 .defineInRange("damageMultiplier", 1.35, 1, 100);
+        PACK_MIN_SIZE = BUILDER.comment("Hvor mange monstre der mindst følger med en elite ude i verden. Sæt begge til 0 for ingen flokke")
+                .defineInRange("packMinSize", 2, 0, 10);
+        PACK_MAX_SIZE = BUILDER.comment("Hvor mange monstre der højst følger med en elite ude i verden")
+                .defineInRange("packMaxSize", 4, 0, 10);
         BUILDER.pop();
 
         BUILDER.push("bosses");

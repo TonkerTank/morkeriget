@@ -21,7 +21,10 @@ public enum EliteModifier {
     FAST("Hurtig", ChatFormatting.YELLOW),
     TELEPORTING("Teleporterende", ChatFormatting.LIGHT_PURPLE),
     VAMPIRIC("Vampyrisk", ChatFormatting.DARK_RED),
-    ARMORED("Pansret", ChatFormatting.GRAY);
+    ARMORED("Pansret", ChatFormatting.GRAY),
+    // These two are for the leader's whole pack, see ElitePacks. Without a pack they only work on the elite itself
+    SHIELDING("Beskyttende", ChatFormatting.BLUE),
+    HEALING("Helende", ChatFormatting.GREEN);
 
     public final String displayName;
     public final ChatFormatting color;

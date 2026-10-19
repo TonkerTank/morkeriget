@@ -104,8 +104,9 @@ public final class Bosses {
     }
 
     public static void makeBoss(Monster monster) {
-        // Never teleporting: bosses already jump at you with their slam and Charge, and you couldn't get away to drink
-        List<EliteModifier> modifiers = Elites.makeElite(monster, 3, List.of(EliteModifier.TELEPORTING));
+        // Never teleporting: bosses already jump at you with their slam and Charge, and you couldn't get away to drink.
+        // Never healing either, or a boss with that much health would take forever
+        List<EliteModifier> modifiers = Elites.makeElite(monster, 3, List.of(EliteModifier.TELEPORTING, EliteModifier.HEALING));
         monster.getPersistentData().putBoolean(BOSS_TAG, true);
 
         // The config has the total multiplier, so take away what the elite boost already gave.
