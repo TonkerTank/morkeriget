@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.journey.Achievement;
+import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.Progression;
@@ -274,6 +276,7 @@ public final class WorldBoss {
                     player.getInventory().placeItemBackInInventory(reward);
                 }
                 Progression.addXp(player, 500 + 50 * itemLevel);
+                Journey.add(player, Achievement.Stat.WORLD_BOSSES);
                 player.sendSystemMessage(Component.literal("Din belønning for " + kind.name + " er lagt i dit inventar")
                         .withStyle(ChatFormatting.GOLD));
             }

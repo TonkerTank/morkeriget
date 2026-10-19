@@ -2,6 +2,7 @@ package com.morkeriget.bounty;
 
 import java.util.List;
 
+import com.morkeriget.journey.JourneyPayload;
 import com.morkeriget.progress.SkillScreen;
 import com.morkeriget.skill.SkillKeys;
 
@@ -69,7 +70,10 @@ public class BountyScreen extends Screen {
         bonus.active = bounties.allClaimed() && !bounties.bonusClaimed();
         addRenderableWidget(bonus);
         addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new SkillScreen()))
-                .bounds(width / 2 - 40, bottom + 40, 80, 18)
+                .bounds(width / 2 - 84, bottom + 40, 80, 18)
+                .build());
+        addRenderableWidget(Button.builder(Component.literal("Sæsonrejse"), pressed -> PacketDistributor.sendToServer(new JourneyPayload.Open()))
+                .bounds(width / 2 + 4, bottom + 40, 80, 18)
                 .build());
     }
 

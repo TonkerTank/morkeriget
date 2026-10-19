@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.journey.Achievement;
+import com.morkeriget.journey.Journey;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.loot.Loot;
@@ -126,6 +128,7 @@ public final class Bounties {
                 player.sendSystemMessage(Component.literal("Alle dagens opgaver er klaret! Du fik en legendarisk genstand, essens og en ædelsten.")
                         .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
                 player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
+                Journey.add(player, Achievement.Stat.BOUNTY_DAYS);
             }
         } else if (action >= 0 && action < board.bounties().size()) {
             Bounty bounty = board.bounties().get(action);

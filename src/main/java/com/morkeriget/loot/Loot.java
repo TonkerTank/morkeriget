@@ -13,6 +13,8 @@ import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.journey.Achievement;
+import com.morkeriget.journey.Journey;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.skill.Minions;
@@ -264,6 +266,7 @@ public final class Loot {
                 .append(Component.literal(" fandt en mytisk genstand: ").withStyle(ChatFormatting.LIGHT_PURPLE))
                 .append(stack.getHoverName());
         finder.server.getPlayerList().broadcastSystemMessage(message, false);
+        Journey.add(finder, Achievement.Stat.MYTHICS);
     }
 
     private static Item randomItem(RandomSource random, int itemLevel) {

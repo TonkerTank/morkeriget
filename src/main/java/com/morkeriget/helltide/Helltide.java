@@ -11,6 +11,8 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
+import com.morkeriget.journey.Achievement;
+import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.Progression;
@@ -317,6 +319,7 @@ public final class Helltide {
             level.playSound(null, pos, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.8f, 1.2f);
             level.sendParticles(ParticleTypes.LAVA, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 30, 0.4, 0.4, 0.4, 0);
             player.displayClientMessage(Component.literal("Helltide-kisten er åbnet! " + chests.size() + " tilbage").withStyle(ChatFormatting.GOLD), true);
+            Journey.add(player, Achievement.Stat.HELLTIDE_CHESTS);
         }
 
         // Two good items with a fair chance of a legendary, essence and a gem, at the player's level

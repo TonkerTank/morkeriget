@@ -8,6 +8,7 @@ import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.helltide.Helltide;
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.merchant.Merchant;
 import com.morkeriget.portal.TownPortal;
@@ -60,5 +61,7 @@ public class Morkeriget {
         Bounties.register(modEventBus);
         // Every night an area is taken over by stronger monsters that drop cinders for helltide chests
         Helltide.register(modEventBus);
+        // The season journey: goals in four chapters with rewards
+        Journey.register(modEventBus);
     }
 }

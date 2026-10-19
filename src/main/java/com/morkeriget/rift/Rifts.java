@@ -19,6 +19,7 @@ import com.morkeriget.bounty.Bounties;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
+import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.portal.TownPortal;
@@ -616,6 +617,7 @@ public final class Rifts {
             }
             Progression.addXp(player, (int) ((100 + 20 * monsterLevel) * (1 + 0.25 * (tier - 1)) * affixBonus));
             Bounties.riftClosed(player);
+            Journey.riftClosed(player, tier);
 
             player.sendSystemMessage(Component.literal("Rift " + roman(tier) + " er lukket! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(Component.literal("Du fik en sæt-genstand, ekstra loot, ædelsten, essens, XP, en portalrulle og en riftsten "
