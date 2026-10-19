@@ -69,6 +69,8 @@ public final class Loot {
     public static final String STAFF_MANA_TAG = "morkeriget_staff_mana";
     private static final int STAFF_MANA_MIN = 15;
     private static final int STAFF_MANA_MAX = 35;
+    // How often a monster still drops its rotten flesh, see lessRottenFlesh
+    private static final double ROTTEN_FLESH_CHANCE = 0.25;
 
     // An item that can drop, and the item levels it drops at. Better base items only drop from higher level monsters.
     // The item is a supplier because rings and amulets are our own items, which don't exist until they are registered
@@ -167,6 +169,7 @@ public final class Loot {
         Staffs.register(modEventBus);
         LootFilter.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(Loot::onLivingDrops);
+        NeoForge.EVENT_BUS.addListener(Loot::lessRottenFlesh);
         SetBonuses.register();
     }
 
@@ -222,6 +225,20 @@ public final class Loot {
         if (best != null && event.getEntity().level() instanceof ServerLevel level) {
             celebrate(level, event.getEntity().position(), best);
         }
+    }
+
+    // Zombies, husks and drowned fill your inventory with rotten flesh when you kill lots of them, so they only drop
+    // a single piece now and then
+    private static void lessRottenFlesh(LivingDropsEvent event) {
+        RandomSource random = event.getEntity().getRandom();
+        boolean keepOne = random.nextDouble() < ROTTEN_FLESH_CHANCE;
+        event.getDrops().removeIf(drop -> {
+            if (!drop.getItem().is(Items.ROTTEN_FLESH)) {
+                return false;
+            }
+            drop.getItem().setCount(1);
+            return !keepOne;
+        });
     }
 
     // A sound and a burst of particles when something good drops, so you notice it even in a big fight
