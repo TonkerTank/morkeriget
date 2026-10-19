@@ -14,8 +14,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class ClassScreen extends Screen {
     // Four panels have to fit on the smallest normal screen, which is 427 wide
     private static final int PANEL_WIDTH = 104;
-    // Room for six skills and the bonus
-    private static final int PANEL_HEIGHT = 190;
+    // Room for seven skills and the bonus
+    private static final int PANEL_HEIGHT = 200;
     private static final int GAP = 2;
 
     public ClassScreen() {
@@ -68,7 +68,7 @@ public class ClassScreen extends Screen {
             for (Skill skill : playerClass.skills) {
                 graphics.renderItem(SkillBar.icon(skill), x + 3, y);
                 graphics.drawString(font, skill.displayName, x + 21, y + 4, 0xFFFFFF);
-                y += 17;
+                y += 15;
             }
             graphics.drawWordWrap(font, Component.literal(playerClass.bonus), x + 5, y + 2, PANEL_WIDTH - 10, playerClass.color);
         }

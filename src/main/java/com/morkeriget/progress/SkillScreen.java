@@ -48,8 +48,15 @@ public class SkillScreen extends Screen {
         return (width - WIDTH) / 2;
     }
 
+    // Trees with a fourth row move the screen up, so the keys still fit at the bottom
     private int top() {
-        return height / 2 - 100;
+        return height / 2 - 100 - (treeRows() - 3) * TREE_ROW_HEIGHT / 2;
+    }
+
+    // The rows of the player's tree. Three before a class is picked, so the screen stays where it was
+    private static int treeRows() {
+        PlayerClass playerClass = ClientProgress.get().chosenClass();
+        return playerClass == null ? 3 : Math.max(3, SkillTree.rows(playerClass));
     }
 
     private int nodeX(int column) {
@@ -65,7 +72,7 @@ public class SkillScreen extends Screen {
     }
 
     private int keysY() {
-        return nodeY(SkillTree.ROWS) + 4;
+        return nodeY(treeRows()) + 4;
     }
 
     private int keyX(int slot) {
@@ -102,7 +109,7 @@ public class SkillScreen extends Screen {
         if (playerClass == null) {
             return;
         }
-        for (int row = 0; row < SkillTree.ROWS; row++) {
+        for (int row = 0; row < treeRows(); row++) {
             List<Upgrade> upgrades = SkillTree.row(playerClass, row);
             for (int column = 0; column < upgrades.size(); column++) {
                 plusButton(progress, playerClass, upgrades.get(column), nodeX(column) + NODE_WIDTH - 16, nodeY(row) + NODE_HEIGHT - 16);
@@ -171,7 +178,7 @@ public class SkillScreen extends Screen {
             return;
         }
         Upgrade hovered = null;
-        for (int row = 0; row < SkillTree.ROWS; row++) {
+        for (int row = 0; row < treeRows(); row++) {
             boolean open = SkillTree.isRowOpen(playerClass, row, progress::rank);
             List<Upgrade> upgrades = SkillTree.row(playerClass, row);
             for (int column = 0; column < upgrades.size(); column++) {
@@ -266,6 +273,11 @@ public class SkillScreen extends Screen {
         lines.add(Component.literal(upgrade.displayName).withStyle(ChatFormatting.GOLD));
         lines.add(Component.literal(upgrade.isPassive() ? "Passiv" : "Skill").withStyle(ChatFormatting.DARK_GRAY));
         lines.add(Component.literal(upgrade.description).withStyle(ChatFormatting.GRAY));
+        if (upgrade.skill != null) {
+            lines.add(Component.literal("Rank " + (Upgrade.UTILITY_MAX_RANK + 1) + "-" + upgrade.maxRank() + ": skade bliver ved med at stige, resten stopper ved "
+                    + Upgrade.UTILITY_MAX_RANK + ", og hver rank giver -" + Math.round(Upgrade.COOLDOWN_PER_RANK * 100) + "% cooldown")
+                    .withStyle(ChatFormatting.DARK_AQUA));
+        }
         if (!SkillTree.isRowOpen(playerClass, upgrade.row, progress::rank)) {
             lines.add(Component.literal("Kræver " + SkillTree.pointsForRow(upgrade.row) + " point i træet").withStyle(ChatFormatting.RED));
         } else if (upgrade.skill != null && progress.rank(upgrade) == 0) {
@@ -333,7 +345,7 @@ public class SkillScreen extends Screen {
                 return true;
             }
         }
-        for (int row = 0; row < SkillTree.ROWS; row++) {
+        for (int row = 0; row < treeRows(); row++) {
             List<Upgrade> upgrades = SkillTree.row(playerClass, row);
             for (int column = 0; column < upgrades.size(); column++) {
                 Upgrade upgrade = upgrades.get(column);

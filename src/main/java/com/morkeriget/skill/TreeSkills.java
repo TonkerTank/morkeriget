@@ -19,6 +19,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
@@ -57,13 +58,22 @@ final class TreeSkills {
     private static final double BLOOD_NOVA_RADIUS = 5.0;
     private static final double BONE_PRISON_RADIUS = 4.0;
     private static final int BONE_PRISON_DURATION = 3 * 20;
-    private static final BlockParticleOption BONE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.BONE_BLOCK.defaultBlockState());
+    // Thunderstorm: dark clouds over the area, and a bolt every STORM_BOLT_TIME. It starts after the clouds have gathered
+    private static final double STORM_RADIUS = 6.0;
+    private static final double STORM_BOLT_RADIUS = 2.0;
+    private static final double STORM_HEIGHT = 10.0;
+    private static final int STORM_BOLTS = 8;
+    private static final int STORM_BOLT_TIME = 6;
+    private static final int STORM_GATHER = 15;
+    private static final DustParticleOptions STORM_CLOUD = new DustParticleOptions(new Vector3f(0.18f, 0.18f, 0.24f), 3.0f);
+    private static final DustParticleOptions BOLT_GLOW = new DustParticleOptions(new Vector3f(0.75f, 0.85f, 1.0f), 1.2f);
+    private static final BlockParticleOption BONE =new BlockParticleOption(ParticleTypes.BLOCK, Blocks.BONE_BLOCK.defaultBlockState());
     private static final BlockParticleOption DIRT = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState());
     private static final DustParticleOptions BLOOD = new DustParticleOptions(new Vector3f(0.7f, 0.05f, 0.05f), 1.5f);
 
     // Something a skill left behind that happens later: earthquake pulses, a falling meteor, a trap waiting for a monster
     private enum Kind {
-        EARTHQUAKE, METEOR, BEAR_TRAP
+        EARTHQUAKE, METEOR, BEAR_TRAP, THUNDERSTORM
     }
 
     private record Effect(Kind kind, Vec3 center, float damage, int left, long next, long until) {
@@ -160,7 +170,7 @@ final class TreeSkills {
     static boolean iceArmor(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         // Each Ice Armor rank makes it last one second longer
-        int duration = ICE_ARMOR_DURATION + 20 * Progression.rank(player, Upgrade.ICE_ARMOR);
+        int duration = ICE_ARMOR_DURATION + 20 * Upgrade.utility(Progression.rank(player, Upgrade.ICE_ARMOR));
         player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, 1));
         player.getPersistentData().putLong(ICE_ARMOR_UNTIL_TAG, level.getGameTime() + duration);
         level.sendParticles(ParticleTypes.SNOWFLAKE, player.getX(), player.getY() + 1, player.getZ(), 40, 0.5, 0.8, 0.5, 0.02);
@@ -260,7 +270,7 @@ final class TreeSkills {
         ServerLevel level = player.serverLevel();
         Vec3 center = ClassSkills.arrowRainTarget(level, player);
         // Each Bone Prison rank holds them 0.3 seconds longer
-        int duration = BONE_PRISON_DURATION + 6 * Progression.rank(player, Upgrade.BONE_PRISON);
+        int duration = BONE_PRISON_DURATION + 6 * Upgrade.utility(Progression.rank(player, Upgrade.BONE_PRISON));
         boolean cage = LegendaryPower.has(player, LegendaryPower.DEATHS_CAGE);
         for (LivingEntity target : ClassSkills.enemies(level, center, BONE_PRISON_RADIUS)) {
             hold(target, duration);
@@ -278,6 +288,73 @@ final class TreeSkills {
         level.playSound(null, center.x, center.y, center.z, SoundEvents.BONE_BLOCK_PLACE, SoundSource.PLAYERS, 1.5f, 0.5f);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.SKELETON_AMBIENT, SoundSource.PLAYERS, 1.0f, 0.6f);
         return true;
+    }
+
+    // Dark clouds gather where you aim, and then lightning comes down on the monsters under them, one bolt at a time
+    static boolean thunderstorm(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        Vec3 center = ClassSkills.arrowRainTarget(level, player);
+        // Each Thunderstorm rank adds 20% damage, and every second rank a bolt
+        int rank = Progression.rank(player, Upgrade.THUNDERSTORM);
+        float damage = attackDamage(player, 1.6, Upgrade.THUNDERSTORM, 0.2);
+        int bolts = STORM_BOLTS + Upgrade.utility(rank) / 2;
+        add(player, new Effect(Kind.THUNDERSTORM, center, damage, bolts, level.getGameTime() + STORM_GATHER, 0));
+        stormClouds(level, center, 60);
+        circle(level, center, STORM_RADIUS, ParticleTypes.ELECTRIC_SPARK);
+        level.playSound(null, center.x, center.y, center.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.6f, 1.4f);
+        level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_PREPARE_ATTACK, SoundSource.PLAYERS, 1.0f, 1.2f);
+        return true;
+    }
+
+    private static void stormClouds(ServerLevel level, Vec3 center, int count) {
+        level.sendParticles(STORM_CLOUD, center.x, center.y + STORM_HEIGHT, center.z, count, STORM_RADIUS / 2, 0.4, STORM_RADIUS / 2, 0);
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, center.x, center.y + STORM_HEIGHT, center.z, count / 3, STORM_RADIUS / 2, 0.3, STORM_RADIUS / 2, 0.01);
+    }
+
+    // One bolt on a random monster under the clouds, or a random spot if there are none
+    private static void lightningStrike(ServerLevel level, ServerPlayer player, Effect effect) {
+        List<LivingEntity> under = ClassSkills.enemies(level, effect.center, STORM_RADIUS);
+        Vec3 spot;
+        if (!under.isEmpty()) {
+            spot = under.get(player.getRandom().nextInt(under.size())).position();
+        } else {
+            double angle = player.getRandom().nextDouble() * Math.PI * 2;
+            double distance = player.getRandom().nextDouble() * STORM_RADIUS;
+            spot = effect.center.add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
+        }
+        bolt(level, spot, effect.center.y + STORM_HEIGHT);
+        for (LivingEntity target : ClassSkills.enemies(level, spot, STORM_BOLT_RADIUS)) {
+            target.invulnerableTime = 0;
+            target.hurt(player.damageSources().playerAttack(player), effect.damage);
+            // Stunned for a moment by the shock
+            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 15, 4));
+        }
+        stormClouds(level, effect.center, 12);
+    }
+
+    // A jagged line of sparks from the clouds down to the spot, with a flash and a crack where it hits. Real lightning
+    // bolts would be heard all over the world and set things on fire
+    private static void bolt(ServerLevel level, Vec3 spot, double top) {
+        RandomSource random = level.getRandom();
+        Vec3 from = new Vec3(spot.x, top, spot.z);
+        while (from.y > spot.y) {
+            Vec3 to = new Vec3(spot.x + (random.nextDouble() - 0.5) * 1.2, Math.max(spot.y, from.y - 1.2 - random.nextDouble()),
+                    spot.z + (random.nextDouble() - 0.5) * 1.2);
+            if (to.y <= spot.y + 0.01) {
+                to = spot;
+            }
+            for (double t = 0; t <= 1; t += 0.2) {
+                Vec3 point = from.lerp(to, t);
+                level.sendParticles(ParticleTypes.END_ROD, point.x, point.y, point.z, 1, 0, 0, 0, 0);
+                level.sendParticles(BOLT_GLOW, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0);
+            }
+            from = to;
+        }
+        level.sendParticles(ParticleTypes.FLASH, spot.x, spot.y + 0.5, spot.z, 1, 0, 0, 0, 0);
+        level.sendParticles(ParticleTypes.ELECTRIC_SPARK, spot.x, spot.y + 0.2, spot.z, 25, 0.6, 0.2, 0.6, 0.3);
+        level.sendParticles(ParticleTypes.CLOUD, spot.x, spot.y + 0.1, spot.z, 6, 0.4, 0.05, 0.4, 0.02);
+        level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.2f, 0.9f + random.nextFloat() * 0.3f);
+        level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.4f, 1.6f);
     }
 
     // Can't move and barely hurts
@@ -312,6 +389,12 @@ final class TreeSkills {
                     }
                 }
                 case METEOR -> meteorImpact(level, player, effect);
+                case THUNDERSTORM -> {
+                    lightningStrike(level, player, effect);
+                    if (effect.left > 1) {
+                        next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + STORM_BOLT_TIME, 0));
+                    }
+                }
                 case BEAR_TRAP -> {
                     if (!bearTrapCheck(level, player, effect) && now < effect.until) {
                         next.add(new Effect(effect.kind, effect.center, effect.damage, 1, now + BEAR_TRAP_CHECK, effect.until));

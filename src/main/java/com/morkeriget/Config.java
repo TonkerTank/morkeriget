@@ -72,6 +72,8 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue BLOOD_NOVA_COOLDOWN;
     public static final ModConfigSpec.DoubleValue BONE_PRISON_MANA;
     public static final ModConfigSpec.DoubleValue BONE_PRISON_COOLDOWN;
+    public static final ModConfigSpec.DoubleValue THUNDERSTORM_MANA;
+    public static final ModConfigSpec.DoubleValue THUNDERSTORM_COOLDOWN;
     public static final ModConfigSpec.DoubleValue HEALTH_POTION_HEAL;
     public static final ModConfigSpec.DoubleValue HEALTH_POTION_COOLDOWN;
     public static final ModConfigSpec.DoubleValue MANA_POTION_MANA;
@@ -180,6 +182,8 @@ public final class Config {
         BLOOD_NOVA_COOLDOWN = BUILDER.comment("Blodnova (nekromantiker): cooldown i sekunder").defineInRange("bloodNovaCooldown", 6.0, 0, 600);
         BONE_PRISON_MANA = BUILDER.comment("Knoglefængsel (nekromantiker): mana det koster").defineInRange("bonePrisonMana", 40.0, 0, 100);
         BONE_PRISON_COOLDOWN = BUILDER.comment("Knoglefængsel (nekromantiker): cooldown i sekunder").defineInRange("bonePrisonCooldown", 14.0, 0, 600);
+        THUNDERSTORM_MANA = BUILDER.comment("Tordenvejr (troldmand): mana det koster").defineInRange("thunderstormMana", 60.0, 0, 100);
+        THUNDERSTORM_COOLDOWN = BUILDER.comment("Tordenvejr (troldmand): cooldown i sekunder").defineInRange("thunderstormCooldown", 16.0, 0, 600);
         HEALTH_POTION_HEAL = BUILDER.comment("Livsdrik: hvor meget af dit max liv den giver tilbage (0.4 = 40 %)")
                 .defineInRange("healthPotionHeal", 0.4, 0, 1);
         HEALTH_POTION_COOLDOWN = BUILDER.comment("Livsdrik: cooldown i sekunder").defineInRange("healthPotionCooldown", 20.0, 0, 600);

@@ -31,6 +31,7 @@ public enum Skill {
     BEAR_TRAP("Bjørnefælde", Config.BEAR_TRAP_MANA, Config.BEAR_TRAP_COOLDOWN),
     BLOOD_NOVA("Blodnova", Config.BLOOD_NOVA_MANA, Config.BLOOD_NOVA_COOLDOWN),
     BONE_PRISON("Knoglefængsel", Config.BONE_PRISON_MANA, Config.BONE_PRISON_COOLDOWN),
+    THUNDERSTORM("Tordenvejr", Config.THUNDERSTORM_MANA, Config.THUNDERSTORM_COOLDOWN),
     HEALTH_POTION("Livsdrik", null, Config.HEALTH_POTION_COOLDOWN),
     MANA_POTION("Manadrik", null, Config.MANA_POTION_COOLDOWN);
 

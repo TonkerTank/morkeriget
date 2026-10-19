@@ -91,7 +91,7 @@ final class NecroSkills {
         ServerLevel level = player.serverLevel();
         // Each Raise Skeletons upgrade rank makes them 15% stronger, and every third rank adds a skeleton per cast
         int rank = Progression.rank(player, Upgrade.RAISE_SKELETONS);
-        int count = 2 + rank / 3;
+        int count = 2 + Upgrade.utility(rank) / 3;
         List<WitherSkeleton> army = new ArrayList<>(level.getEntitiesOfClass(WitherSkeleton.class, player.getBoundingBox().inflate(64),
                 skeleton -> Minions.isOwnedBy(skeleton, player)));
         army.sort(Comparator.comparingLong(skeleton -> skeleton.getPersistentData().getLong(ClassSkills.SUMMON_UNTIL_TAG)));
@@ -110,8 +110,9 @@ final class NecroSkills {
             }
             skeleton.moveTo(player.getX() + (random.nextDouble() - 0.5) * 3, player.getY(), player.getZ() + (random.nextDouble() - 0.5) * 3,
                     random.nextFloat() * 360, 0);
-            // Gives it its stone sword
             skeleton.finalizeSpawn(level, level.getCurrentDifficultyAt(skeleton.blockPosition()), MobSpawnType.MOB_SUMMONED, null);
+            // Better gear every fifth rank, in place of the stone sword it spawns with
+            SummonGear.equip(skeleton, rank);
             // Never an elite, and no monster level of its own
             Elites.markChecked(skeleton);
             Minions.makeAlly(skeleton, player);
@@ -131,7 +132,7 @@ final class NecroSkills {
     // A shield of extra hearts and less damage taken for a while
     static boolean boneArmor(ServerPlayer player) {
         // 30% of your max health as a shield, and each Bone Armor upgrade rank adds 5% more. Absorption gives 4 per level
-        double shield = player.getMaxHealth() * (0.3 + 0.05 * Progression.rank(player, Upgrade.BONE_ARMOR));
+        double shield = player.getMaxHealth() * (0.3 + 0.05 * Upgrade.utility(Progression.rank(player, Upgrade.BONE_ARMOR)));
         int amplifier = Math.max(0, (int) Math.round(shield / 4) - 1);
         player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, BONE_ARMOR_DURATION, amplifier));
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, BONE_ARMOR_DURATION, 0));

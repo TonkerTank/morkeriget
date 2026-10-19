@@ -10,7 +10,7 @@ public enum PlayerClass {
     BARBARIAN("Barbar", 0xFF5544, "Kæmper tæt på og tåler meget", "+20% max liv",
             List.of(Skill.WHIRLWIND, Skill.BATTLE_CRY, Skill.LEAP, Skill.FRENZY, Skill.EARTHQUAKE, Skill.RUSH)),
     SORCERER("Troldmand", 0xB070FF, "Kaster is, lyn og ild", "+40% hurtigere mana",
-            List.of(Skill.FROST_NOVA, Skill.CHAIN_LIGHTNING, Skill.BLINK, Skill.FIREBALL, Skill.METEOR, Skill.ICE_ARMOR)),
+            List.of(Skill.FROST_NOVA, Skill.CHAIN_LIGHTNING, Skill.BLINK, Skill.FIREBALL, Skill.METEOR, Skill.ICE_ARMOR, Skill.THUNDERSTORM)),
     RANGER("Jæger", 0x55DD55, "Skyder på afstand og har ulve med", "+10% fart og +25% pileskade",
             List.of(Skill.MULTISHOT, Skill.ARROW_RAIN, Skill.SMOKE_BOMB, Skill.WOLVES, Skill.EXPLOSIVE_ARROW, Skill.BEAR_TRAP)),
     NECROMANCER("Nekromantiker", 0x50C8B4, "Rejser de døde og forbander sine fjender", "Heler 5% når en fjende dør nær dig",

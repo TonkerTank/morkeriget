@@ -157,7 +157,7 @@ final class ClassSkills {
     // Faster attacks and running for a while, and heals a little right away
     static boolean frenzy(ServerPlayer player) {
         // Each Frenzy upgrade rank makes it last one second longer
-        int duration = FRENZY_DURATION + 20 * Progression.rank(player, Upgrade.FRENZY);
+        int duration = FRENZY_DURATION + 20 * Upgrade.utility(Progression.rank(player, Upgrade.FRENZY));
         // Haste makes attacks faster, 10% per level
         player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, duration, 2));
         player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, duration, 0));
@@ -224,7 +224,7 @@ final class ClassSkills {
         Vec3 center = arrowRainTarget(level, player);
         // Each Arrow Rain upgrade rank adds 15% damage and a bit more area
         int rank = Progression.rank(player, Upgrade.ARROW_RAIN);
-        double radius = ARROW_RAIN_RADIUS + 0.2 * rank;
+        double radius = ARROW_RAIN_RADIUS + 0.2 * Upgrade.utility(rank);
         float damage = (float) (ARROW_RAIN_DAMAGE * bowScale(player) * (1 + 0.15 * rank));
         int waves = LegendaryPower.has(player, LegendaryPower.ENDLESS_RAIN) ? ARROW_RAIN_WAVES * 2 : ARROW_RAIN_WAVES;
         RAINS.put(player.getUUID(), new Rain(center, radius, damage, waves, level.getGameTime() + ARROW_RAIN_WAVE_TIME));
@@ -294,7 +294,7 @@ final class ClassSkills {
     static boolean smokeBomb(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         // Each Smoke Bomb upgrade rank makes it last half a second longer
-        int duration = SMOKE_BOMB_DURATION + 10 * Progression.rank(player, Upgrade.SMOKE_BOMB);
+        int duration = SMOKE_BOMB_DURATION + 10 * Upgrade.utility(Progression.rank(player, Upgrade.SMOKE_BOMB));
         player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, duration, 0));
         player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, duration, 1));
         for (LivingEntity target : enemies(level, player.position(), SMOKE_BOMB_RADIUS)) {
@@ -319,7 +319,7 @@ final class ClassSkills {
         LivingEntity nearest = enemies(level, player.position(), 16).stream()
                 .min((a, b) -> Double.compare(a.distanceToSqr(player), b.distanceToSqr(player))).orElse(null);
         RandomSource random = player.getRandom();
-        for (int i = 0; i < 2 + rank / 3; i++) {
+        for (int i = 0; i < 2 + Upgrade.utility(rank) / 3; i++) {
             Wolf wolf = EntityType.WOLF.create(level);
             if (wolf == null) {
                 continue;
@@ -328,6 +328,8 @@ final class ClassSkills {
                     random.nextFloat() * 360, 0);
             wolf.tame(player);
             wolf.setOrderedToSit(false);
+            // Wolf armour from the fifth rank, better every fifth
+            SummonGear.equip(wolf, rank);
             boost(wolf.getAttribute(Attributes.MAX_HEALTH), strength);
             boost(wolf.getAttribute(Attributes.ATTACK_DAMAGE), strength);
             wolf.setHealth(wolf.getMaxHealth());

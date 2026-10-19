@@ -26,12 +26,13 @@ public enum Upgrade {
     METEOR("Meteor", "+20% skade pr. rank", Skill.METEOR, PlayerClass.SORCERER, 2),
     ICE_ARMOR("Isrustning", "+1 sek. varighed pr. rank", Skill.ICE_ARMOR, PlayerClass.SORCERER, 2),
     TIME_WARP("Tidsforvrængning", "-4% cooldown pr. rank", null, PlayerClass.SORCERER, 2),
+    THUNDERSTORM("Tordenvejr", "+20% skade og +1 lyn hver 2. rank", Skill.THUNDERSTORM, PlayerClass.SORCERER, 3),
     // Ranger
     MULTISHOT("Multiskud", "+15% skade pr. rank", Skill.MULTISHOT, PlayerClass.RANGER, 0),
     SMOKE_BOMB("Røgbombe", "+0,5 sek. varighed pr. rank", Skill.SMOKE_BOMB, PlayerClass.RANGER, 0),
     MARKSMAN("Skarpskytte", "+6% pileskade pr. rank", null, PlayerClass.RANGER, 0),
     ARROW_RAIN("Pileregn", "+15% skade og større område pr. rank", Skill.ARROW_RAIN, PlayerClass.RANGER, 1),
-    WOLVES("Ulveflok", "+15% styrke, +1 ulv hver 3. rank", Skill.WOLVES, PlayerClass.RANGER, 1),
+    WOLVES("Ulveflok", "+15% styrke, +1 ulv hver 3. rank, bedre rustning hver 5.", Skill.WOLVES, PlayerClass.RANGER, 1),
     AGILE("Smidig", "+3% fart pr. rank", null, PlayerClass.RANGER, 1),
     EXPLOSIVE_ARROW("Eksplosiv pil", "+15% skade pr. rank", Skill.EXPLOSIVE_ARROW, PlayerClass.RANGER, 2),
     BEAR_TRAP("Bjørnefælde", "+15% skade pr. rank", Skill.BEAR_TRAP, PlayerClass.RANGER, 2),
@@ -40,7 +41,7 @@ public enum Upgrade {
     BONE_SPEAR("Knoglespyd", "+20% skade pr. rank", Skill.BONE_SPEAR, PlayerClass.NECROMANCER, 0),
     BONE_ARMOR("Knoglerustning", "+5% af dit liv som skjold pr. rank", Skill.BONE_ARMOR, PlayerClass.NECROMANCER, 0),
     GRAVE_CHILL("Gravens kulde", "+4% skade mod forbandede pr. rank", null, PlayerClass.NECROMANCER, 0),
-    RAISE_SKELETONS("Rejs skeletter", "+15% styrke, +1 pr. kast hver 3. rank", Skill.RAISE_SKELETONS, PlayerClass.NECROMANCER, 1),
+    RAISE_SKELETONS("Rejs skeletter", "+15% styrke, +1 pr. kast hver 3. rank, bedre udstyr hver 5.", Skill.RAISE_SKELETONS, PlayerClass.NECROMANCER, 1),
     CURSE("Forbandelse", "+5% ekstra skade pr. rank", Skill.CURSE, PlayerClass.NECROMANCER, 1),
     DEATH_LORD("Dødens herre", "+10% minion-styrke pr. rank", null, PlayerClass.NECROMANCER, 1),
     BLOOD_NOVA("Blodnova", "+20% skade pr. rank", Skill.BLOOD_NOVA, PlayerClass.NECROMANCER, 2),
@@ -51,9 +52,15 @@ public enum Upgrade {
     SPIRIT("Ånd", "+20% hurtigere mana pr. rank", null, null, 0),
     STRENGTH("Styrke", "+5% skade pr. rank", null, null, 0);
 
-    // Skills and the shared upgrades go to 10, passives to 5
-    private static final int SKILL_MAX_RANK = 10;
-    private static final int PASSIVE_MAX_RANK = 5;
+    // Skills go to 20, passives and the shared upgrades to 10. There are far more ranks than skill points at level 100,
+    // so you have to pick what to get good at
+    private static final int SKILL_MAX_RANK = 20;
+    private static final int PASSIVE_MAX_RANK = 10;
+    private static final int SHARED_MAX_RANK = 10;
+    // Skill ranks above this still add damage, but things like radius, duration, jumps and how many summons stop
+    // growing, or they would get silly. Instead each rank above it takes COOLDOWN_PER_RANK off the skill's cooldown
+    public static final int UTILITY_MAX_RANK = 10;
+    public static final float COOLDOWN_PER_RANK = 0.02f;
 
     public final String displayName;
     public final String description;
@@ -77,7 +84,17 @@ public enum Upgrade {
     }
 
     public int maxRank() {
-        return isPassive() ? PASSIVE_MAX_RANK : SKILL_MAX_RANK;
+        return isPassive() ? PASSIVE_MAX_RANK : playerClass == null ? SHARED_MAX_RANK : SKILL_MAX_RANK;
+    }
+
+    // The rank that counts for radius, duration, jumps and how many summons, see UTILITY_MAX_RANK
+    public static int utility(int rank) {
+        return Math.min(rank, UTILITY_MAX_RANK);
+    }
+
+    // How much shorter the skill's cooldown is from its ranks above UTILITY_MAX_RANK, e.g. 0.9 at rank 15
+    public static float cooldownScale(int rank) {
+        return 1 - COOLDOWN_PER_RANK * Math.max(0, rank - UTILITY_MAX_RANK);
     }
 
     // The upgrade that unlocks the skill, or null for the potions

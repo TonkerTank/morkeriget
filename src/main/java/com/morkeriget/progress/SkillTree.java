@@ -7,9 +7,10 @@ import java.util.function.ToIntFunction;
 // start, and the next rows open when you have spent enough points in the tree. The ranks come in as a function,
 // since the server has them in PlayerProgress and the client in ProgressPayload
 public final class SkillTree {
-    public static final int ROWS = 3;
+    // The most rows a tree can have. Not every class has something in the last one yet, see rows()
+    public static final int ROWS = 4;
     // Points spent in the tree it takes to open each row
-    private static final int[] ROW_POINTS = {0, 4, 10};
+    private static final int[] ROW_POINTS = {0, 4, 10, 20};
     // How many skills can be on the keys 1-4
     public static final int SLOTS = 4;
 
@@ -21,6 +22,17 @@ public final class SkillTree {
         return List.of(Upgrade.values()).stream()
                 .filter(upgrade -> upgrade.playerClass == playerClass && upgrade.row == row)
                 .toList();
+    }
+
+    // How many rows the class's tree has: up to the last one with anything in it
+    public static int rows(PlayerClass playerClass) {
+        int rows = 0;
+        for (Upgrade upgrade : Upgrade.values()) {
+            if (upgrade.playerClass == playerClass) {
+                rows = Math.max(rows, upgrade.row + 1);
+            }
+        }
+        return rows;
     }
 
     public static int pointsForRow(int row) {

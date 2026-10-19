@@ -129,6 +129,8 @@ public final class Skills {
             case BEAR_TRAP -> TreeSkills.bearTrap(player);
             case BLOOD_NOVA -> TreeSkills.bloodNova(player);
             case BONE_PRISON -> TreeSkills.bonePrison(player);
+            // The fourth row
+            case THUNDERSTORM -> TreeSkills.thunderstorm(player);
             case HEALTH_POTION -> healthPotion(player);
             case MANA_POTION -> manaPotion(player);
         };
@@ -142,6 +144,11 @@ public final class Skills {
                 cooldownScale *= 1 - 0.04f * Progression.rank(player, Upgrade.TIME_WARP);
                 cooldownScale *= 1 - 0.002f * Progression.rank(player, Paragon.COOLDOWN);
                 cooldownScale *= crown ? 0.75f : 1;
+                // Ranks above 10 in the skill itself
+                Upgrade upgrade = Upgrade.forSkill(skill);
+                if (upgrade != null) {
+                    cooldownScale *= Upgrade.cooldownScale(Progression.rank(player, upgrade));
+                }
             }
             int cooldown = Math.round(skill.cooldown() * cooldownScale);
             player.getPersistentData().putLong(readyTag, now + cooldown);
@@ -186,7 +193,7 @@ public final class Skills {
     private static void frostNovaAt(ServerPlayer player, Vec3 center) {
         ServerLevel level = player.serverLevel();
         // Each Frost Nova upgrade rank adds half a block of radius and half a second of freezing
-        int rank = Progression.rank(player, Upgrade.FROST_NOVA);
+        int rank = Upgrade.utility(Progression.rank(player, Upgrade.FROST_NOVA));
         double radius = FROST_NOVA_RADIUS + rank * 0.5;
         int duration = FROST_NOVA_DURATION + rank * 10;
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5);
@@ -214,7 +221,7 @@ public final class Skills {
         Vec3 eyes = player.getEyePosition();
         Vec3 look = player.getLookAngle();
         // Each Blink upgrade rank adds 2 blocks
-        double maxDistance = BLINK_DISTANCE + 2 * Progression.rank(player, Upgrade.BLINK);
+        double maxDistance = BLINK_DISTANCE + 2 * Upgrade.utility(Progression.rank(player, Upgrade.BLINK));
         BlockHitResult hit = level.clip(new ClipContext(eyes, eyes.add(look.scale(maxDistance)),
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
         Vec3 from = player.position();
@@ -249,7 +256,7 @@ public final class Skills {
         ServerLevel level = player.serverLevel();
         // Each Chain Lightning upgrade rank adds 15% damage and one more jump, and Storm Eye three more
         int rank = Progression.rank(player, Upgrade.CHAIN_LIGHTNING);
-        int jumps = CHAIN_LIGHTNING_JUMPS + rank + (LegendaryPower.has(player, LegendaryPower.STORM_EYE) ? 3 : 0);
+        int jumps = CHAIN_LIGHTNING_JUMPS + Upgrade.utility(rank) + (LegendaryPower.has(player, LegendaryPower.STORM_EYE) ? 3 : 0);
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.2 * (1 + 0.15 * rank));
         List<LivingEntity> hit = new ArrayList<>();
         LivingEntity target = closestEnemy(level, player, CHAIN_LIGHTNING_RANGE, hit);
@@ -333,7 +340,7 @@ public final class Skills {
     private static boolean battleCry(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         // Each Battle Cry upgrade rank makes it last one second longer
-        int duration = BATTLE_CRY_DURATION + 20 * Progression.rank(player, Upgrade.BATTLE_CRY);
+        int duration = BATTLE_CRY_DURATION + 20 * Upgrade.utility(Progression.rank(player, Upgrade.BATTLE_CRY));
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, duration, 0));
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, duration, 0));
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(BATTLE_CRY_RADIUS),
