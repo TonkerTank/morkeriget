@@ -8,6 +8,7 @@ import com.morkeriget.loot.LootBeams;
 import com.morkeriget.loot.LootTooltips;
 import com.morkeriget.merchant.Merchant;
 import com.morkeriget.merchant.MerchantScreen;
+import com.morkeriget.progress.XpBar;
 import com.morkeriget.smithy.Gem;
 import com.morkeriget.smithy.Smithy;
 import com.morkeriget.smithy.SmithyScreen;
@@ -19,6 +20,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -35,6 +37,9 @@ public class MorkerigetClient {
         NeoForge.EVENT_BUS.addListener(SkillKeys::onClientTick);
         // Mana bar next to the hotbar
         modEventBus.addListener(ManaBar::register);
+        // The mod's XP in place of the vanilla XP bar
+        modEventBus.addListener(XpBar::register);
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> XpBar.reset());
         // Skill icons with keys and cooldowns next to the mana bar
         modEventBus.addListener(SkillBar::register);
         NeoForge.EVENT_BUS.addListener(SkillBar::onClientTick);

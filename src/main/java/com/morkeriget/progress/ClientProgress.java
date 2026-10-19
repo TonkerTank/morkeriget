@@ -16,6 +16,7 @@ public final class ClientProgress {
     }
 
     public static void set(ProgressPayload payload) {
+        XpBar.update(progress, payload);
         progress = payload;
         if (Minecraft.getInstance().screen instanceof SkillScreen screen) {
             screen.refresh();
