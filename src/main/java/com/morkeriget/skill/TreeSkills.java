@@ -67,7 +67,6 @@ final class TreeSkills {
     private static final int STORM_BOLT_TIME = 6;
     private static final int STORM_GATHER = 15;
     private static final DustParticleOptions STORM_CLOUD = new DustParticleOptions(new Vector3f(0.18f, 0.18f, 0.24f), 3.0f);
-    private static final DustParticleOptions BOLT_GLOW = new DustParticleOptions(new Vector3f(0.75f, 0.85f, 1.0f), 1.2f);
     private static final BlockParticleOption BONE =new BlockParticleOption(ParticleTypes.BLOCK, Blocks.BONE_BLOCK.defaultBlockState());
     private static final BlockParticleOption DIRT = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState());
     private static final DustParticleOptions BLOOD = new DustParticleOptions(new Vector3f(0.7f, 0.05f, 0.05f), 1.5f);
@@ -448,7 +447,7 @@ final class TreeSkills {
             double distance = player.getRandom().nextDouble() * STORM_RADIUS;
             spot = effect.center.add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
         }
-        bolt(level, spot, effect.center.y + STORM_HEIGHT);
+        bolt(level, spot);
         for (LivingEntity target : ClassSkills.enemies(level, spot, STORM_BOLT_RADIUS)) {
             target.invulnerableTime = 0;
             target.hurt(player.damageSources().playerAttack(player), effect.damage);
@@ -458,26 +457,19 @@ final class TreeSkills {
         stormClouds(level, effect.center, 12);
     }
 
-    // A jagged line of sparks from the clouds down to the spot, with a flash and a crack where it hits. Real lightning
-    // bolts would be heard all over the world and set things on fire
-    private static void bolt(ServerLevel level, Vec3 spot, double top) {
+    // The bolt coming down on the spot, with a flash, sparks, soul fire and a crack where it hits. Vanilla's lightning
+    // bolt isn't used, since it would be heard all over the world and set things on fire
+    private static void bolt(ServerLevel level, Vec3 spot) {
         RandomSource random = level.getRandom();
-        Vec3 from = new Vec3(spot.x, top, spot.z);
-        while (from.y > spot.y) {
-            Vec3 to = new Vec3(spot.x + (random.nextDouble() - 0.5) * 1.2, Math.max(spot.y, from.y - 1.2 - random.nextDouble()),
-                    spot.z + (random.nextDouble() - 0.5) * 1.2);
-            if (to.y <= spot.y + 0.01) {
-                to = spot;
-            }
-            for (double t = 0; t <= 1; t += 0.2) {
-                Vec3 point = from.lerp(to, t);
-                level.sendParticles(ParticleTypes.END_ROD, point.x, point.y, point.z, 1, 0, 0, 0, 0);
-                level.sendParticles(BOLT_GLOW, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0);
-            }
-            from = to;
+        // The bolt itself is a StormBolt, drawn on every client by StormBoltRenderer. It is only there to be seen
+        StormBolt bolt = SkillEntities.STORM_BOLT.get().create(level);
+        if (bolt != null) {
+            bolt.moveTo(spot.x, spot.y, spot.z);
+            level.addFreshEntity(bolt);
         }
         level.sendParticles(ParticleTypes.FLASH, spot.x, spot.y + 0.5, spot.z, 1, 0, 0, 0, 0);
         level.sendParticles(ParticleTypes.ELECTRIC_SPARK, spot.x, spot.y + 0.2, spot.z, 25, 0.6, 0.2, 0.6, 0.3);
+        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, spot.x, spot.y + 0.2, spot.z, 14, 0.5, 0.15, 0.5, 0.04);
         level.sendParticles(ParticleTypes.CLOUD, spot.x, spot.y + 0.1, spot.z, 6, 0.4, 0.05, 0.4, 0.02);
         level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.2f, 0.9f + random.nextFloat() * 0.3f);
         level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.4f, 1.6f);

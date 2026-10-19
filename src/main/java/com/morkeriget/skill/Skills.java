@@ -54,6 +54,7 @@ public final class Skills {
 
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(Skills::registerPayloads);
+        SkillEntities.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(Mana::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ClassSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ClassSkills::onEntityTick);

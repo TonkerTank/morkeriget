@@ -14,6 +14,8 @@ import com.morkeriget.smithy.Smithy;
 import com.morkeriget.smithy.SmithyScreen;
 import com.morkeriget.skill.ManaBar;
 import com.morkeriget.skill.SkillBar;
+import com.morkeriget.skill.SkillEntities;
+import com.morkeriget.skill.StormBoltRenderer;
 import com.morkeriget.skill.SkillKeys;
 
 import net.neoforged.api.distmarker.Dist;
@@ -21,6 +23,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -37,6 +40,9 @@ public class MorkerigetClient {
         NeoForge.EVENT_BUS.addListener(SkillKeys::onClientTick);
         // Mana bar next to the hotbar
         modEventBus.addListener(ManaBar::register);
+        // Thunderstorm's lightning bolts, drawn in code
+        modEventBus.addListener((EntityRenderersEvent.RegisterRenderers event) ->
+                event.registerEntityRenderer(SkillEntities.STORM_BOLT.get(), StormBoltRenderer::new));
         // The mod's XP in place of the vanilla XP bar
         modEventBus.addListener(XpBar::register);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> XpBar.reset());
