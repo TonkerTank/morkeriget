@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.PlayerBars;
 import com.morkeriget.journey.Achievement;
 import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
@@ -19,7 +20,6 @@ import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -148,8 +148,8 @@ public final class WorldBoss {
         private UUID bossId;
         // Seconds since it woke up, or since it should have if nobody came
         private int awake;
-        private final ServerBossEvent bar = new ServerBossEvent(Component.literal("Verdensboss"),
-                BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
+        // One for each player, since it says how far and which way the boss is for them
+        private final PlayerBars bars = new PlayerBars(BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
 
         Event(ServerLevel level, ServerPlayer near, int warning) {
             this.level = level;
@@ -202,21 +202,18 @@ public final class WorldBoss {
         }
 
         private void updateBar() {
-            if (bossId == null && untilWake > 0) {
-                bar.setProgress(Mth.clamp((float) untilWake / warning, 0, 1));
-            } else {
-                bar.setProgress(Mth.clamp(1 - (float) awake / LIFETIME, 0, 1));
-            }
+            float progress = bossId == null && untilWake > 0
+                    ? Mth.clamp((float) untilWake / warning, 0, 1)
+                    : Mth.clamp(1 - (float) awake / LIFETIME, 0, 1);
+            String state = bossId != null ? " er vågen!" : untilWake > 0 ? " vågner om " + time(untilWake) : " venter på jer";
             for (ServerPlayer player : level.players()) {
-                if (bossId != null && distance(player) < NEAR) {
-                    bar.removePlayer(player);
-                    continue;
+                // Close to the boss its own boss bar shows instead
+                if (bossId == null || distance(player) >= NEAR) {
+                    bars.show(player, Component.literal(kind.name + state + " - " + (int) distance(player) + " blokke mod " + direction(player)),
+                            progress);
                 }
-                String state = bossId != null ? " er vågen!" : untilWake > 0 ? " vågner om " + time(untilWake) : " venter på jer";
-                bar.setName(Component.literal(kind.name + state + " - " + (int) distance(player) + " blokke mod " + direction(player)));
-                bar.addPlayer(player);
             }
-            bar.getPlayers().stream().filter(player -> player.level() != level).toList().forEach(bar::removePlayer);
+            bars.finish();
         }
 
         private void spawn() {
@@ -288,7 +285,7 @@ public final class WorldBoss {
 
         // message is null when nobody needs to be told
         void end(String message) {
-            bar.removeAllPlayers();
+            bars.clear();
             if (message != null) {
                 broadcast(Component.literal(message).withStyle(ChatFormatting.GRAY));
             }

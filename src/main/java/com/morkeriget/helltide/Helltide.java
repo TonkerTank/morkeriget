@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.PlayerBars;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
@@ -25,7 +26,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -184,8 +184,8 @@ public final class Helltide {
         private final Set<UUID> monsters = new HashSet<>();
         // The chests are put out the first time a player comes close, so the chunks are loaded by then
         private boolean chestsPlaced;
-        private final ServerBossEvent bar = new ServerBossEvent(Component.literal("Helltide"),
-                BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
+        // One for each player, since it says how far and which way it is for them
+        private final PlayerBars bars = new PlayerBars(BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
 
         Active(ServerLevel level, ServerPlayer player) {
             this.level = level;
@@ -214,24 +214,24 @@ public final class Helltide {
         // Once a second
         void tick() {
             long time = level.getDayTime() % 24000;
-            bar.setProgress(Mth.clamp(1 - (float) (time - NIGHT_START) / (NIGHT_END - NIGHT_START), 0, 1));
+            float progress = Mth.clamp(1 - (float) (time - NIGHT_START) / (NIGHT_END - NIGHT_START), 0, 1);
             for (ServerPlayer player : level.players()) {
-                bar.addPlayer(player);
                 boolean inside = contains(player.blockPosition());
                 if (inside) {
                     int cinders = player.getInventory().countItem(CINDER.get());
-                    bar.setName(Component.literal("Helltide - " + cinders + " glødende aske (kiste: " + CHEST_COST + ")"));
+                    bars.show(player, Component.literal("Helltide - " + cinders + " glødende aske (kiste: " + CHEST_COST + ")"), progress);
                     if (!Rifts.isInRift(player)) {
                         spawnMonsters(player);
                     }
                 } else {
-                    bar.setName(Component.literal("Helltide: " + (int) (distance(player) - RADIUS) + " blokke mod " + direction(player)));
+                    bars.show(player, Component.literal("Helltide: " + (int) (distance(player) - RADIUS) + " blokke mod " + direction(player)), progress);
                 }
                 if (!chestsPlaced && distance(player) < RADIUS + 48) {
                     placeChests();
                 }
             }
-            bar.getPlayers().stream().filter(player -> player.level() != level).toList().forEach(bar::removePlayer);
+            // Players who left the world or the server lose their bar
+            bars.finish();
             // A column of flames over each chest, so they can be found
             for (BlockPos chest : chests) {
                 level.sendParticles(ParticleTypes.FLAME, chest.getX() + 0.5, chest.getY() + 1.5, chest.getZ() + 0.5, 12, 0.1, 1.5, 0.1, 0.01);
@@ -352,7 +352,7 @@ public final class Helltide {
                 }
             }
             monsters.clear();
-            bar.removeAllPlayers();
+            bars.clear();
             if (message != null) {
                 for (ServerPlayer player : level.players()) {
                     player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.GRAY));

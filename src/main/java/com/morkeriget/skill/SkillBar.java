@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.loot.MythicItem;
 import com.morkeriget.progress.ClientProgress;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Upgrade;
@@ -16,6 +17,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionContents;
@@ -141,9 +143,15 @@ public final class SkillBar {
         slot(graphics, font, x, y, icon(skill), key, remaining[i], total[i], ManaBar.mana() < manaCost(skill));
     }
 
-    // The same as Skills.use works out, with Arcane Flow
+    // The same as Skills.use works out, with Arcane Flow and the Jester's Crown. The crown is a helmet, so the client
+    // can see it on its own head
     private static float manaCost(Skill skill) {
-        return skill.manaCost() * (1 - 0.05f * ClientProgress.get().rank(Upgrade.ARCANE_FLOW));
+        float cost = skill.manaCost() * (1 - 0.05f * ClientProgress.get().rank(Upgrade.ARCANE_FLOW));
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null && MythicItem.of(minecraft.player.getItemBySlot(EquipmentSlot.HEAD)) == MythicItem.JESTERS_CROWN) {
+            cost *= 0.75f;
+        }
+        return cost;
     }
 
     // From the left edge of the first slot to the right edge of the last

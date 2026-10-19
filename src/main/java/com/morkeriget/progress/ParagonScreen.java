@@ -16,6 +16,7 @@ public class ParagonScreen extends Screen {
     private static final int COLUMN_WIDTH = 190;
     private static final int COLUMN_GAP = 20;
     private static final int ROW_HEIGHT = 30;
+    private static final int COMPACT_ROW_HEIGHT = 25;
     private static final int ROWS = (Paragon.values().length + 1) / 2;
 
     public ParagonScreen() {
@@ -26,12 +27,23 @@ public class ParagonScreen extends Screen {
         return (width - 2 * COLUMN_WIDTH - COLUMN_GAP) / 2 + (stat.ordinal() / ROWS) * (COLUMN_WIDTH + COLUMN_GAP);
     }
 
+    // In the middle of the screen. The panel starts 8 above this
     private int top() {
-        return height / 2 - 80;
+        return Math.max(10, (height - panelHeight(rowHeight())) / 2 + 8);
+    }
+
+    // On a low screen the rows are closer together, so every stat still fits
+    private int rowHeight() {
+        return height < panelHeight(ROW_HEIGHT) ? COMPACT_ROW_HEIGHT : ROW_HEIGHT;
+    }
+
+    // The title and points, the rows and "Tilbage"
+    private static int panelHeight(int rowHeight) {
+        return 8 + 36 + ROWS * rowHeight + 32;
     }
 
     private int rowTop(int row) {
-        return top() + 36 + row * ROW_HEIGHT;
+        return top() + 36 + row * rowHeight();
     }
 
     private int rowTop(Paragon stat) {

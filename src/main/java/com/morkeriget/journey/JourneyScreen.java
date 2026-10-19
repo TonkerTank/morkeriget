@@ -19,6 +19,7 @@ import net.minecraft.network.chat.Component;
 public class JourneyScreen extends Screen {
     private static final int WIDTH = 260;
     private static final int ROW_HEIGHT = 22;
+    private static final int COMPACT_ROW_HEIGHT = 18;
     // What the server last sent
     private static JourneyPayload journey = new JourneyPayload(List.of(), false);
     // The chapter shown, 1 to Achievement.CHAPTERS. Kept while the game runs, so it opens where you left it
@@ -43,12 +44,23 @@ public class JourneyScreen extends Screen {
         return (width - WIDTH) / 2;
     }
 
+    // In the middle of the screen. The panel starts 8 above this
     private int top() {
-        return height / 2 - 110;
+        return Math.max(10, (height - panelHeight(rowHeight())) / 2 + 8);
+    }
+
+    // On a low screen the rows are closer together, so the whole chapter still fits
+    private int rowHeight() {
+        return height < panelHeight(ROW_HEIGHT) ? COMPACT_ROW_HEIGHT : ROW_HEIGHT;
+    }
+
+    // The title and tabs, the most rows a chapter has, the chapter info and "Tilbage"
+    private static int panelHeight(int rowHeight) {
+        return 8 + 40 + 7 * rowHeight + 54;
     }
 
     private int rowTop(int row) {
-        return top() + 40 + row * ROW_HEIGHT;
+        return top() + 40 + row * rowHeight();
     }
 
     private static List<Achievement> shown() {

@@ -18,6 +18,8 @@ public class ClassScreen extends Screen {
     private static final int PANEL_WIDTH = 104;
     // Room for seven skills and the bonus
     private static final int PANEL_HEIGHT = 200;
+    // The room the description takes under the name
+    private static final int DESCRIPTION_HEIGHT = 28;
     private static final int GAP = 2;
 
     public ClassScreen() {
@@ -29,8 +31,18 @@ public class ClassScreen extends Screen {
         return (width - total) / 2 + playerClass.ordinal() * (PANEL_WIDTH + GAP);
     }
 
+    // The panel goes from 30 above this, for the title, to 32 below the classes, for "Tilbage". Kept on the screen
     private int top() {
-        return height / 2 - PANEL_HEIGHT / 2;
+        return Math.max(32, height / 2 - panelHeight() / 2);
+    }
+
+    // On a low screen the line about each class goes, so the boxes are shorter
+    private boolean compact() {
+        return height < 30 + PANEL_HEIGHT + 34;
+    }
+
+    private int panelHeight() {
+        return compact() ? PANEL_HEIGHT - DESCRIPTION_HEIGHT : PANEL_HEIGHT;
     }
 
     @Override
@@ -39,12 +51,12 @@ public class ClassScreen extends Screen {
         for (PlayerClass playerClass : PlayerClass.values()) {
             String text = playerClass == current ? "Nulstil" : "Vælg";
             addRenderableWidget(Button.builder(Component.literal(text), pressed -> PacketDistributor.sendToServer(new ChooseClassPayload(playerClass)))
-                    .bounds(panelLeft(playerClass) + 6, top() + PANEL_HEIGHT - 24, PANEL_WIDTH - 12, 18)
+                    .bounds(panelLeft(playerClass) + 6, top() + panelHeight() - 24, PANEL_WIDTH - 12, 18)
                     .build(ThemedButton::new));
         }
         if (current != null) {
             addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new SkillScreen()))
-                    .bounds(width / 2 - 40, top() + PANEL_HEIGHT + 8, 80, 18)
+                    .bounds(width / 2 - 40, top() + panelHeight() + 8, 80, 18)
                     .build(ThemedButton::new));
         }
     }
@@ -60,12 +72,12 @@ public class ClassScreen extends Screen {
         // The four classes nearly fill a small screen, so the padding shrinks to keep the frame on it
         int pad = Math.max(0, Math.min(8, (width - total) / 2 - 3));
         // Room for "Tilbage" under the classes once you have one
-        int bottom = top + PANEL_HEIGHT + (current != null ? 32 : 6);
+        int bottom = top + panelHeight() + (current != null ? 32 : 6);
         UiTheme.panel(graphics, (width - total) / 2 - pad, top - 30, total + 2 * pad, bottom - (top - 30));
         for (PlayerClass playerClass : PlayerClass.values()) {
             int x = panelLeft(playerClass);
-            boolean hovered = mouseX >= x && mouseX < x + PANEL_WIDTH && mouseY >= top && mouseY < top + PANEL_HEIGHT;
-            UiTheme.box(graphics, x, top, PANEL_WIDTH, PANEL_HEIGHT, playerClass.color, playerClass == current || hovered);
+            boolean hovered = mouseX >= x && mouseX < x + PANEL_WIDTH && mouseY >= top && mouseY < top + panelHeight();
+            UiTheme.box(graphics, x, top, PANEL_WIDTH, panelHeight(), playerClass.color, playerClass == current || hovered);
         }
     }
 
@@ -82,9 +94,11 @@ public class ClassScreen extends Screen {
         for (PlayerClass playerClass : PlayerClass.values()) {
             int x = panelLeft(playerClass);
             graphics.drawCenteredString(font, playerClass.displayName, x + PANEL_WIDTH / 2, top + 6, playerClass.color);
-            graphics.drawWordWrap(font, Component.literal(playerClass.description), x + 5, top + 18, PANEL_WIDTH - 10, UiTheme.MUTED);
-
-            int y = top + 46;
+            int y = top + 18;
+            if (!compact()) {
+                graphics.drawWordWrap(font, Component.literal(playerClass.description), x + 5, y, PANEL_WIDTH - 10, UiTheme.MUTED);
+                y += DESCRIPTION_HEIGHT;
+            }
             for (Skill skill : playerClass.skills) {
                 graphics.renderItem(SkillBar.icon(skill), x + 3, y);
                 graphics.drawString(font, skill.displayName, x + 21, y + 4, UiTheme.TEXT);

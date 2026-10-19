@@ -28,11 +28,19 @@ import net.neoforged.neoforge.network.PacketDistributor;
 // that key. Client only
 public class SkillScreen extends Screen {
     private static final int WIDTH = 440;
+    private static final int COMPACT_WIDTH = 412;
     // One box in the tree
     private static final int NODE_WIDTH = 86;
     private static final int NODE_HEIGHT = 40;
     private static final int NODE_GAP = 4;
     private static final int TREE_ROW_HEIGHT = NODE_HEIGHT + 4;
+    // On a low screen the boxes are lower, the "Skill"/"Passiv" line goes (the tooltip says it too) and the header
+    // takes one line less, so the whole tree still fits
+    private static final int COMPACT_NODE_HEIGHT = 30;
+    private static final int HEADER = 52;
+    private static final int COMPACT_HEADER = 40;
+    // What is under the tree: the keys, the hint below them and the bottom of the panel
+    private static final int FOOTER = 44;
     // The column with the shared upgrades
     private static final int SHARED_WIDTH = 140;
     private static final int SHARED_ROW_HEIGHT = 28;
@@ -47,12 +55,35 @@ public class SkillScreen extends Screen {
     }
 
     private int left() {
-        return (width - WIDTH) / 2;
+        return (width - screenWidth()) / 2;
     }
 
-    // Trees with a fourth row move the screen up, so the keys still fit at the bottom
+    // In the middle of the screen. The panel starts 12 above this, for the buttons at the top
     private int top() {
-        return height / 2 - 100 - (treeRows() - 3) * TREE_ROW_HEIGHT / 2;
+        return Math.max(12, (height - contentHeight(compact())) / 2 + 12);
+    }
+
+    // From the top of the panel to the bottom, with or without the compact layout
+    private static int contentHeight(boolean compact) {
+        int rowHeight = (compact ? COMPACT_NODE_HEIGHT : NODE_HEIGHT) + (compact ? 3 : 4);
+        return 12 + (compact ? COMPACT_HEADER : HEADER) + treeRows() * rowHeight + FOOTER;
+    }
+
+    // A little narrower when the normal width wouldn't fit, with the shared column moved closer to the tree
+    private int screenWidth() {
+        return width < WIDTH + 14 ? COMPACT_WIDTH : WIDTH;
+    }
+
+    private boolean compact() {
+        return height < contentHeight(false);
+    }
+
+    private int nodeHeight() {
+        return compact() ? COMPACT_NODE_HEIGHT : NODE_HEIGHT;
+    }
+
+    private int rowHeight() {
+        return compact() ? COMPACT_NODE_HEIGHT + 3 : TREE_ROW_HEIGHT;
     }
 
     // The rows of the player's tree. Three before a class is picked, so the screen stays where it was
@@ -66,11 +97,11 @@ public class SkillScreen extends Screen {
     }
 
     private int nodeY(int row) {
-        return top() + 52 + row * TREE_ROW_HEIGHT;
+        return top() + (compact() ? COMPACT_HEADER : HEADER) + row * rowHeight();
     }
 
     private int sharedX() {
-        return left() + WIDTH - SHARED_WIDTH;
+        return left() + screenWidth() - SHARED_WIDTH;
     }
 
     private int keysY() {
@@ -85,10 +116,10 @@ public class SkillScreen extends Screen {
     protected void init() {
         // Menus are opened by the server, so ask it to open the jewelry slots
         addRenderableWidget(Button.builder(Component.literal("Smykker"), pressed -> PacketDistributor.sendToServer(OpenJewelryPayload.INSTANCE))
-                .bounds(left() + WIDTH - 60, top() - 4, 60, 16)
+                .bounds(left() + screenWidth() - 60, top() - 4, 60, 16)
                 .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Component.literal("Smedje"), pressed -> PacketDistributor.sendToServer(OpenSmithyPayload.INSTANCE))
-                .bounds(left() + WIDTH - 124, top() - 4, 60, 16)
+                .bounds(left() + screenWidth() - 124, top() - 4, 60, 16)
                 .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Component.literal("Købmand"), pressed -> PacketDistributor.sendToServer(OpenMerchantPayload.INSTANCE))
                 // Next to "Skift klasse", since the middle is taken by the class and level
@@ -114,7 +145,7 @@ public class SkillScreen extends Screen {
         for (int row = 0; row < treeRows(); row++) {
             List<Upgrade> upgrades = SkillTree.row(playerClass, row);
             for (int column = 0; column < upgrades.size(); column++) {
-                plusButton(progress, playerClass, upgrades.get(column), nodeX(column) + NODE_WIDTH - 16, nodeY(row) + NODE_HEIGHT - 16);
+                plusButton(progress, playerClass, upgrades.get(column), nodeX(column) + NODE_WIDTH - 16, nodeY(row) + nodeHeight() - 16);
             }
         }
         for (int row = 0; row < SHARED.size(); row++) {
@@ -151,7 +182,7 @@ public class SkillScreen extends Screen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
         // Little room at the sides, since the screen is already as wide as small screens
-        UiTheme.panel(graphics, left() - 6, top() - 12, WIDTH + 12, keysY() + 40 - (top() - 12));
+        UiTheme.panel(graphics, left() - 6, top() - 12, screenWidth() + 12, keysY() + 40 - (top() - 12));
         ProgressPayload progress = ClientProgress.get();
         PlayerClass playerClass = progress.chosenClass();
         if (playerClass == null) {
@@ -166,7 +197,7 @@ public class SkillScreen extends Screen {
                 int y = nodeY(row);
                 int rank = progress.rank(upgrade);
                 boolean isSelected = upgrade.skill != null && upgrade.skill == selected;
-                UiTheme.box(graphics, x, y, NODE_WIDTH, NODE_HEIGHT, isSelected ? 0xFFD700 : rank > 0 ? playerClass.color : 0, open || isSelected);
+                UiTheme.box(graphics, x, y, NODE_WIDTH, nodeHeight(), isSelected ? 0xFFD700 : rank > 0 ? playerClass.color : 0, open || isSelected);
                 UiTheme.slot(graphics, x + 3, y + 3);
             }
         }
@@ -203,21 +234,29 @@ public class SkillScreen extends Screen {
         String title = (playerClass != null ? playerClass.displayName + " - " : "")
                 + (paragon ? "Paragon " + progress.paragonLevel() : "Level " + progress.level());
         // The lines stop before the buttons on both sides of the title. "Købmand" ends 134 from the left, the closer side
-        int room = WIDTH / 2 - 134 - font.width(title) / 2 - 10;
+        int room = screenWidth() / 2 - 134 - font.width(title) / 2 - 10;
         UiTheme.title(graphics, font, Component.literal(title), center, top, paragon ? 0x55FFFF : playerClass != null ? playerClass.color : 0xFFD700,
                 Math.max(0, Math.min(40, room)));
 
         int barLeft = left + 20;
-        int barRight = left + WIDTH - 20;
+        int barRight = left + screenWidth() - 20;
         boolean maxLevel = progress.level() >= Progression.MAX_LEVEL;
         // At level 100 the bar fills up towards the next paragon level, in another colour
         float fraction = (float) progress.xp() / Math.max(1, progress.xpNeeded());
         UiTheme.bar(graphics, barLeft, top + 16, barRight - barLeft, 4, fraction, maxLevel ? 0x33CCCC : 0x9B4DFF);
         String xpText = progress.xp() + " / " + progress.xpNeeded() + " XP";
-        graphics.drawCenteredString(font, xpText, center, top + 24, UiTheme.MUTED);
-
         int pointsColor = progress.points() > 0 ? UiTheme.GOOD : UiTheme.MUTED;
-        graphics.drawCenteredString(font, "Skill-points: " + progress.points(), center, top + 38, pointsColor);
+        String pointsText = "Skill-points: " + progress.points();
+        if (compact()) {
+            // Both on one line, to save room
+            int gap = 16;
+            int start = center - (font.width(xpText) + gap + font.width(pointsText)) / 2;
+            graphics.drawString(font, xpText, start, top + 25, UiTheme.MUTED);
+            graphics.drawString(font, pointsText, start + font.width(xpText) + gap, top + 25, pointsColor);
+        } else {
+            graphics.drawCenteredString(font, xpText, center, top + 24, UiTheme.MUTED);
+            graphics.drawCenteredString(font, pointsText, center, top + 38, pointsColor);
+        }
 
         if (playerClass == null) {
             graphics.drawCenteredString(font, "Vælg en klasse først", center, nodeY(0) + 8, UiTheme.TITLE);
@@ -232,12 +271,13 @@ public class SkillScreen extends Screen {
                 int x = nodeX(column);
                 int y = nodeY(row);
                 drawNode(graphics, progress, upgrade, x, y, open);
-                if (mouseX >= x && mouseX < x + NODE_WIDTH && mouseY >= y && mouseY < y + NODE_HEIGHT) {
+                if (mouseX >= x && mouseX < x + NODE_WIDTH && mouseY >= y && mouseY < y + nodeHeight()) {
                     hovered = upgrade;
                 }
             }
-            if (!open) {
-                // Next to the row, how many points it takes to open it. The tooltip says it in words
+            // Next to the row, how many points it takes to open it, if there is room before the shared column. Otherwise
+            // the boxes say it, see drawNode. The tooltip says it in words
+            if (!open && nodeX(upgrades.size()) + 30 < sharedX()) {
                 int x = nodeX(upgrades.size());
                 int spent = SkillTree.spent(playerClass, progress::rank);
                 graphics.drawString(font, "Låst", x, nodeY(row) + 10, 0xAA5555);
@@ -277,13 +317,21 @@ public class SkillScreen extends Screen {
         }
         int nameColor = !open ? UiTheme.DIM : rank >= upgrade.maxRank() ? 0xFFD700 : UiTheme.TEXT;
         graphics.drawString(font, font.plainSubstrByWidth(upgrade.displayName, NODE_WIDTH - 24), x + 22, y + 4, nameColor);
-        String kind = upgrade.isPassive() ? "Passiv" : "Skill";
-        graphics.drawString(font, kind, x + 22, y + 14, upgrade.isPassive() ? 0x8888CC : UiTheme.MUTED);
-        graphics.drawString(font, rank + "/" + upgrade.maxRank(), x + 4, y + NODE_HEIGHT - 12, rank > 0 ? UiTheme.TEXT : UiTheme.DIM);
+        if (!compact()) {
+            String kind = upgrade.isPassive() ? "Passiv" : "Skill";
+            graphics.drawString(font, kind, x + 22, y + 14, upgrade.isPassive() ? 0x8888CC : UiTheme.MUTED);
+        }
+        if (!open && progress.chosenClass() != null && nodeX(SkillTree.row(progress.chosenClass(), upgrade.row).size()) + 30 >= sharedX()) {
+            // No room for "Låst" next to the row, so each box says how far you are from opening it
+            int spent = SkillTree.spent(progress.chosenClass(), progress::rank);
+            graphics.drawString(font, "Låst " + spent + "/" + SkillTree.pointsForRow(upgrade.row), x + 4, y + nodeHeight() - 10, 0xAA5555);
+        } else {
+            graphics.drawString(font, rank + "/" + upgrade.maxRank(), x + 4, y + nodeHeight() - 10, rank > 0 ? UiTheme.TEXT : UiTheme.DIM);
+        }
         int slot = slotOf(progress, upgrade.skill);
         if (slot >= 0) {
             String key = "[" + keyName(slot) + "]";
-            graphics.drawString(font, key, x + NODE_WIDTH - 20 - font.width(key), y + NODE_HEIGHT - 12, 0xFFD700);
+            graphics.drawString(font, key, x + NODE_WIDTH - 20 - font.width(key), y + nodeHeight() - 10, 0xFFD700);
         }
     }
 
@@ -392,7 +440,7 @@ public class SkillScreen extends Screen {
                 Upgrade upgrade = upgrades.get(column);
                 int x = nodeX(column);
                 int y = nodeY(row);
-                if (mouseX >= x && mouseX < x + NODE_WIDTH && mouseY >= y && mouseY < y + NODE_HEIGHT) {
+                if (mouseX >= x && mouseX < x + NODE_WIDTH && mouseY >= y && mouseY < y + nodeHeight()) {
                     selected = upgrade.skill != null && progress.rank(upgrade) > 0 && upgrade.skill != selected ? upgrade.skill : null;
                     return true;
                 }
