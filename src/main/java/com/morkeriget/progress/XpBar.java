@@ -98,6 +98,8 @@ public final class XpBar {
 
         int x = graphics.guiWidth() / 2 - WIDTH / 2;
         int y = graphics.guiHeight() - 29;
+        // A thin bronze frame around the black outline, like the mana bar and the skill slots
+        graphics.fill(x - 2, y - 2, x + WIDTH + 2, y + HEIGHT + 2, 0xFF8C6E3A);
         graphics.fill(x - 1, y - 1, x + WIDTH + 1, y + HEIGHT + 1, 0xFF000000);
         graphics.fill(x, y, x + WIDTH, y + HEIGHT, paragon ? 0xFF10282A : 0xFF1E1230);
         int filled = Math.round(WIDTH * shown);

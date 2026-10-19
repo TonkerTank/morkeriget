@@ -7,6 +7,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.progress.ClientProgress;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Upgrade;
+import com.morkeriget.ui.UiTheme;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
@@ -112,9 +113,14 @@ public final class SkillBar {
         int potionX = graphics.guiWidth() / 2 - 91 - 29 - 4 - SLOT;
         int y = graphics.guiHeight() - 19;
 
+        // A bronze frame around each group of slots. The slots share their black borders, so it only shows on the outside
+        PlayerClass playerClass = ClientProgress.get().chosenClass();
+        int skills = 1 + (playerClass != null ? SkillKeys.SKILL_SLOTS.size() : 0);
+        frame(graphics, x, x + skills * SLOT, y);
+        frame(graphics, potionX - SLOT, potionX + SLOT, y);
+
         slot(graphics, minecraft.font, x, y, DODGE_ICON, SkillKeys.DODGE, SkillKeys.dodgeCooldown(), SkillKeys.DODGE_COOLDOWN, false);
         // Before a class is picked there are no skills, only dodge and the potions. Keys without a skill are empty
-        PlayerClass playerClass = ClientProgress.get().chosenClass();
         if (playerClass != null) {
             for (int slot = 0; slot < SkillKeys.SKILL_SLOTS.size(); slot++) {
                 x += SLOT;
@@ -140,10 +146,15 @@ public final class SkillBar {
         return skill.manaCost() * (1 - 0.05f * ClientProgress.get().rank(Upgrade.ARCANE_FLOW));
     }
 
+    // From the left edge of the first slot to the right edge of the last
+    private static void frame(GuiGraphics graphics, int left, int right, int y) {
+        graphics.fill(left - 3, y - 3, right + 2, y + 19, 0xFF000000);
+        graphics.fill(left - 2, y - 2, right + 1, y + 18, 0xFF8C6E3A);
+    }
+
     private static void slot(GuiGraphics graphics, Font font, int x, int y, ItemStack icon, KeyMapping key,
                              int cooldown, int cooldownTotal, boolean noMana) {
-        graphics.fill(x - 1, y - 1, x + 17, y + 17, 0xFF000000);
-        graphics.fill(x, y, x + 16, y + 16, 0xFF2A2A2A);
+        UiTheme.slot(graphics, x, y);
         graphics.renderItem(icon, x, y);
 
         // Items are drawn in front of everything else, so the overlays and text are moved further forward

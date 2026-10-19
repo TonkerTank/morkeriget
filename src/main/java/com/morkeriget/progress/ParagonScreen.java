@@ -1,6 +1,8 @@
 package com.morkeriget.progress;
 
 import com.morkeriget.skill.SkillKeys;
+import com.morkeriget.ui.ThemedButton;
+import com.morkeriget.ui.UiTheme;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -43,13 +45,13 @@ public class ParagonScreen extends Screen {
             Button button = Button.builder(Component.literal("+"),
                             pressed -> PacketDistributor.sendToServer(new ParagonPayload(stat, hasShiftDown() ? 10 : 1)))
                     .bounds(columnLeft(stat) + COLUMN_WIDTH - 20, rowTop(stat) + 4, 20, 20)
-                    .build();
+                    .build(ThemedButton::new);
             button.active = progress.paragonPoints() > 0 && progress.rank(stat) < stat.maxRank;
             addRenderableWidget(button);
         }
         addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new SkillScreen()))
                 .bounds(width / 2 - 40, rowTop(ROWS) + 6, 80, 18)
-                .build());
+                .build(ThemedButton::new));
     }
 
     // Called when the server sends new values, e.g. right after clicking +
@@ -58,20 +60,28 @@ public class ParagonScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        int total = 2 * COLUMN_WIDTH + COLUMN_GAP;
+        UiTheme.panel(graphics, (width - total) / 2 - 8, top() - 8, total + 16, rowTop(ROWS) + 32 - (top() - 8));
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         ProgressPayload progress = ClientProgress.get();
         int center = width / 2;
-        graphics.drawCenteredString(font, "Paragon " + progress.paragonLevel(), center, top(), 0x55FFFF);
-        int pointsColor = progress.paragonPoints() > 0 ? 0x55FF55 : 0xAAAAAA;
+        UiTheme.title(graphics, font, "Paragon " + progress.paragonLevel(), center, top(), 0x55FFFF);
+        int pointsColor = progress.paragonPoints() > 0 ? UiTheme.GOOD : UiTheme.MUTED;
         graphics.drawCenteredString(font, "Paragon-points: " + progress.paragonPoints() + "  (shift-klik giver 10)", center, top() + 14, pointsColor);
+        UiTheme.divider(graphics, (width - 2 * COLUMN_WIDTH - COLUMN_GAP) / 2, rowTop(0) - 6, 2 * COLUMN_WIDTH + COLUMN_GAP);
         for (Paragon stat : Paragon.values()) {
             int x = columnLeft(stat);
             int y = rowTop(stat);
             int rank = progress.rank(stat);
             graphics.drawString(font, stat.displayName + "  " + rank + "/" + stat.maxRank, x, y + 4,
-                    rank >= stat.maxRank ? 0xFFD700 : 0xFFFFFF);
-            graphics.drawString(font, stat.description, x, y + 16, 0x888888);
+                    rank >= stat.maxRank ? 0xFFD700 : UiTheme.TEXT);
+            graphics.drawString(font, stat.description, x, y + 16, UiTheme.MUTED);
         }
     }
 

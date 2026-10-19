@@ -5,6 +5,8 @@ import java.util.List;
 
 import com.morkeriget.bounty.BountyScreen;
 import com.morkeriget.skill.SkillKeys;
+import com.morkeriget.ui.ThemedButton;
+import com.morkeriget.ui.UiTheme;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -57,9 +59,16 @@ public class JourneyScreen extends Screen {
         return journey.value(achievement.stat) >= achievement.goal;
     }
 
+    private static int tabWidth() {
+        return (WIDTH - (Achievement.CHAPTERS - 1) * 4) / Achievement.CHAPTERS;
+    }
+
+    private int tabX(int number) {
+        return left() + (number - 1) * (tabWidth() + 4);
+    }
+
     @Override
     protected void init() {
-        int tabWidth = (WIDTH - (Achievement.CHAPTERS - 1) * 4) / Achievement.CHAPTERS;
         String[] numbers = {"I", "II", "III", "IV"};
         for (int i = 1; i <= Achievement.CHAPTERS; i++) {
             int number = i;
@@ -67,21 +76,32 @@ public class JourneyScreen extends Screen {
                         chapter = number;
                         rebuildWidgets();
                     })
-                    .bounds(left() + (i - 1) * (tabWidth + 4), top() + 12, tabWidth, 18)
-                    .build();
+                    .bounds(tabX(i), top() + 12, tabWidth(), 18)
+                    .build(ThemedButton::new);
             tab.active = i != chapter;
             addRenderableWidget(tab);
         }
         addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new BountyScreen()))
                 .bounds(width / 2 - 40, rowTop(7) + 30, 80, 18)
-                .build());
+                .build(ThemedButton::new));
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        // Down to just below "Tilbage"
+        int bottom = rowTop(7) + 48 + 6;
+        UiTheme.panel(graphics, left() - 10, top() - 8, WIDTH + 20, bottom - (top() - 8));
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         long total = Arrays.stream(Achievement.values()).filter(JourneyScreen::done).count();
-        graphics.drawCenteredString(font, "Sæsonrejse - " + total + "/" + Achievement.values().length + " klaret", width / 2, top(), 0xFFD700);
+        UiTheme.title(graphics, font, "Sæsonrejse - " + total + "/" + Achievement.values().length + " klaret", width / 2, top());
+        // A gold line under the chapter shown, whose tab can't be clicked
+        int tabX = tabX(chapter);
+        graphics.fill(tabX + 2, top() + 31, tabX + tabWidth() - 2, top() + 32, UiTheme.TITLE);
         List<Achievement> list = shown();
         int barWidth = WIDTH - 60;
         for (int i = 0; i < list.size(); i++) {
@@ -89,18 +109,17 @@ public class JourneyScreen extends Screen {
             int x = left();
             int y = rowTop(i);
             boolean done = done(achievement);
-            graphics.drawString(font, (done ? "✔ " : "") + achievement.text, x, y, done ? 0x55FF55 : 0xFFFFFF);
+            graphics.drawString(font, (done ? "✔ " : "") + achievement.text, x, y, done ? UiTheme.GOOD : UiTheme.TEXT);
             int value = Math.min(achievement.goal, journey.value(achievement.stat));
             float fraction = (float) value / achievement.goal;
-            graphics.fill(x - 1, y + 10, x + barWidth + 1, y + 16, 0xFF000000);
-            graphics.fill(x, y + 11, x + barWidth, y + 15, 0xFF2A2A2A);
-            graphics.fill(x, y + 11, x + Math.round(barWidth * fraction), y + 15, done ? 0xFF55CC55 : 0xFFCC9933);
+            UiTheme.bar(graphics, x, y + 11, barWidth, 4, fraction, done ? 0x55CC55 : 0xCC9933);
             String count = value + "/" + achievement.goal;
-            graphics.drawString(font, count, x + WIDTH - font.width(count), y + 9, 0xAAAAAA);
+            graphics.drawString(font, count, x + WIDTH - font.width(count), y + 9, UiTheme.MUTED);
         }
         int bottom = rowTop(7);
+        UiTheme.divider(graphics, left(), bottom - 4, WIDTH);
         graphics.drawString(font, "Kapitel " + chapter + ": " + Achievement.CHAPTER_NAMES[chapter - 1], left(), bottom, 0xFFAA00);
-        graphics.drawString(font, "Hvert mål giver " + Achievement.CHAPTER_REWARDS[chapter - 1], left(), bottom + 10, 0x777777);
+        graphics.drawString(font, "Hvert mål giver " + Achievement.CHAPTER_REWARDS[chapter - 1], left(), bottom + 10, UiTheme.DIM);
         graphics.drawString(font, "Klar dem alle for en mytisk genstand", left(), bottom + 20, 0xCC55FF);
     }
 

@@ -2,6 +2,8 @@ package com.morkeriget.jewelry;
 
 import com.morkeriget.progress.SkillScreen;
 import com.morkeriget.skill.SkillKeys;
+import com.morkeriget.ui.ThemedButton;
+import com.morkeriget.ui.UiTheme;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -24,7 +26,7 @@ public class JewelryScreen extends AbstractContainerScreen<JewelryMenu> {
         super.init();
         addRenderableWidget(Button.builder(Component.literal("Skills"), pressed -> backToSkills())
                 .bounds(leftPos + imageWidth - 50, topPos + 4, 46, 16)
-                .build());
+                .build(ThemedButton::new));
     }
 
     private void backToSkills() {
@@ -41,21 +43,18 @@ public class JewelryScreen extends AbstractContainerScreen<JewelryMenu> {
 
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        int left = leftPos;
-        int top = topPos;
-        graphics.fill(left, top, left + imageWidth, top + imageHeight, 0xFF000000);
-        graphics.fill(left + 1, top + 1, left + imageWidth - 1, top + imageHeight - 1, 0xFF2B2B33);
+        UiTheme.panel(graphics, leftPos, topPos, imageWidth, imageHeight);
         for (Slot slot : menu.slots) {
-            int x = left + slot.x;
-            int y = top + slot.y;
-            graphics.fill(x - 1, y - 1, x + 17, y + 17, 0xFF111116);
-            graphics.fill(x, y, x + 16, y + 16, 0xFF45454F);
+            UiTheme.slot(graphics, leftPos + slot.x, topPos + slot.y);
         }
     }
 
+    // The vanilla labels are dark grey, which can't be read on the dark panel
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        super.renderLabels(graphics, mouseX, mouseY);
+        graphics.drawString(font, title, titleLabelX, titleLabelY, UiTheme.TITLE, false);
+        UiTheme.divider(graphics, 7, inventoryLabelY - 4, imageWidth - 14);
+        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, UiTheme.MUTED, false);
         int labelY = JewelryMenu.JEWELRY_Y - 10;
         graphics.drawString(font, "Ringe", 53, labelY, 0xFFD27A, false);
         graphics.drawString(font, "Amulet", 98, labelY, 0xFF8A8A, false);

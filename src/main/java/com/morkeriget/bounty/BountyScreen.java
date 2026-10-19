@@ -5,6 +5,8 @@ import java.util.List;
 import com.morkeriget.journey.JourneyPayload;
 import com.morkeriget.progress.SkillScreen;
 import com.morkeriget.skill.SkillKeys;
+import com.morkeriget.ui.ThemedButton;
+import com.morkeriget.ui.UiTheme;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -58,7 +60,7 @@ public class BountyScreen extends Screen {
             Button button = Button.builder(Component.literal(bounty.claimed() ? "Hentet" : "Hent"),
                             pressed -> PacketDistributor.sendToServer(new BountyActionPayload(index)))
                     .bounds(left() + WIDTH - BUTTON_WIDTH, rowTop(i) + 4, BUTTON_WIDTH, 20)
-                    .build();
+                    .build(ThemedButton::new);
             button.active = bounty.done() && !bounty.claimed();
             addRenderableWidget(button);
         }
@@ -66,42 +68,49 @@ public class BountyScreen extends Screen {
         Button bonus = Button.builder(Component.literal(bounties.bonusClaimed() ? "Hentet" : "Hent bonus"),
                         pressed -> PacketDistributor.sendToServer(new BountyActionPayload(BountyActionPayload.BONUS)))
                 .bounds(left() + WIDTH - BUTTON_WIDTH, bottom + 4, BUTTON_WIDTH, 20)
-                .build();
+                .build(ThemedButton::new);
         bonus.active = bounties.allClaimed() && !bounties.bonusClaimed();
         addRenderableWidget(bonus);
         addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new SkillScreen()))
                 .bounds(width / 2 - 84, bottom + 40, 80, 18)
-                .build());
+                .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Component.literal("Sæsonrejse"), pressed -> PacketDistributor.sendToServer(new JourneyPayload.Open()))
                 .bounds(width / 2 + 4, bottom + 40, 80, 18)
-                .build());
+                .build(ThemedButton::new));
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        // Down to just below "Tilbage" and "Sæsonrejse"
+        int bottom = rowTop(BountyBoard.COUNT) + 58 + 8;
+        UiTheme.panel(graphics, left() - 10, top() - 10, WIDTH + 20, bottom - (top() - 10));
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(font, "Dagens opgaver", width / 2, top(), 0xFFD700);
-        graphics.drawCenteredString(font, "Nye opgaver ved midnat", width / 2, top() + 11, 0x888888);
+        UiTheme.title(graphics, font, "Dagens opgaver", width / 2, top());
+        graphics.drawCenteredString(font, "Nye opgaver ved midnat", width / 2, top() + 11, UiTheme.MUTED);
         List<Bounty> list = bounties.bounties();
         int barWidth = WIDTH - BUTTON_WIDTH - 8;
         for (int i = 0; i < list.size(); i++) {
             Bounty bounty = list.get(i);
             int x = left();
             int y = rowTop(i);
-            int color = bounty.claimed() ? 0x888888 : bounty.done() ? 0x55FF55 : 0xFFFFFF;
+            int color = bounty.claimed() ? UiTheme.MUTED : bounty.done() ? UiTheme.GOOD : UiTheme.TEXT;
             graphics.drawString(font, bounty.type().text(bounty.goal()), x, y + 2, color);
             // Progress bar with the numbers on the right
             float fraction = (float) bounty.progress() / Math.max(1, bounty.goal());
-            graphics.fill(x - 1, y + 13, x + barWidth + 1, y + 19, 0xFF000000);
-            graphics.fill(x, y + 14, x + barWidth, y + 18, 0xFF2A2A2A);
-            graphics.fill(x, y + 14, x + Math.round(barWidth * fraction), y + 18, bounty.done() ? 0xFF55CC55 : 0xFFCC9933);
+            UiTheme.bar(graphics, x, y + 14, barWidth, 4, fraction, bounty.done() ? 0x55CC55 : 0xCC9933);
             String count = bounty.progress() + "/" + bounty.goal();
-            graphics.drawString(font, count, x + barWidth - font.width(count), y + 21, 0xAAAAAA);
-            graphics.drawString(font, "Essens, sjælden+ genstand og XP", x, y + 21, 0x777777);
+            graphics.drawString(font, count, x + barWidth - font.width(count), y + 21, UiTheme.MUTED);
+            graphics.drawString(font, "Essens, sjælden+ genstand og XP", x, y + 21, UiTheme.DIM);
         }
         int bottom = rowTop(BountyBoard.COUNT);
-        graphics.drawString(font, "Klar alle 3:", left(), bottom + 4, bounties.allClaimed() ? 0x55FF55 : 0xFFAA00);
-        graphics.drawString(font, "Legendarisk genstand, essens og ædelsten", left(), bottom + 15, 0x777777);
+        UiTheme.divider(graphics, left(), bottom - 2, WIDTH);
+        graphics.drawString(font, "Klar alle 3:", left(), bottom + 4, bounties.allClaimed() ? UiTheme.GOOD : 0xFFAA00);
+        graphics.drawString(font, "Legendarisk genstand, essens og ædelsten", left(), bottom + 15, UiTheme.DIM);
     }
 
     // K closes the screen, just like the skill screen

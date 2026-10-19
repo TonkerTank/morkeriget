@@ -8,6 +8,8 @@ import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.SkillScreen;
 import com.morkeriget.skill.SkillKeys;
+import com.morkeriget.ui.ThemedButton;
+import com.morkeriget.ui.UiTheme;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -53,23 +55,23 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         super.init();
         addRenderableWidget(Button.builder(Component.literal("Skills"), pressed -> backToSkills())
                 .bounds(leftPos + MAIN_WIDTH - 50, topPos + 4, 46, 16)
-                .build());
+                .build(ThemedButton::new));
         int codexLeft = leftPos + CODEX_X + 6;
         int codexInner = CODEX_WIDTH - 12;
         extract = addRenderableWidget(Button.builder(Component.literal("Udtræk kraft"), pressed -> click(SmithyMenu.EXTRACT))
                 .bounds(codexLeft, topPos + 18, codexInner, 18)
                 .tooltip(Tooltip.create(Component.literal("Kraften gemmes i kraftbogen, men genstanden bliver brugt. Ædelsten får du tilbage")))
-                .build());
+                .build(ThemedButton::new));
         previousPower = addRenderableWidget(Button.builder(Component.literal("<"), pressed -> step(-1))
                 .bounds(codexLeft, topPos + 40, 16, 18)
-                .build());
+                .build(ThemedButton::new));
         nextPower = addRenderableWidget(Button.builder(Component.literal(">"), pressed -> step(1))
                 .bounds(codexLeft + codexInner - 16, topPos + 40, 16, 18)
-                .build());
+                .build(ThemedButton::new));
         imprint = addRenderableWidget(Button.builder(Component.literal("Påfør (" + Codex.IMPRINT_COST + ")"),
                         pressed -> click(SmithyMenu.IMPRINT + selected.ordinal()))
                 .bounds(codexLeft, topPos + 118, codexInner, 18)
-                .build());
+                .build(ThemedButton::new));
         salvage = button(SmithyMenu.SALVAGE, "Smelt om", 0, 0);
         reroll = button(SmithyMenu.REROLL, "Re-roll", 1, 0);
         socket = button(SmithyMenu.SOCKET, "Sæt i", 0, 1);
@@ -80,13 +82,13 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
                     pressed.setMessage(limitText());
                 })
                 .bounds(leftPos + 8, topPos + BUTTON_Y + 2 * ROW, 78, 18)
-                .build());
+                .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Component.literal("Smelt alle"), pressed -> click(SmithyMenu.SALVAGE_ALL + salvageUpTo.ordinal()))
                 .bounds(leftPos + 90, topPos + BUTTON_Y + 2 * ROW, 78, 18)
-                .build());
+                .build(ThemedButton::new));
         combine = addRenderableWidget(Button.builder(Component.literal("Kombinér 3 sten"), pressed -> click(SmithyMenu.COMBINE))
                 .bounds(leftPos + 8, topPos + BUTTON_Y + 3 * ROW, 160, 18)
-                .build());
+                .build(ThemedButton::new));
         updateButtons();
     }
 
@@ -94,7 +96,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     private Button button(int id, String text, int column, int row) {
         return addRenderableWidget(Button.builder(Component.literal(text), pressed -> click(id))
                 .bounds(leftPos + 8 + column * 82, topPos + BUTTON_Y + row * ROW, 78, 18)
-                .build());
+                .build(ThemedButton::new));
     }
 
     // E.g. "Til: Sjælden" in the rarity's colour
@@ -173,36 +175,31 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
 
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        int left = leftPos;
-        int top = topPos;
-        graphics.fill(left, top, left + MAIN_WIDTH, top + imageHeight, 0xFF000000);
-        graphics.fill(left + 1, top + 1, left + MAIN_WIDTH - 1, top + imageHeight - 1, 0xFF2B2B33);
+        // Both panels are 1 pixel in from the edges, so their frames don't run into each other in the gap
+        UiTheme.panel(graphics, leftPos + 1, topPos + 1, MAIN_WIDTH - 2, imageHeight - 2);
         // The codex panel stops a little below the Apply button
-        int codexLeft = left + CODEX_X;
-        int codexBottom = top + 142;
-        graphics.fill(codexLeft, top, codexLeft + CODEX_WIDTH, codexBottom, 0xFF000000);
-        graphics.fill(codexLeft + 1, top + 1, codexLeft + CODEX_WIDTH - 1, codexBottom - 1, 0xFF2E2A22);
+        UiTheme.panel(graphics, leftPos + CODEX_X + 1, topPos + 1, CODEX_WIDTH - 2, 140);
         for (Slot slot : menu.slots) {
-            int x = left + slot.x;
-            int y = top + slot.y;
-            graphics.fill(x - 1, y - 1, x + 17, y + 17, 0xFF111116);
-            graphics.fill(x, y, x + 16, y + 16, 0xFF45454F);
+            UiTheme.slot(graphics, leftPos + slot.x, topPos + slot.y);
         }
     }
 
+    // The vanilla labels are dark grey, which can't be read on the dark panel
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        super.renderLabels(graphics, mouseX, mouseY);
+        graphics.drawString(font, title, titleLabelX, titleLabelY, UiTheme.TITLE, false);
+        UiTheme.divider(graphics, 7, inventoryLabelY - 4, MAIN_WIDTH - 14);
+        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, UiTheme.MUTED, false);
         // On the same line as the "Inventory" label, but at the right edge
         String essence = "Essens: " + essence();
         graphics.drawString(font, essence, MAIN_WIDTH - 8 - font.width(essence), inventoryLabelY, 0xC080FF, false);
         renderCodex(graphics);
-        graphics.drawString(font, "Loot", SmithyMenu.ITEM_X - 4 - font.width("Loot"), SmithyMenu.SLOT_Y + 4, 0x888888, false);
-        graphics.drawString(font, "Sten", SmithyMenu.GEM_X - 4 - font.width("Sten"), SmithyMenu.SLOT_Y + 4, 0x888888, false);
+        graphics.drawString(font, "Loot", SmithyMenu.ITEM_X - 4 - font.width("Loot"), SmithyMenu.SLOT_Y + 4, UiTheme.MUTED, false);
+        graphics.drawString(font, "Sten", SmithyMenu.GEM_X - 4 - font.width("Sten"), SmithyMenu.SLOT_Y + 4, UiTheme.MUTED, false);
         if (!menu.item().isEmpty()) {
             int sockets = Gems.sockets(menu.item());
             String text = sockets == 0 ? "Ingen" : Gems.gems(menu.item()).size() + "/" + sockets + " sokler";
-            graphics.drawString(font, text, SmithyMenu.GEM_X + 20, SmithyMenu.SLOT_Y + 4, 0xAAAAAA, false);
+            graphics.drawString(font, text, SmithyMenu.GEM_X + 20, SmithyMenu.SLOT_Y + 4, UiTheme.MUTED, false);
         }
     }
 
@@ -210,12 +207,12 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     private void renderCodex(GuiGraphics graphics) {
         int center = CODEX_X + CODEX_WIDTH / 2;
         String title = "Kraftbog " + known().size() + "/" + LegendaryPower.values().length;
-        graphics.drawString(font, title, center - font.width(title) / 2, 6, 0xFFAA00, false);
+        graphics.drawString(font, title, center - font.width(title) / 2, 6, UiTheme.TITLE, false);
         if (selected == null) {
-            graphics.drawString(font, "Tom", center - font.width("Tom") / 2, 45, 0x888888, false);
+            graphics.drawString(font, "Tom", center - font.width("Tom") / 2, 45, UiTheme.MUTED, false);
             int y = CODEX_DESCRIPTION_Y;
             for (FormattedCharSequence line : font.split(Component.literal("Udtræk kræfter fra legendariske genstande for at gemme dem her"), CODEX_WIDTH - 12)) {
-                graphics.drawString(font, line, CODEX_X + 6, y, 0x888888, false);
+                graphics.drawString(font, line, CODEX_X + 6, y, UiTheme.MUTED, false);
                 y += 10;
             }
             return;

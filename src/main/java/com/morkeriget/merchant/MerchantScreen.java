@@ -6,6 +6,8 @@ import java.util.List;
 import com.morkeriget.progress.SkillScreen;
 import com.morkeriget.skill.SkillKeys;
 import com.morkeriget.smithy.Smithy;
+import com.morkeriget.ui.ThemedButton;
+import com.morkeriget.ui.UiTheme;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -35,7 +37,7 @@ public class MerchantScreen extends AbstractContainerScreen<MerchantMenu> {
         wareButtons.clear();
         addRenderableWidget(Button.builder(Component.literal("Skills"), pressed -> backToSkills())
                 .bounds(leftPos + imageWidth - 50, topPos + 2, 46, 16)
-                .build());
+                .build(ThemedButton::new));
         Tooltip odds = Tooltip.create(Component.literal("En tilfældig genstand på dit level: "
                 + percent(1 - Merchant.LEGENDARY_CHANCE - Merchant.RARE_CHANCE) + " magisk, "
                 + percent(Merchant.RARE_CHANCE) + " sjælden og " + percent(Merchant.LEGENDARY_CHANCE) + " legendarisk"));
@@ -46,7 +48,7 @@ public class MerchantScreen extends AbstractContainerScreen<MerchantMenu> {
                             pressed -> minecraft.gameMode.handleInventoryButtonClick(menu.containerId, ware.ordinal()))
                     .bounds(leftPos + 8 + column * 82, topPos + BUTTON_Y + row * ROW, 78, 18)
                     .tooltip(odds)
-                    .build());
+                    .build(ThemedButton::new));
             wareButtons.add(button);
         }
         updateButtons();
@@ -88,21 +90,18 @@ public class MerchantScreen extends AbstractContainerScreen<MerchantMenu> {
 
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        int left = leftPos;
-        int top = topPos;
-        graphics.fill(left, top, left + imageWidth, top + imageHeight, 0xFF000000);
-        graphics.fill(left + 1, top + 1, left + imageWidth - 1, top + imageHeight - 1, 0xFF2B2B33);
+        UiTheme.panel(graphics, leftPos, topPos, imageWidth, imageHeight);
         for (Slot slot : menu.slots) {
-            int x = left + slot.x;
-            int y = top + slot.y;
-            graphics.fill(x - 1, y - 1, x + 17, y + 17, 0xFF111116);
-            graphics.fill(x, y, x + 16, y + 16, 0xFF45454F);
+            UiTheme.slot(graphics, leftPos + slot.x, topPos + slot.y);
         }
     }
 
+    // The vanilla labels are dark grey, which can't be read on the dark panel
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        super.renderLabels(graphics, mouseX, mouseY);
+        graphics.drawString(font, title, titleLabelX, titleLabelY, UiTheme.TITLE, false);
+        UiTheme.divider(graphics, 7, inventoryLabelY - 4, imageWidth - 14);
+        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, UiTheme.MUTED, false);
         // On the same line as the "Inventory" label, but at the right edge
         String essence = "Essens: " + essence();
         graphics.drawString(font, essence, imageWidth - 8 - font.width(essence), inventoryLabelY, 0xC080FF, false);
