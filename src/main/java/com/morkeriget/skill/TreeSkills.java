@@ -27,6 +27,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
@@ -91,6 +92,7 @@ final class TreeSkills {
     private static final int HURRICANE_VOLLEYS = 10;
     private static final int HURRICANE_TIME = 5;
     private static final double HURRICANE_ARROW_DAMAGE = 2.0;
+    private static final String HURRICANE_TAG = "morkeriget_hurricane_arrow";
     // Army of the Dead: arms of bone come up under the monsters in the area, one every ARMY_TIME
     private static final double ARMY_RADIUS = 7.0;
     private static final double ARMY_HIT_RADIUS = 1.8;
@@ -290,9 +292,23 @@ final class TreeSkills {
             level.sendParticles(ParticleTypes.FLAME, arrow.getX(), arrow.getY(), arrow.getZ(), 1, 0.05, 0.05, 0.05, 0);
             level.sendParticles(ParticleTypes.SMOKE, arrow.getX(), arrow.getY(), arrow.getZ(), 1, 0.05, 0.05, 0.05, 0);
         }
+        // Arrow Hurricane's arrows leave a gold streak while they fly, and stop once they are stuck in something
+        if (arrow.getPersistentData().getBoolean(HURRICANE_TAG) && arrow.getDeltaMovement().lengthSqr() > 0.05) {
+            Vec3 back = arrow.position().subtract(arrow.getDeltaMovement().scale(0.5));
+            SkillVisuals.line(level, back, arrow.position(), 0.4, SkillVisuals.GOLD);
+            level.sendParticles(ParticleTypes.END_ROD, arrow.getX(), arrow.getY(), arrow.getZ(), 1, 0, 0, 0, 0);
+        }
     }
 
     static void onProjectileImpact(ProjectileImpactEvent event) {
+        // A burst of gold where an Arrow Hurricane arrow hits. The arrow itself works like any other
+        if (event.getProjectile() instanceof Arrow hurricane && hurricane.getPersistentData().getBoolean(HURRICANE_TAG)
+                && hurricane.level() instanceof ServerLevel level) {
+            Vec3 hit = event.getRayTraceResult().getLocation();
+            level.sendParticles(ParticleTypes.CRIT, hit.x, hit.y, hit.z, 10, 0.2, 0.2, 0.2, 0.3);
+            level.sendParticles(SkillVisuals.GOLD, hit.x, hit.y, hit.z, 8, 0.25, 0.25, 0.25, 0);
+            hurricane.getPersistentData().remove(HURRICANE_TAG);
+        }
         if (!(event.getProjectile() instanceof Arrow arrow) || !arrow.getPersistentData().getBoolean(EXPLOSIVE_TAG)
                 || !(arrow.level() instanceof ServerLevel level) || !(arrow.getOwner() instanceof ServerPlayer player)) {
             return;
@@ -534,24 +550,76 @@ final class TreeSkills {
         int rank = Progression.rank(player, Upgrade.ARROW_HURRICANE);
         float damage = (float) (HURRICANE_ARROW_DAMAGE * (1 + 0.15 * rank));
         int volleys = HURRICANE_VOLLEYS + Upgrade.utility(rank) / 2;
-        add(player, new Effect(Kind.ARROW_HURRICANE, player.position(), damage, volleys, level.getGameTime(), 0));
-        SkillVisuals.spiral(level, player.position(), 1.5, 3.0, 3, 45, ParticleTypes.CLOUD);
-        SkillVisuals.ring(level, player.position(), 0.1, 2.0, 24, SkillVisuals.GOLD);
-        level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1.0f, 0.8f);
+        // It runs every tick so the tornado moves smoothly, and a volley goes off every HURRICANE_TIME ticks of it
+        add(player, new Effect(Kind.ARROW_HURRICANE, player.position(), damage, volleys * HURRICANE_TIME, level.getGameTime(), 0));
+        // A gust that blows out from the ranger as the storm starts
+        Vec3 center = player.position();
+        SkillVisuals.burst(level, center, 0.3, 32, 0.6, ParticleTypes.CLOUD);
+        SkillVisuals.shockwave(level, center, 0.1, 4.0, 3, SkillVisuals.GOLD);
+        SkillVisuals.spiral(level, center, 1.8, 4.0, 4, 60, ParticleTypes.SWEEP_ATTACK);
+        level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, center.x, center.y + 1, center.z, 1, 0, 0, 0, 0);
+        level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1.2f, 0.7f);
+        level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_CHARGE, SoundSource.PLAYERS, 1.0f, 1.0f);
         level.playSound(null, player.blockPosition(), SoundEvents.CROSSBOW_LOADING_END.value(), SoundSource.PLAYERS, 1.0f, 1.2f);
         return true;
     }
 
-    private static void hurricaneVolley(ServerLevel level, ServerPlayer player, Effect effect) {
-        // Wind swirling around the ranger the whole time
-        double turn = level.getGameTime() * 0.6;
-        for (int i = 0; i < 3; i++) {
-            double angle = turn + Math.PI * 2 * i / 3;
-            level.sendParticles(ParticleTypes.CLOUD, player.getX() + Math.cos(angle) * 1.4, player.getY() + 0.3 + i * 0.6,
-                    player.getZ() + Math.sin(angle) * 1.4, 1, 0, 0.05, 0, 0.01);
-            level.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX() + Math.cos(angle + 1) * 1.2, player.getY() + 1,
-                    player.getZ() + Math.sin(angle + 1) * 1.2, 1, 0, 0, 0, 0);
+    // Every tick: the tornado around the ranger, a volley when it is time, and a last gust when it ends
+    private static void hurricaneTick(ServerLevel level, ServerPlayer player, Effect effect) {
+        tornado(level, player);
+        if (effect.left % HURRICANE_TIME == 0) {
+            hurricaneVolley(level, player, effect);
         }
+        if (effect.left == 1) {
+            Vec3 center = player.position();
+            SkillVisuals.burst(level, center, 0.5, 40, 0.8, ParticleTypes.CLOUD);
+            SkillVisuals.shockwave(level, center, 0.1, 5.0, 2, ParticleTypes.SWEEP_ATTACK);
+            level.sendParticles(ParticleTypes.GUST_EMITTER_LARGE, center.x, center.y + 1, center.z, 1, 0, 0, 0, 0);
+            level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1.0f, 1.2f);
+        }
+    }
+
+    // A funnel of wind that gets wider towards the top and turns fast, with blades of wind, gold dust in it and dirt
+    // whirled up off the ground
+    private static void tornado(ServerLevel level, ServerPlayer player) {
+        long time = level.getGameTime();
+        double turn = time * 0.55;
+        for (int layer = 0; layer < 8; layer++) {
+            double height = layer * 0.45;
+            double radius = 0.7 + layer * 0.22;
+            for (int arm = 0; arm < 2; arm++) {
+                double angle = turn + layer * 0.7 + arm * Math.PI;
+                double x = player.getX() + Math.cos(angle) * radius;
+                double z = player.getZ() + Math.sin(angle) * radius;
+                // Moving along the circle, so each puff is carried round a little before it fades
+                double vx = -Math.sin(angle) * 0.15;
+                double vz = Math.cos(angle) * 0.15;
+                level.sendParticles(ParticleTypes.CLOUD, x, player.getY() + height, z, 0, vx, 0.02, vz, 1);
+                if (layer % 2 == 0) {
+                    level.sendParticles(SkillVisuals.GOLD, x, player.getY() + height + 0.2, z, 1, 0.05, 0.05, 0.05, 0);
+                }
+            }
+        }
+        if (time % 3 == 0) {
+            for (int i = 0; i < 2; i++) {
+                double angle = turn * 1.3 + i * Math.PI;
+                level.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX() + Math.cos(angle) * 1.6, player.getY() + 0.6 + i * 1.2,
+                        player.getZ() + Math.sin(angle) * 1.6, 1, 0, 0, 0, 0);
+            }
+        }
+        if (time % 2 == 0) {
+            BlockState ground = level.getBlockState(player.blockPosition().below());
+            if (!ground.isAir()) {
+                level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), player.getX(), player.getY() + 0.1, player.getZ(),
+                        4, 1.2, 0.05, 1.2, 0.15);
+            }
+        }
+        if (time % 10 == 0) {
+            level.playSound(null, player.blockPosition(), SoundEvents.BREEZE_IDLE_AIR, SoundSource.PLAYERS, 0.6f, 1.4f);
+        }
+    }
+
+    private static void hurricaneVolley(ServerLevel level, ServerPlayer player, Effect effect) {
         List<LivingEntity> targets = new ArrayList<>(ClassSkills.enemies(level, player.position(), HURRICANE_RANGE));
         if (targets.isEmpty()) {
             return;
@@ -562,12 +630,18 @@ final class TreeSkills {
             LivingEntity target = targets.get(random.nextInt(targets.size()));
             Arrow arrow = ClassSkills.arrow(level, player, effect.damage);
             arrow.setPos(from.x, from.y, from.z);
+            arrow.getPersistentData().putBoolean(HURRICANE_TAG, true);
             Vec3 aim = target.position().add(0, target.getBbHeight() * 0.6, 0).subtract(from);
             // A little higher the further away, so the arrow doesn't drop short
             arrow.shoot(aim.x, aim.y + aim.horizontalDistance() * 0.05, aim.z, 2.6f, 1.5f);
             level.addFreshEntity(arrow);
+            // A flash where it leaves
+            Vec3 muzzle = from.add(aim.normalize().scale(0.8));
+            level.sendParticles(ParticleTypes.CRIT, muzzle.x, muzzle.y, muzzle.z, 6, 0.1, 0.1, 0.1, 0.2);
+            level.sendParticles(ParticleTypes.FLASH, muzzle.x, muzzle.y, muzzle.z, 1, 0, 0, 0, 0);
         }
-        level.playSound(null, player.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 0.7f, 1.2f + random.nextFloat() * 0.4f);
+        level.playSound(null, player.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.PLAYERS, 0.8f, 1.2f + random.nextFloat() * 0.4f);
+        level.playSound(null, player.blockPosition(), SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 0.4f, 1.6f + random.nextFloat() * 0.3f);
     }
 
     // The necromancer calls the dead up from the ground where they aim: arms of bone burst up under the monsters there,
@@ -679,9 +753,9 @@ final class TreeSkills {
                     }
                 }
                 case ARROW_HURRICANE -> {
-                    hurricaneVolley(level, player, effect);
+                    hurricaneTick(level, player, effect);
                     if (effect.left > 1) {
-                        next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + HURRICANE_TIME, 0));
+                        next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + 1, 0));
                     }
                 }
                 case ARMY_OF_THE_DEAD -> {
