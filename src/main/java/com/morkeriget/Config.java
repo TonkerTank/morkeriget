@@ -20,6 +20,9 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue BOSS_CHANCE;
     public static final ModConfigSpec.DoubleValue BOSS_HEALTH;
     public static final ModConfigSpec.DoubleValue BOSS_DAMAGE;
+    public static final ModConfigSpec.IntValue WORLD_BOSS_INTERVAL;
+    public static final ModConfigSpec.DoubleValue WORLD_BOSS_HEALTH;
+    public static final ModConfigSpec.DoubleValue WORLD_BOSS_MYTHIC_CHANCE;
     public static final ModConfigSpec.DoubleValue MANA_REGEN;
     public static final ModConfigSpec.DoubleValue WHIRLWIND_MANA;
     public static final ModConfigSpec.DoubleValue WHIRLWIND_COOLDOWN;
@@ -115,6 +118,15 @@ public final class Config {
                 .defineInRange("healthMultiplier", 4.0, 1, 100);
         BOSS_DAMAGE = BUILDER.comment("Hvor mange gange mere skade en boss gør end et almindeligt monster")
                 .defineInRange("damageMultiplier", 2.0, 1, 100);
+        BUILDER.pop();
+
+        BUILDER.push("worldBoss");
+        WORLD_BOSS_INTERVAL = BUILDER.comment("Minutter mellem verdensbosser. Spillerne får besked 5 minutter før den vågner")
+                .defineInRange("intervalMinutes", 40, 6, 1440);
+        WORLD_BOSS_HEALTH = BUILDER.comment("Hvor mange gange mere liv en verdensboss har end en almindelig boss")
+                .defineInRange("healthMultiplier", 8.0, 1, 1000);
+        WORLD_BOSS_MYTHIC_CHANCE = BUILDER.comment("Chance for at hver spiller, der var med, får en mytisk genstand (0.15 = 15 %)")
+                .defineInRange("mythicChance", 0.15, 0, 1);
         BUILDER.pop();
 
         BUILDER.push("skills");

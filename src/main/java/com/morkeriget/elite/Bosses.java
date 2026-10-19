@@ -54,6 +54,7 @@ public final class Bosses {
     private static final String MAX_HIT_TAG = "morkeriget_boss_max_hit";
     private static final float MAX_HIT = 0.4f;
     private static final ResourceLocation BOSS_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "boss_boost");
+    private static final ResourceLocation WORLD_BOSS_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "world_boss_boost");
     // Players closer than this see the boss bar
     private static final double BAR_RANGE = 32.0;
     private static final double SLAM_RADIUS = 5.0;
@@ -128,6 +129,19 @@ public final class Bosses {
             modifierNames.add(modifier.displayName);
         }
         monster.getPersistentData().putString(TITLE_TAG, name + " (" + ability.displayName + ") - " + String.join(", ", modifierNames));
+    }
+
+    // A world boss is a boss with its own name, even more health, a bigger body and a random ability, see WorldBoss
+    static void makeWorldBoss(Monster monster, String name, double healthMultiplier, double extraScale) {
+        makeBoss(monster);
+        boost(monster, WORLD_BOSS_BOOST, Attributes.MAX_HEALTH, healthMultiplier - 1, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+        boost(monster, WORLD_BOSS_BOOST, Attributes.SCALE, extraScale, AttributeModifier.Operation.ADD_VALUE);
+        boost(monster, WORLD_BOSS_BOOST, Attributes.KNOCKBACK_RESISTANCE, 0.5, AttributeModifier.Operation.ADD_VALUE);
+        monster.setHealth(monster.getMaxHealth());
+        monster.setCustomName(Component.literal(name).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+        BossAbility ability = BossAbility.values()[monster.getRandom().nextInt(BossAbility.values().length)];
+        monster.getPersistentData().putString(ABILITY_TAG, ability.name());
+        monster.getPersistentData().putString(TITLE_TAG, name + " - Verdensboss (" + ability.displayName + ")");
     }
 
     private static void onEntityTick(EntityTickEvent.Post event) {
@@ -269,9 +283,13 @@ public final class Bosses {
     }
 
     private static void boost(Monster monster, Holder<Attribute> attribute, double amount, AttributeModifier.Operation operation) {
+        boost(monster, BOSS_BOOST, attribute, amount, operation);
+    }
+
+    private static void boost(Monster monster, ResourceLocation id, Holder<Attribute> attribute, double amount, AttributeModifier.Operation operation) {
         AttributeInstance instance = monster.getAttribute(attribute);
         if (instance != null) {
-            instance.addPermanentModifier(new AttributeModifier(BOSS_BOOST, amount, operation));
+            instance.addPermanentModifier(new AttributeModifier(id, amount, operation));
         }
     }
 }

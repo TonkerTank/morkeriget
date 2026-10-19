@@ -46,6 +46,7 @@ public final class Elites {
         NeoForge.EVENT_BUS.addListener(Elites::onDamagePost);
         NeoForge.EVENT_BUS.addListener(Elites::onEntityTick);
         Bosses.register();
+        WorldBoss.register();
     }
 
     public static boolean isElite(Entity entity) {
