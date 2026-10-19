@@ -46,6 +46,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -75,6 +76,8 @@ public final class Helltide {
     // Extra monsters are spawned until there are this many helltide monsters close to each player in the area
     private static final int MONSTERS_PER_PLAYER = 10;
     private static final double ELITE_CHANCE = 0.08;
+    // Helltide monsters are two levels above you and come in big groups, so each one hits a bit softer
+    private static final float DAMAGE_SCALE = 0.75f;
     private static final List<EntityType<? extends Monster>> MONSTERS = List.of(EntityType.ZOMBIE, EntityType.ZOMBIE,
             EntityType.SKELETON, EntityType.SPIDER, EntityType.HUSK, EntityType.STRAY, EntityType.WITCH);
 
@@ -92,6 +95,15 @@ public final class Helltide {
         NeoForge.EVENT_BUS.addListener(Helltide::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(Helltide::onBreak);
         NeoForge.EVENT_BUS.addListener(Helltide::onServerStopping);
+        NeoForge.EVENT_BUS.addListener(Helltide::onDamagePre);
+    }
+
+    // Also counts arrows and potions, since the source entity is the monster that shot or threw them
+    private static void onDamagePre(LivingDamageEvent.Pre event) {
+        Entity attacker = event.getSource().getEntity();
+        if (attacker != null && attacker.getPersistentData().getBoolean(HELLTIDE_TAG)) {
+            event.setNewDamage(event.getNewDamage() * DAMAGE_SCALE);
+        }
     }
 
     private static boolean isNight(ServerLevel level) {
