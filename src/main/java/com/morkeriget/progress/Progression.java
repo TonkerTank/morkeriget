@@ -33,6 +33,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -52,6 +53,9 @@ public final class Progression {
     private static final ResourceLocation PARAGON_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_damage");
     private static final ResourceLocation PARAGON_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_health");
     private static final ResourceLocation PARAGON_SPEED_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_speed");
+    // Speed from items, skills and potions together is at most this times the normal speed, see capSpeed
+    private static final ResourceLocation SPEED_CAP_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "speed_cap");
+    private static final double MAX_SPEED = 2.5;
     private static final String HEALTH_TAG = "morkeriget_logout_health";
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
@@ -68,6 +72,7 @@ public final class Progression {
         NeoForge.EVENT_BUS.addListener(Progression::onLogin);
         NeoForge.EVENT_BUS.addListener(Progression::onLogout);
         NeoForge.EVENT_BUS.addListener(Progression::onRespawn);
+        NeoForge.EVENT_BUS.addListener(Progression::capSpeed);
         NeoForge.EVENT_BUS.addListener(Progression::registerCommands);
     }
 
@@ -287,6 +292,23 @@ public final class Progression {
     }
 
     // The extra health, damage and speed aren't saved with the player, so they are put on again when they log in or respawn
+    // Speed bonuses on many items add up, and past a point you can't control where you are going. Once a second the
+    // speed is worked out without the cap, and if it is too high a modifier takes it down to MAX_SPEED
+    private static void capSpeed(PlayerTickEvent.Post event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || player.tickCount % 20 != 0) {
+            return;
+        }
+        AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed == null) {
+            return;
+        }
+        speed.removeModifier(SPEED_CAP_ID);
+        double max = speed.getBaseValue() * MAX_SPEED;
+        if (speed.getValue() > max) {
+            speed.addTransientModifier(new AttributeModifier(SPEED_CAP_ID, max / speed.getValue() - 1, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+    }
+
     private static void applyPassives(ServerPlayer player) {
         PlayerClass playerClass = playerClass(player);
         AttributeInstance health = player.getAttribute(Attributes.MAX_HEALTH);

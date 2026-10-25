@@ -85,7 +85,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         salvage = button(SmithyMenu.SALVAGE, "Smelt om", 0, 0);
         reroll = button(SmithyMenu.REROLL, "Re-roll", 1, 0);
         masterwork = addRenderableWidget(Button.builder(Component.literal("Mesterværk"), pressed -> click(SmithyMenu.MASTERWORK))
-                .tooltip(Tooltip.create(Component.literal("Gør alle bonusser 5% stærkere pr. rang, op til " + Masterwork.MAX_RANK
+                .tooltip(Tooltip.create(Component.literal("Gør alle bonusser 5% stærkere pr. rang (procent-bonusser 2,5%), op til " + Masterwork.MAX_RANK
                         + ". Rang 4, 8 og 12 giver også én tilfældig bonus 25% ekstra")))
                 .bounds(leftPos + 8, topPos + BUTTON_Y + ROW, 160, 18)
                 .build(ThemedButton::new));

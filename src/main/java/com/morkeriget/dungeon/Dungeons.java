@@ -53,6 +53,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityMobGriefingEvent;
 import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
@@ -119,6 +120,7 @@ public final class Dungeons {
         NeoForge.EVENT_BUS.addListener(Dungeons::onBreak);
         NeoForge.EVENT_BUS.addListener(Dungeons::onPlace);
         NeoForge.EVENT_BUS.addListener(Dungeons::onExplosion);
+        NeoForge.EVENT_BUS.addListener(Dungeons::onGriefing);
         // Before the boss limit on how hard one hit can be, so Furious can't push the boss past it
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, Dungeons::onAffixDamage);
         NeoForge.EVENT_BUS.addListener(Dungeons::onAffixDamagePost);
@@ -387,18 +389,21 @@ public final class Dungeons {
             if (dungeon != null) {
                 dungeon.monsterDied(entity);
             }
-        } else if (entity instanceof ServerPlayer player && isInDungeon(player)) {
-            Dungeon dungeon = dungeonOf(player);
-            if (dungeon != null) {
-                dungeon.playerDied(player);
-            }
         }
     }
 
     // Dying in a dungeon never costs you your things, like in Diablo 4: nothing is dropped, and everything is put back in
     // the same slots when you respawn, see onClone. It is saved with the player, so it survives a restart before respawning
     private static void onPlayerDrops(LivingDropsEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player && isInDungeon(player) && player.getPersistentData().contains(DYING_ITEMS_TAG)) {
+        // A life is only lost here, once the death has really happened, so Snyd Døden saving the player costs nothing
+        if (!(event.getEntity() instanceof ServerPlayer player) || !isInDungeon(player)) {
+            return;
+        }
+        Dungeon dungeon = dungeonOf(player);
+        if (dungeon != null) {
+            dungeon.playerDied(player);
+        }
+        if (player.getPersistentData().contains(DYING_ITEMS_TAG)) {
             CompoundTag data = player.getPersistentData();
             data.put(KEPT_ITEMS_TAG, data.get(DYING_ITEMS_TAG));
             data.remove(DYING_ITEMS_TAG);
@@ -476,6 +481,13 @@ public final class Dungeons {
     private static void onPlace(BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof Player player && player.level().dimension() == LEVEL && !player.isCreative()) {
             event.setCanceled(true);
+        }
+    }
+
+    // Nor can monsters change it, e.g. blazes setting fire to the floor
+    private static void onGriefing(EntityMobGriefingEvent event) {
+        if (event.getEntity().level().dimension() == LEVEL) {
+            event.setCanGrief(false);
         }
     }
 

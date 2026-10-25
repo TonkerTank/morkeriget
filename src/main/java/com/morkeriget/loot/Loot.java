@@ -91,6 +91,7 @@ public final class Loot {
     // How much stronger a dungeon made the bonuses, in percent, so a reroll keeps it. See Quality
     private static final String STRENGTH_TAG = "morkeriget_strength";
     private static final double PERCENT_PER_LEVEL = 0.005;
+    private static final double PERCENT_CAP = 2.0;
 
     // An item that can drop, and the item levels it drops at. Better base items only drop from higher level monsters.
     // The item is a supplier because rings and amulets are our own items, which don't exist until they are registered
@@ -470,7 +471,9 @@ public final class Loot {
 
     // The same, but rolled better than normal, see Quality. Used for dungeon rewards
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, PlayerClass forClass, Quality quality) {
-        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass), null, quality);
+        // Dungeon loot only comes in the best materials, see outclassed
+        Item item = quality.noFiller() ? randomItem(random, itemLevel, candidate -> !outclassed(candidate, itemLevel)) : null;
+        return roll(new ItemStack(item != null ? item : randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass), null, quality);
     }
 
     // How well an item's bonuses roll. floor is the worst a bonus can roll, from 0 (any roll) to 1 (always the best).
@@ -638,7 +641,12 @@ public final class Loot {
                 case NONE -> percentScale;
             };
             boolean isGreater = sureGreater.contains(i) || random.nextDouble() < rollQuality.greaterChance();
-            double amount = (affix.min + (affix.max - affix.min) * quality) * scale * rollQuality.strength() * (isGreater ? GREATER_BONUS : 1);
+            double boost = scale * rollQuality.strength() * (isGreater ? GREATER_BONUS : 1);
+            // Percent and special bonuses can at most be twice their normal best, or a few items would add up to silly numbers
+            if (affix.scaling == Scaling.NONE) {
+                boost = Math.min(PERCENT_CAP, boost);
+            }
+            double amount = (affix.min + (affix.max - affix.min) * quality) * boost;
             if (isGreater) {
                 greater.add(StringTag.valueOf(affix.tag != null ? affix.tag : "affix_" + i));
             }
@@ -789,6 +797,12 @@ public final class Loot {
             return null;
         }
         return Rarity.byName(data.copyTag().getString(RARITY_TAG));
+    }
+
+    // Whether the bonus is a percent or special one, which grows slowly with level and masterwork (see Scaling). Special
+    // ones have no attribute
+    static boolean growsSlowly(Holder<Attribute> attribute) {
+        return AFFIXES.stream().anyMatch(affix -> affix.attribute == attribute && affix.scaling == Scaling.NONE);
     }
 
     // The text a special affix has in the lore, with %d for the value

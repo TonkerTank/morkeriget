@@ -34,9 +34,10 @@ public final class PlayerHits {
     // so this only has to remember it between the two
     private static LivingEntity crushedTarget;
     // The most the special affixes can add up to over all items, so stacking many of them doesn't make you unkillable
-    private static final int MAX_LIFESTEAL = 20;
-    private static final int MAX_CRUSHING = 40;
-    private static final int MAX_THORNS = 60;
+    private static final int MAX_LIFESTEAL = 30;
+    private static final int MAX_CRUSHING = 50;
+    private static final int MAX_THORNS = 100;
+    private static final int MAX_ARROW_DAMAGE = 200;
 
     private PlayerHits() {
     }
@@ -63,7 +64,7 @@ public final class PlayerHits {
         List<ItemStack> items = affixItems(player, weapon);
         if (event.getSource().getDirectEntity() instanceof AbstractArrow) {
             // Each Marksman rank adds 6%, the same as the arrow damage affix
-            float multiplier = 1 + (total(items, Loot.ARROW_DAMAGE_TAG) + 6 * Progression.rank(player, Upgrade.MARKSMAN)) / 100f;
+            float multiplier = 1 + Math.min(MAX_ARROW_DAMAGE, total(items, Loot.ARROW_DAMAGE_TAG) + 6 * Progression.rank(player, Upgrade.MARKSMAN)) / 100f;
             // Bows have no flat damage bonus like swords, so arrows get stronger with the bow's item level instead
             if (Loot.getRarity(weapon) != null) {
                 multiplier *= (float) (1 + Config.AFFIX_PER_LEVEL.get() * (Loot.itemLevel(weapon) - 1));

@@ -23,9 +23,9 @@ import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.ItemLore;
 
 // Masterworking, like in Diablo 4: essence in the smithy makes an item's bonuses stronger, one rank at a time up to 12.
-// Each rank adds 5% to every bonus, and ranks 4, 8 and 12 add 25% more to one bonus picked at random. The bonuses as they
-// were rolled are saved on the item the first time, so the numbers are always worked out from those and never drift
-// from rounding. A reroll keeps the rank, and the new bonuses get it too
+// Each rank adds 5% to every bonus, and ranks 4, 8 and 12 add 25% more to one bonus picked at random. Percent and special
+// bonuses get half of that. The bonuses as they were rolled are saved on the item the first time, so the numbers are
+// always worked out from those and never drift from rounding. A reroll keeps the rank, and the new bonuses get it too
 public final class Masterwork {
     public static final int MAX_RANK = 12;
     private static final double PER_RANK = 0.05;
@@ -151,7 +151,7 @@ public final class Masterwork {
                 entries.add(entry);
                 continue;
             }
-            double amount = base.getDouble(key) * factor(key, rank, big);
+            double amount = base.getDouble(key) * factor(key, rank, big, Loot.growsSlowly(entry.attribute()));
             entries.add(new ItemAttributeModifiers.Entry(entry.attribute(), new AttributeModifier(modifier.id(), amount, modifier.operation()), entry.slot()));
             // Only jewelry has its attribute bonuses in the lore
             replaceLine(lore, Loot.statLine(entry.attribute(), modifier.operation(), modifier.amount()),
@@ -162,7 +162,7 @@ public final class Masterwork {
         for (String special : SPECIAL_TAGS) {
             if (base.contains(special)) {
                 int old = Loot.affix(stack, special);
-                int value = (int) Math.round(base.getDouble(special) * factor(special, rank, big));
+                int value = (int) Math.round(base.getDouble(special) * factor(special, rank, big, true));
                 CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(special, value));
                 String text = Loot.specialLore(special);
                 replaceLine(lore, Component.literal(String.format(text, old)), Component.literal(String.format(text, value)).withStyle(ChatFormatting.BLUE));
@@ -181,14 +181,15 @@ public final class Masterwork {
         stack.set(DataComponents.LORE, new ItemLore(lore));
     }
 
-    private static double factor(String key, int rank, ListTag big) {
+    // Percent and special bonuses grow half as fast, since they are capped in a fight and add up quickly over many items
+    private static double factor(String key, int rank, ListTag big, boolean slow) {
         int bigSteps = 0;
         for (Tag tag : big) {
             if (tag.getAsString().equals(key)) {
                 bigSteps++;
             }
         }
-        return 1 + PER_RANK * rank + BIG_STEP * bigSteps;
+        return 1 + (PER_RANK * rank + BIG_STEP * bigSteps) * (slow ? 0.5 : 1);
     }
 
     // The bonus as the tooltip shows it, for the message about a big step and the greater bonuses in LootTooltips

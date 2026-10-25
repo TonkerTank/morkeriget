@@ -25,6 +25,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -248,9 +249,10 @@ public final class Bosses {
         }
     }
 
-    // The shield takes every hit
+    // The shield takes every hit, except /kill and the void
     private static void onIncomingDamage(LivingIncomingDamageEvent event) {
-        if (event.getEntity() instanceof Monster boss && isBoss(boss) && isShielded(boss)) {
+        if (event.getEntity() instanceof Monster boss && isBoss(boss) && isShielded(boss)
+                && !event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
             event.setCanceled(true);
             if (boss.tickCount % 10 == 0) {
                 boss.level().playSound(null, boss.blockPosition(), SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 1.0f, 0.8f);
