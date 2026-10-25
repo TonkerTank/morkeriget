@@ -29,6 +29,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     private Button salvage;
     private Button reroll;
     private Button masterwork;
+    private Button repair;
     private Button socket;
     private Button unsocket;
     private Button combine;
@@ -39,6 +40,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     private static final int CODEX_X = MAIN_WIDTH + 6;
     private static final int CODEX_WIDTH = 136;
     private static final int CODEX_DESCRIPTION_Y = 62;
+    private static final int REPAIR_Y = 146;
     private Button extract;
     private Button imprint;
     private Button previousPower;
@@ -74,6 +76,11 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         imprint = addRenderableWidget(Button.builder(Component.literal("Påfør (" + Codex.IMPRINT_COST + ")"),
                         pressed -> click(SmithyMenu.IMPRINT + selected.ordinal()))
                 .bounds(codexLeft, topPos + 118, codexInner, 18)
+                .build(ThemedButton::new));
+        // Under the codex panel, in a little panel of its own
+        repair = addRenderableWidget(Button.builder(Component.literal("Reparér"), pressed -> click(SmithyMenu.REPAIR))
+                .tooltip(Tooltip.create(Component.literal("Udstyr slides kun, når du dør. Reparér det her for essens")))
+                .bounds(codexLeft, topPos + REPAIR_Y + 5, codexInner, 18)
                 .build(ThemedButton::new));
         salvage = button(SmithyMenu.SALVAGE, "Smelt om", 0, 0);
         reroll = button(SmithyMenu.REROLL, "Re-roll", 1, 0);
@@ -172,6 +179,9 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         }
         LegendaryPower onItem = LegendaryPower.of(menu.item());
         extract.active = onItem != null && !menu.knows(onItem) && !favorite;
+        int repairCost = Durability.repairCost(menu.item());
+        repair.active = repairCost > 0 && essence() >= repairCost;
+        repair.setMessage(Component.literal(repairCost > 0 ? "Reparér (" + repairCost + ")" : "Reparér"));
         previousPower.active = known.size() > 1;
         nextPower.active = known.size() > 1;
         imprint.active = selected != null && rarity == Rarity.LEGENDARY && onItem != selected && essence() >= Codex.IMPRINT_COST;
@@ -195,6 +205,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         UiTheme.panel(graphics, leftPos + 1, topPos + 1, MAIN_WIDTH - 2, imageHeight - 2);
         // The codex panel stops a little below the Apply button
         UiTheme.panel(graphics, leftPos + CODEX_X + 1, topPos + 1, CODEX_WIDTH - 2, 140);
+        UiTheme.panel(graphics, leftPos + CODEX_X + 1, topPos + REPAIR_Y, CODEX_WIDTH - 2, 28);
         for (Slot slot : menu.slots) {
             UiTheme.slot(graphics, leftPos + slot.x, topPos + slot.y);
         }

@@ -10,6 +10,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.progress.Progression;
+import com.morkeriget.rift.RiftAffix;
 import com.morkeriget.rift.Rifts;
 
 import net.minecraft.ChatFormatting;
@@ -28,6 +29,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -56,6 +58,7 @@ import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
+import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -116,6 +119,10 @@ public final class Dungeons {
         NeoForge.EVENT_BUS.addListener(Dungeons::onBreak);
         NeoForge.EVENT_BUS.addListener(Dungeons::onPlace);
         NeoForge.EVENT_BUS.addListener(Dungeons::onExplosion);
+        // Before the boss limit on how hard one hit can be, so Furious can't push the boss past it
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGH, Dungeons::onAffixDamage);
+        NeoForge.EVENT_BUS.addListener(Dungeons::onAffixDamagePost);
+        NeoForge.EVENT_BUS.addListener(Dungeons::onHeal);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, Dungeons::onBossDamage);
         NeoForge.EVENT_BUS.addListener(Dungeons::registerCommands);
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> ACTIVE.clear());
@@ -127,7 +134,7 @@ public final class Dungeons {
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("tier", IntegerArgumentType.integer(1, MAX_TIER)).executes(context -> {
                     ServerPlayer player = context.getSource().getPlayerOrException();
-                    ItemStack key = key(IntegerArgumentType.getInteger(context, "tier"));
+                    ItemStack key = key(IntegerArgumentType.getInteger(context, "tier"), player.getRandom());
                     // The name before the stack goes into the inventory, which empties it
                     Component name = key.getHoverName();
                     player.getInventory().placeItemBackInInventory(key);
@@ -151,6 +158,13 @@ public final class Dungeons {
         return stack;
     }
 
+    // A key of this tier with random affixes, like the ones a dungeon gives. They are the same as on rift stones
+    static ItemStack key(int tier, RandomSource random) {
+        ItemStack stack = key(tier);
+        RiftAffix.markOn(stack, RiftAffix.roll(random, tier));
+        return stack;
+    }
+
     static int tier(ItemStack key) {
         int tier = key.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().getInt(TIER_TAG);
         return Math.max(1, Math.min(MAX_TIER, tier));
@@ -161,7 +175,7 @@ public final class Dungeons {
     }
 
     // Returns false if the dungeon couldn't open, so the key isn't used up
-    static boolean start(ServerPlayer player, int tier) {
+    static boolean start(ServerPlayer player, int tier, List<RiftAffix> affixes) {
         ServerLevel dungeonLevel = player.server.getLevel(LEVEL);
         if (dungeonLevel == null) {
             player.displayClientMessage(Component.literal("Dungeon-dimensionen mangler i denne verden"), true);
@@ -192,17 +206,23 @@ public final class Dungeons {
         for (ServerPlayer member : party) {
             monsterLevel = Math.max(monsterLevel, Progression.monsterLevel(member));
         }
-        Dungeon dungeon = new Dungeon(dungeonLevel, freeSlot(), tier, monsterLevel + tier - 1, party);
+        DungeonTheme theme = DungeonTheme.random(player.getRandom());
+        Dungeon dungeon = new Dungeon(dungeonLevel, freeSlot(), tier, monsterLevel + tier - 1, theme, affixes, party);
         dungeon.build(player.getRandom());
         ACTIVE.add(dungeon);
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.TRIAL_SPAWNER_OMINOUS_ACTIVATE, SoundSource.PLAYERS, 1.0f, 0.8f);
         for (ServerPlayer member : party) {
             saveReturn(member);
             dungeon.toEntrance(member);
-            member.sendSystemMessage(Component.literal("Dungeon " + Rifts.roman(tier) + "! ").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+            member.sendSystemMessage(Component.literal(theme.displayName + " (" + Rifts.roman(tier) + ")! ").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
                     .append(Component.literal("Ryd rummene, bryd seglet og dræb bossen i det sidste rum. I har " + Dungeon.LIVES
                             + " liv tilsammen.").withStyle(ChatFormatting.RED)));
-            member.sendSystemMessage(Component.literal("Lodestenen ved indgangen fører dig ud igen.").withStyle(ChatFormatting.GRAY));
+            member.sendSystemMessage(Component.literal("Lodestenen ved indgangen fører dig ud igen. Skatkamre har en kiste, men den er bevogtet.")
+                    .withStyle(ChatFormatting.GRAY));
+            for (RiftAffix affix : affixes) {
+                member.sendSystemMessage(Component.literal("⚠ " + affix.displayName + ": ").withStyle(ChatFormatting.RED)
+                        .append(Component.literal(affix.description).withStyle(ChatFormatting.GRAY)));
+            }
         }
         return true;
     }
@@ -305,6 +325,37 @@ public final class Dungeons {
         LivingEntity entity = event.getEntity();
         if (entity.getPersistentData().getBoolean(MONSTER_TAG) && Bosses.isBoss(entity)) {
             event.setNewDamage(Math.min(event.getNewDamage(), entity.getMaxHealth() * BOSS_MAX_HIT));
+        }
+    }
+
+    // Furious: more damage from the dungeon's monsters, also from their arrows and potions
+    private static void onAffixDamage(LivingDamageEvent.Pre event) {
+        Entity attacker = event.getSource().getEntity();
+        Dungeon dungeon = attacker != null && event.getEntity() instanceof Player ? dungeonWith(attacker) : null;
+        if (dungeon != null && dungeon.has(RiftAffix.FURIOUS)) {
+            event.setNewDamage(event.getNewDamage() * 1.25f);
+        }
+    }
+
+    // Vampiric: a dungeon monster that hurts a player heals 5% of its health
+    private static void onAffixDamagePost(LivingDamageEvent.Post event) {
+        if (event.getNewDamage() > 0 && event.getEntity() instanceof Player && event.getSource().getEntity() instanceof LivingEntity attacker) {
+            Dungeon dungeon = dungeonWith(attacker);
+            if (dungeon != null && dungeon.has(RiftAffix.VAMPIRIC)) {
+                attacker.heal(attacker.getMaxHealth() * 0.05f);
+                dungeon.level.sendParticles(ParticleTypes.DAMAGE_INDICATOR, attacker.getX(), attacker.getY() + attacker.getBbHeight(), attacker.getZ(),
+                        4, 0.2, 0.2, 0.2, 0.1);
+            }
+        }
+    }
+
+    // Cursed Ground: players heal half as much
+    private static void onHeal(LivingHealEvent event) {
+        if (event.getEntity() instanceof Player player && isInDungeon(player)) {
+            Dungeon dungeon = dungeonOf(player);
+            if (dungeon != null && dungeon.has(RiftAffix.CURSED_GROUND)) {
+                event.setAmount(event.getAmount() * 0.5f);
+            }
         }
     }
 

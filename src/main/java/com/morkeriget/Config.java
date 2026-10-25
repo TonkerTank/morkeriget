@@ -98,7 +98,7 @@ public final class Config {
                 .defineInRange("dropChance", 0.25, 0, 1);
         AFFIX_PER_LEVEL = BUILDER.comment("Hvor meget stærkere bonusser bliver pr. genstandslevel (0.05 = +5 %, så level 21 er dobbelt så stærkt).",
                         "Det gælder skade, rustning og hårdhed. Liv vokser halvt så hurtigt. Procent-bonusser som fart,",
-                        "angrebshastighed, livsstjæl og torne vokser ikke")
+                        "angrebshastighed, livsstjæl og torne vokser kun lidt: op til 50 % mere ved level 100")
                 .defineInRange("affixScalingPerLevel", 0.05, 0, 1);
         SET_CHANCE_BOSS = BUILDER.comment("Chance for at en boss' legendariske genstand i stedet er en sæt-genstand (0.3 = 30 %)")
                 .defineInRange("setChanceBoss", 0.3, 0, 1);

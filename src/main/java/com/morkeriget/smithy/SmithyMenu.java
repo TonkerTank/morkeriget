@@ -35,6 +35,7 @@ public class SmithyMenu extends AbstractContainerMenu {
     public static final int EXTRACT = 4;
     public static final int MASTERWORK = 5;
     public static final int COMBINE = 6;
+    public static final int REPAIR = 7;
     // "Salvage all" sends this plus the best rarity to salvage, e.g. SALVAGE_ALL + RARE.ordinal()
     public static final int SALVAGE_ALL = 10;
     // Putting a power from the codex on the item sends this plus the power, e.g. IMPRINT + MAELSTROM.ordinal()
@@ -142,6 +143,7 @@ public class SmithyMenu extends AbstractContainerMenu {
             case UNSOCKET -> unsocket(serverPlayer, stack);
             case EXTRACT -> extract(serverPlayer, stack);
             case MASTERWORK -> masterwork(serverPlayer, stack);
+            case REPAIR -> repair(serverPlayer, stack);
             default -> false;
         };
     }
@@ -195,6 +197,22 @@ public class SmithyMenu extends AbstractContainerMenu {
         input.setItem(0, ItemStack.EMPTY);
         player.getInventory().placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), Smithy.salvageValue(rarity)));
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
+        return true;
+    }
+
+    // Takes away the wear from dying, see Durability
+    private boolean repair(ServerPlayer player, ItemStack stack) {
+        int cost = Durability.repairCost(stack);
+        if (cost == 0) {
+            player.displayClientMessage(Component.literal("Genstanden er ikke slidt"), true);
+            return false;
+        }
+        if (!pay(player, cost)) {
+            return false;
+        }
+        stack.setDamageValue(0);
+        input.setChanged();
+        player.playNotifySound(SoundEvents.ANVIL_USE, SoundSource.PLAYERS, 0.8f, 1.3f);
         return true;
     }
 

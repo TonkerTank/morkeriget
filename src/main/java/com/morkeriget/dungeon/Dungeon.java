@@ -2,6 +2,7 @@ package com.morkeriget.dungeon;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import com.morkeriget.loot.Rarity;
 import com.morkeriget.portal.TownPortal;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
+import com.morkeriget.rift.RiftAffix;
 import com.morkeriget.rift.Rifts;
 import com.morkeriget.smithy.Gems;
 import com.morkeriget.smithy.Smithy;
@@ -33,6 +35,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.BossEvent;
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
@@ -48,11 +51,13 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.IronBarsBlock;
 import net.minecraft.world.level.block.LanternBlock;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 // One dungeon and the group in it. The rooms are cells in a grid, each a box of stone with a door to the next, laid out
-// as a winding row from the entrance to the boss. See Dungeons
+// as a winding row from the entrance to the boss, with guarded treasure rooms off to the side. Each dungeon has a theme
+// that decides what it is built of and which monsters live there, and the affixes from its key. See Dungeons
 final class Dungeon {
     static final int LIVES = 3;
     // Each room is a CELL x CELL box: walls on the outside, floor at FLOOR_Y and the ceiling HEIGHT above it
@@ -67,18 +72,18 @@ final class Dungeon {
     private static final int HOME_DELAY = 30 * 20;
     private static final int EMPTY_TIMEOUT = 60 * 20;
     static final ResourceLocation TIER_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "dungeon_tier");
-    private static final List<EntityType<? extends Monster>> MONSTERS = List.of(
-            EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SKELETON, EntityType.SPIDER, EntityType.HUSK,
-            EntityType.VINDICATOR, EntityType.STRAY, EntityType.WITCH);
-    private static final List<EntityType<? extends Monster>> BOSSES = List.of(
-            EntityType.VINDICATOR, EntityType.WITHER_SKELETON, EntityType.ZOMBIE, EntityType.HUSK);
-    private static final List<Block> WALLS = List.of(
-            Blocks.DEEPSLATE_BRICKS, Blocks.DEEPSLATE_BRICKS, Blocks.CRACKED_DEEPSLATE_BRICKS, Blocks.DEEPSLATE_TILES, Blocks.CHISELED_DEEPSLATE);
-    private static final List<Block> FLOORS = List.of(
-            Blocks.POLISHED_BLACKSTONE_BRICKS, Blocks.POLISHED_BLACKSTONE_BRICKS, Blocks.CRACKED_POLISHED_BLACKSTONE_BRICKS, Blocks.POLISHED_DEEPSLATE);
+    private static final ResourceLocation AFFIX_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "dungeon_affix");
+    // The affixes from the key, the same as on rift stones: how long the warning is before an explosion or meteor goes
+    // off, how big they are and how much of a player's max health they take
+    private static final int HAZARD_WARNING = 30;
+    private static final double EXPLOSION_RADIUS = 3.0;
+    private static final float EXPLOSION_DAMAGE = 0.15f;
+    private static final int METEOR_INTERVAL = 7 * 20;
+    private static final double METEOR_RADIUS = 2.5;
+    private static final float METEOR_DAMAGE = 0.25f;
 
     private enum Kind {
-        ENTRANCE, NORMAL, SEAL, BOSS
+        ENTRANCE, NORMAL, SEAL, BOSS, TREASURE
     }
 
     private static final class Room {
@@ -96,14 +101,26 @@ final class Dungeon {
         }
     }
 
+    // Something that goes off at a place after a warning: an explosion from a dead monster or a meteor
+    private record Hazard(Vec3 pos, int at, double radius, float damage, boolean meteor) {
+    }
+
     final ServerLevel level;
     final int slot;
     private final int tier;
     private final int monsterLevel;
+    private final DungeonTheme theme;
+    private final List<RiftAffix> affixes;
     final Set<UUID> members = new HashSet<>();
+    // The row from the entrance to the boss
     private final List<Room> rooms = new ArrayList<>();
+    // The treasure rooms off to the side of it
+    private final List<Room> sideRooms = new ArrayList<>();
+    // The room each treasure room is joined to, in the same order as sideRooms
+    private final List<Room> treasureParents = new ArrayList<>();
     // The monsters that really died, as opposed to just being gone
     private final Set<UUID> died = new HashSet<>();
+    private final List<Hazard> hazards = new ArrayList<>();
     private final ServerBossEvent bar = new ServerBossEvent(Component.literal("Dungeon"), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
     private UUID bossId;
     private int lives = LIVES;
@@ -113,18 +130,28 @@ final class Dungeon {
     private int empty;
     private int ticks;
 
-    Dungeon(ServerLevel level, int slot, int tier, int monsterLevel, List<ServerPlayer> party) {
+    Dungeon(ServerLevel level, int slot, int tier, int monsterLevel, DungeonTheme theme, List<RiftAffix> affixes, List<ServerPlayer> party) {
         this.level = level;
         this.slot = slot;
         this.tier = tier;
         this.monsterLevel = monsterLevel;
+        this.theme = theme;
+        this.affixes = affixes;
         for (ServerPlayer player : party) {
             members.add(player.getUUID());
         }
     }
 
+    DungeonTheme theme() {
+        return theme;
+    }
+
+    boolean has(RiftAffix affix) {
+        return affixes.contains(affix);
+    }
+
     boolean owns(UUID monster) {
-        return monster.equals(bossId) || rooms.stream().anyMatch(room -> room.alive.contains(monster));
+        return monster.equals(bossId) || allRooms().stream().anyMatch(room -> room.alive.contains(monster));
     }
 
     // Still going, so a player who dies can come back in
@@ -132,20 +159,30 @@ final class Dungeon {
         return !failed && homeIn < 0;
     }
 
+    private List<Room> allRooms() {
+        List<Room> all = new ArrayList<>(rooms);
+        all.addAll(sideRooms);
+        return all;
+    }
+
     // ---- Building ----
 
-    // One more room for every second tier, from 5 at tier I to 9 at tier X
+    // One more room for every second tier, from 5 at tier I to 9 at tier X. One treasure room, two from tier IV
     void build(RandomSource random) {
         int count = 5 + (tier - 1) / 2;
         layOut(random, count);
         rooms.get(0).kind = Kind.ENTRANCE;
         rooms.get(count - 2).kind = Kind.SEAL;
         rooms.get(count - 1).kind = Kind.BOSS;
-        for (Room room : rooms) {
+        addSideRooms(random, tier >= 4 ? 2 : 1);
+        for (Room room : allRooms()) {
             buildRoom(room, random);
         }
         for (int i = 1; i < rooms.size(); i++) {
             setDoor(rooms.get(i - 1), rooms.get(i), rooms.get(i).kind == Kind.BOSS);
+        }
+        for (int i = 0; i < sideRooms.size(); i++) {
+            setDoor(treasureParents.get(i), sideRooms.get(i), false);
         }
         Room entrance = rooms.get(0);
         entrance.entered = true;
@@ -159,14 +196,7 @@ final class Dungeon {
             rooms.add(new Room(0, 0));
             while (rooms.size() < count) {
                 Room last = rooms.get(rooms.size() - 1);
-                List<int[]> free = new ArrayList<>();
-                for (int[] direction : DIRECTIONS) {
-                    int x = last.cellX + direction[0];
-                    int z = last.cellZ + direction[1];
-                    if (rooms.stream().noneMatch(room -> room.cellX == x && room.cellZ == z)) {
-                        free.add(new int[] {x, z});
-                    }
-                }
+                List<int[]> free = freeCells(last);
                 if (free.isEmpty()) {
                     break;
                 }
@@ -184,6 +214,36 @@ final class Dungeon {
         }
     }
 
+    // The cells next to the room that no room is in yet
+    private List<int[]> freeCells(Room room) {
+        List<int[]> free = new ArrayList<>();
+        for (int[] direction : DIRECTIONS) {
+            int x = room.cellX + direction[0];
+            int z = room.cellZ + direction[1];
+            if (allRooms().stream().noneMatch(other -> other.cellX == x && other.cellZ == z)) {
+                free.add(new int[] {x, z});
+            }
+        }
+        return free;
+    }
+
+    // Each treasure room hangs off a normal room on the way, with a door into it. If there is no space, there is one less
+    private void addSideRooms(RandomSource random, int count) {
+        List<Room> parents = new ArrayList<>(rooms.stream().filter(room -> room.kind == Kind.NORMAL).toList());
+        while (sideRooms.size() < count && !parents.isEmpty()) {
+            Room parent = parents.remove(random.nextInt(parents.size()));
+            List<int[]> free = freeCells(parent);
+            if (free.isEmpty()) {
+                continue;
+            }
+            int[] cell = free.get(random.nextInt(free.size()));
+            Room treasure = new Room(cell[0], cell[1]);
+            treasure.kind = Kind.TREASURE;
+            sideRooms.add(treasure);
+            treasureParents.add(parent);
+        }
+    }
+
     private int originX(Room room) {
         return slot * SLOT_SPACING + room.cellX * CELL;
     }
@@ -192,29 +252,34 @@ final class Dungeon {
         return room.cellZ * CELL;
     }
 
+    // A chest left from an old dungeon in the same place is emptied first, or its loot would spill out into the new one
     private void set(int x, int y, int z, BlockState state) {
-        level.setBlock(new BlockPos(x, y, z), state, Block.UPDATE_CLIENTS);
+        BlockPos pos = new BlockPos(x, y, z);
+        if (level.getBlockEntity(pos) instanceof Container container) {
+            container.clearContent();
+        }
+        level.setBlock(pos, state, Block.UPDATE_CLIENTS);
     }
 
-    // Stone all round, air inside, lanterns under the ceiling and cobwebs in some corners. The whole box is written,
-    // so whatever an old dungeon left in the same place is gone
+    // Walls, floor and ceiling of the theme, air inside, lights under the ceiling and something in some corners. The
+    // whole box is written, so whatever an old dungeon left in the same place is gone
     private void buildRoom(Room room, RandomSource random) {
         int x0 = originX(room);
         int z0 = originZ(room);
-        BlockState ceiling = Blocks.DEEPSLATE_TILES.defaultBlockState();
         for (int dx = 0; dx < CELL; dx++) {
             for (int dz = 0; dz < CELL; dz++) {
                 boolean wall = dx == 0 || dz == 0 || dx == CELL - 1 || dz == CELL - 1;
+                boolean middle = Math.abs(dx - 7.5) < 3 && Math.abs(dz - 7.5) < 3;
                 for (int dy = 0; dy <= HEIGHT; dy++) {
                     BlockState state;
                     if (dy == 0) {
-                        state = room.kind == Kind.BOSS && Math.abs(dx - 7.5) < 3 && Math.abs(dz - 7.5) < 3
-                                ? Blocks.CRYING_OBSIDIAN.defaultBlockState()
-                                : FLOORS.get(random.nextInt(FLOORS.size())).defaultBlockState();
+                        state = middle && room.kind == Kind.BOSS ? Blocks.CRYING_OBSIDIAN.defaultBlockState()
+                                : middle && room.kind == Kind.TREASURE ? Blocks.GILDED_BLACKSTONE.defaultBlockState()
+                                : theme.floor(random);
                     } else if (dy == HEIGHT) {
-                        state = ceiling;
+                        state = theme.ceiling();
                     } else if (wall) {
-                        state = WALLS.get(random.nextInt(WALLS.size())).defaultBlockState();
+                        state = theme.wall(random);
                     } else {
                         state = Blocks.AIR.defaultBlockState();
                     }
@@ -222,17 +287,41 @@ final class Dungeon {
                 }
             }
         }
-        BlockState lantern = (room.kind == Kind.BOSS ? Blocks.LANTERN : Blocks.SOUL_LANTERN).defaultBlockState().setValue(LanternBlock.HANGING, true);
+        BlockState light = (room.kind == Kind.BOSS ? Blocks.LANTERN : theme.light()).defaultBlockState().setValue(LanternBlock.HANGING, true);
         for (int[] spot : new int[][] {{4, 4}, {11, 4}, {4, 11}, {11, 11}}) {
-            set(x0 + spot[0], FLOOR_Y + HEIGHT - 1, z0 + spot[1], lantern);
+            set(x0 + spot[0], FLOOR_Y + HEIGHT - 1, z0 + spot[1], light);
         }
         for (int[] corner : new int[][] {{1, 1}, {14, 1}, {1, 14}, {14, 14}}) {
-            if (random.nextFloat() < 0.4f) {
-                set(x0 + corner[0], FLOOR_Y + HEIGHT - 1, z0 + corner[1], Blocks.COBWEB.defaultBlockState());
+            if (random.nextFloat() < 0.5f) {
+                set(x0 + corner[0], FLOOR_Y + theme.decorationHeight(HEIGHT), z0 + corner[1], theme.decoration());
             }
         }
         if (room.kind == Kind.ENTRANCE) {
             set(x0 + 7, FLOOR_Y + 1, z0 + 7, Blocks.LODESTONE.defaultBlockState());
+        } else if (room.kind == Kind.TREASURE) {
+            BlockPos pos = new BlockPos(x0 + 7, FLOOR_Y + 1, z0 + 7);
+            set(pos.getX(), pos.getY(), pos.getZ(), Blocks.CHEST.defaultBlockState());
+            fillChest(pos, random);
+        }
+    }
+
+    // Better than what monsters drop, but not as good as the boss: two items, essence and a gem
+    private void fillChest(BlockPos pos, RandomSource random) {
+        if (!(level.getBlockEntity(pos) instanceof ChestBlockEntity chest)) {
+            return;
+        }
+        int itemLevel = monsterLevel + 3;
+        Loot.Quality quality = Loot.Quality.dungeon(tier, 0, 0);
+        List<ItemStack> items = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            items.add(Loot.create(random, Rarity.roll(random, Rarity.RARE), itemLevel, null, quality));
+        }
+        items.add(new ItemStack(Smithy.ESSENCE.get(), 3 + tier + random.nextInt(4)));
+        items.add(Gems.random(random, monsterLevel, tier / 4));
+        int index = 0;
+        for (ItemStack item : items) {
+            index += 1 + random.nextInt(4);
+            chest.setItem(index % chest.getContainerSize(), item);
         }
     }
 
@@ -307,17 +396,25 @@ final class Dungeon {
         }
         empty = 0;
         if (ticks % 10 == 0) {
-            for (Room room : rooms) {
+            for (Room room : allRooms()) {
                 if (!room.entered && inside.stream().anyMatch(player -> isIn(player, room))) {
                     enter(room, inside);
                 }
             }
         }
-        for (Room room : rooms) {
+        boolean fighting = false;
+        for (Room room : allRooms()) {
             if (room.entered && !room.cleared) {
                 checkMonsters(room);
+                fighting |= !room.alive.isEmpty();
             }
         }
+        if (has(RiftAffix.METEORS) && fighting && ticks % METEOR_INTERVAL == 0) {
+            ServerPlayer target = inside.get(level.getRandom().nextInt(inside.size()));
+            hazards.add(new Hazard(target.position(), ticks + HAZARD_WARNING, METEOR_RADIUS, METEOR_DAMAGE, true));
+            level.playSound(null, target.blockPosition(), SoundEvents.BLAZE_SHOOT, SoundSource.HOSTILE, 1.0f, 0.5f);
+        }
+        tickHazards(inside);
         return false;
     }
 
@@ -345,24 +442,33 @@ final class Dungeon {
         RandomSource random = level.getRandom();
         // More monsters for more players, so a group has as much to do as one player alone
         int extra = (inside.size() - 1) * 2;
+        double eliteChance = Math.min(0.4, 0.1 + 0.03 * (tier - 1)) * (has(RiftAffix.ELITE_ARMY) ? 2 : 1);
         switch (room.kind) {
             case NORMAL -> {
-                double eliteChance = Math.min(0.4, 0.1 + 0.03 * (tier - 1));
                 for (int i = 0; i < 3 + tier / 2 + random.nextInt(3) + extra; i++) {
-                    spawn(room, randomMonster(random), random.nextDouble() < eliteChance ? 1 : 0, inside);
+                    spawn(room, theme.monster(random), random.nextDouble() < eliteChance ? 1 : 0, inside);
                 }
             }
             case SEAL -> {
-                spawn(room, randomMonster(random), 2, inside);
+                spawn(room, theme.monster(random), 2, inside);
                 for (int i = 0; i < 3 + tier / 3 + extra; i++) {
-                    spawn(room, randomMonster(random), 0, inside);
+                    spawn(room, theme.monster(random), random.nextDouble() < eliteChance / 2 ? 1 : 0, inside);
                 }
                 tell(inside, Component.literal("Seglets vogter! Dræb alt i rummet for at bryde seglet").withStyle(ChatFormatting.RED));
             }
+            // One elite with one modifier and a single guard, more for a bigger group. It is a side room, so it shouldn't
+            // be harder than the way to the boss
+            case TREASURE -> {
+                spawn(room, theme.monster(random), 1, inside);
+                for (int i = 0; i < 1 + extra / 2; i++) {
+                    spawn(room, theme.monster(random), 0, inside);
+                }
+                tell(inside, Component.literal("Et skatkammer! Dets vogtere vil ikke give slip på det").withStyle(ChatFormatting.GOLD));
+            }
             case BOSS -> {
-                Monster boss = spawn(room, BOSSES.get(random.nextInt(BOSSES.size())), -1, inside);
+                Monster boss = spawn(room, theme.boss(random), -1, inside);
                 for (int i = 0; i < 2 + extra / 2; i++) {
-                    spawn(room, randomMonster(random), 0, inside);
+                    spawn(room, theme.monster(random), 0, inside);
                 }
                 if (boss != null) {
                     tell(inside, Component.literal("☠ ").append(boss.getDisplayName()).append(" venter på jer!")
@@ -378,10 +484,6 @@ final class Dungeon {
         }
     }
 
-    private static EntityType<? extends Monster> randomMonster(RandomSource random) {
-        return MONSTERS.get(random.nextInt(MONSTERS.size()));
-    }
-
     // elite is how many elite modifiers it gets, 0 for a normal monster and -1 for the boss
     private Monster spawn(Room room, EntityType<? extends Monster> type, int elite, List<ServerPlayer> inside) {
         Monster monster = type.create(level);
@@ -389,9 +491,12 @@ final class Dungeon {
             return null;
         }
         RandomSource random = level.getRandom();
-        // Anywhere in the room but by the walls, the boss in the middle
+        // Anywhere in the room but by the walls and the treasure chest, the boss in the middle
         double x = originX(room) + (elite < 0 ? 7.5 : 3 + random.nextInt(10) + 0.5);
         double z = originZ(room) + (elite < 0 ? 7.5 : 3 + random.nextInt(10) + 0.5);
+        if (room.kind == Kind.TREASURE && Math.abs(x - originX(room) - 7.5) < 1 && Math.abs(z - originZ(room) - 7.5) < 1) {
+            x += 2;
+        }
         monster.moveTo(x, FLOOR_Y + 1, z, random.nextFloat() * 360, 0);
         // Gives it its normal gear, like a bow for skeletons
         monster.finalizeSpawn(level, level.getCurrentDifficultyAt(monster.blockPosition()), MobSpawnType.EVENT, null);
@@ -409,14 +514,17 @@ final class Dungeon {
         }
         // On top of the level, each tier above I gives the monsters 15% more health and 6% more damage. The boss has four
         // times the health of a normal boss at tier I and 60% more per tier, and can only lose a little of it in one hit,
-        // see Dungeons.onBossDamage. The extra health gives no extra XP, see Dungeons.xpScale
-        double health = elite < 0 ? 3 + 0.6 * (tier - 1) : 0.15 * (tier - 1);
+        // see Dungeons.onBossDamage. Armored adds 40%. The extra health gives no extra XP, see Dungeons.xpScale
+        double health = (elite < 0 ? 3 + 0.6 * (tier - 1) : 0.15 * (tier - 1)) + (has(RiftAffix.ARMORED) ? 0.4 : 0);
         if (health > 0) {
-            boost(monster, Attributes.MAX_HEALTH, health);
+            boost(monster, TIER_BOOST, Attributes.MAX_HEALTH, health);
             monster.setHealth(monster.getMaxHealth());
         }
         if (tier > 1) {
-            boost(monster, Attributes.ATTACK_DAMAGE, 0.06 * (tier - 1));
+            boost(monster, TIER_BOOST, Attributes.ATTACK_DAMAGE, 0.06 * (tier - 1));
+        }
+        if (has(RiftAffix.SWIFT)) {
+            boost(monster, AFFIX_BOOST, Attributes.MOVEMENT_SPEED, 0.25);
         }
         monster.getPersistentData().putBoolean(Dungeons.MONSTER_TAG, true);
         monster.setPersistenceRequired();
@@ -430,10 +538,10 @@ final class Dungeon {
         return monster;
     }
 
-    private static void boost(Monster monster, Holder<Attribute> attribute, double amount) {
+    private static void boost(Monster monster, ResourceLocation id, Holder<Attribute> attribute, double amount) {
         AttributeInstance instance = monster.getAttribute(attribute);
         if (instance != null) {
-            instance.addPermanentModifier(new AttributeModifier(TIER_BOOST, amount, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            instance.addPermanentModifier(new AttributeModifier(id, amount, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
     }
 
@@ -471,16 +579,53 @@ final class Dungeon {
             level.playSound(null, originX(room) + 8, FLOOR_Y + 1, originZ(room) + 8, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.5f, 0.6f);
             level.playSound(null, originX(room) + 8, FLOOR_Y + 1, originZ(room) + 8, SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 1.0f, 0.6f);
         } else {
+            String text = room.kind == Kind.TREASURE ? "Skatten er jeres - åbn kisten" : "Rummet er ryddet";
             for (ServerPlayer player : inside) {
-                player.displayClientMessage(Component.literal("Rummet er ryddet").withStyle(ChatFormatting.GRAY), true);
+                player.displayClientMessage(Component.literal(text).withStyle(room.kind == Kind.TREASURE ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
             }
         }
     }
 
+    // Explosive: a dungeon monster that dies blows up a moment later
     void monsterDied(Entity monster) {
         died.add(monster.getUUID());
+        if (has(RiftAffix.EXPLOSIVE)) {
+            hazards.add(new Hazard(monster.position(), ticks + HAZARD_WARNING, EXPLOSION_RADIUS, EXPLOSION_DAMAGE, false));
+        }
         if (monster.getUUID().equals(bossId) && homeIn < 0) {
             complete(monster.position());
+        }
+    }
+
+    // Each hazard shows a warning where it will go off, then hurts the players who are still too close
+    private void tickHazards(List<ServerPlayer> inside) {
+        Iterator<Hazard> pending = hazards.iterator();
+        while (pending.hasNext()) {
+            Hazard hazard = pending.next();
+            Vec3 pos = hazard.pos;
+            if (ticks < hazard.at) {
+                if (ticks % 4 == 0) {
+                    for (int i = 0; i < 16; i++) {
+                        double angle = i * Math.PI * 2 / 16;
+                        level.sendParticles(hazard.meteor ? ParticleTypes.FLAME : ParticleTypes.SMOKE, pos.x + Math.cos(angle) * hazard.radius,
+                                pos.y + 0.1, pos.z + Math.sin(angle) * hazard.radius, 1, 0, 0, 0, 0);
+                    }
+                    if (hazard.meteor) {
+                        // The meteor coming down from the ceiling
+                        double height = Math.min(HEIGHT - 1, (hazard.at - ticks) * 0.2);
+                        level.sendParticles(ParticleTypes.LAVA, pos.x, pos.y + height, pos.z, 3, 0.2, 0.2, 0.2, 0);
+                    }
+                }
+                continue;
+            }
+            pending.remove();
+            level.sendParticles(ParticleTypes.EXPLOSION, pos.x, pos.y + 0.5, pos.z, 3, hazard.radius / 3, 0.3, hazard.radius / 3, 0);
+            level.playSound(null, BlockPos.containing(pos), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 0.8f, hazard.meteor ? 0.7f : 1.2f);
+            for (ServerPlayer player : inside) {
+                if (player.position().distanceTo(pos) <= hazard.radius) {
+                    player.hurt(level.damageSources().explosion(null, null), player.getMaxHealth() * hazard.damage);
+                }
+            }
         }
     }
 
@@ -527,16 +672,17 @@ final class Dungeon {
 
     // Loot for each member where the boss died, a key for the next tier each, and XP. The loot is better than what
     // monsters drop: a legendary with a greater bonus for everyone, items five levels above the monsters, bonuses that
-    // always roll in the top half, more so at higher tiers (from 50% at tier I to the top 5% at tier X), and a much
-    // better chance of greater bonuses. Higher tiers give more items and more greater bonuses on the legendary
+    // roll better and stronger the higher the tier (see Loot.Quality.dungeon), an extra bonus on each item, and only the
+    // best materials from item level 20 (see Loot.createFor). Higher tiers give more items and more greater bonuses on
+    // the legendary, and each affix on the key gives an item more and 25% more essence, XP and chance of a mythic
     private void complete(Vec3 at) {
         homeIn = HOME_DELAY;
         RandomSource random = level.getRandom();
         Rarity minimum = tier >= 5 ? Rarity.LEGENDARY : Rarity.RARE;
         int itemLevel = monsterLevel + 5;
-        double floor = 0.5 + 0.05 * (tier - 1);
-        double greaterChance = 0.08 + 0.02 * (tier - 1);
-        Loot.Quality quality = new Loot.Quality(floor, greaterChance, 0);
+        double affixBonus = 1 + RiftAffix.REWARD_PER_AFFIX * affixes.size();
+        // Every reward has a bonus more than its rarity gives, and the legendary two from tier VI
+        Loot.Quality quality = Loot.Quality.dungeon(tier, 0, 1);
         int nextTier = Math.min(Dungeons.MAX_TIER, tier + 1);
         List<ServerPlayer> everyone = online();
         for (ServerPlayer player : everyone) {
@@ -544,26 +690,26 @@ final class Dungeon {
             PlayerClass playerClass = Progression.playerClass(player);
             // The legendary has at least one greater bonus, sometimes two or three, more often at higher tiers
             int sure = 1 + (random.nextDouble() < 0.1 + 0.03 * (tier - 1) ? 1 : 0) + (random.nextDouble() < 0.02 + 0.01 * (tier - 1) ? 1 : 0);
-            rewards.add(Loot.createFor(player, random, Rarity.LEGENDARY, itemLevel, new Loot.Quality(floor, greaterChance, sure)));
-            for (int i = 0; i < 1 + (tier - 1) / 3; i++) {
+            rewards.add(Loot.createFor(player, random, Rarity.LEGENDARY, itemLevel, Loot.Quality.dungeon(tier, sure, tier >= 6 ? 2 : 1)));
+            for (int i = 0; i < 1 + (tier - 1) / 3 + affixes.size(); i++) {
                 rewards.add(Loot.createFor(player, random, Rarity.roll(random, minimum), itemLevel, quality));
             }
-            if (random.nextDouble() < Config.MYTHIC_CHANCE_RIFT.get() * tier) {
+            if (random.nextDouble() < Config.MYTHIC_CHANCE_RIFT.get() * tier * affixBonus) {
                 ItemStack mythic = Loot.createMythic(random, itemLevel, playerClass);
                 rewards.add(mythic);
                 Loot.announceMythic(player, mythic);
             }
-            rewards.add(new ItemStack(Smithy.ESSENCE.get(), 5 + tier * 3 + random.nextInt(5)));
+            rewards.add(new ItemStack(Smithy.ESSENCE.get(), (int) Math.round((5 + tier * 3 + random.nextInt(5)) * affixBonus)));
             for (int i = 0; i < 1 + tier / 3; i++) {
                 rewards.add(Gems.random(random, monsterLevel, tier / 4));
             }
-            rewards.add(Dungeons.key(nextTier));
+            rewards.add(Dungeons.key(nextTier, random));
             rewards.add(TownPortal.scroll());
             for (ItemStack reward : rewards) {
                 level.addFreshEntity(new ItemEntity(level, at.x, at.y + 0.5, at.z, reward));
             }
-            Progression.addXp(player, (int) ((150 + 25 * monsterLevel) * (1 + 0.25 * (tier - 1))));
-            player.sendSystemMessage(Component.literal("Dungeon " + Rifts.roman(tier) + " er klaret! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+            Progression.addXp(player, (int) ((150 + 25 * monsterLevel) * (1 + 0.25 * (tier - 1)) * affixBonus));
+            player.sendSystemMessage(Component.literal(theme.displayName + " (" + Rifts.roman(tier) + ") er klaret! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(Component.literal("Saml jeres loot - I sendes hjem om " + HOME_DELAY / 20 + " sekunder. Du fik også en nøgle "
                             + Rifts.roman(nextTier) + ".").withStyle(ChatFormatting.YELLOW)));
             player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
@@ -571,11 +717,12 @@ final class Dungeon {
         level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, at.x, at.y + 1, at.z, 80, 0.5, 1, 0.5, 0.4);
     }
 
-    // "Dungeon III - rum 3/6 - 2 liv" for the members who are here
+    // "Den Frosne Krypt III - rum 3/6 - 2 liv" for the members who are here. Treasure rooms don't count
     private void updateBar(List<ServerPlayer> inside) {
         long cleared = rooms.stream().filter(room -> room.cleared).count();
-        String text = homeIn >= 0 ? "Dungeon " + Rifts.roman(tier) + " klaret - hjem om " + (homeIn + 19) / 20 + " sek."
-                : "Dungeon " + Rifts.roman(tier) + " - rum " + Math.min(rooms.size(), cleared + 1) + "/" + rooms.size() + " - " + lives + " liv";
+        String name = theme.displayName + " " + Rifts.roman(tier);
+        String text = homeIn >= 0 ? name + " klaret - hjem om " + (homeIn + 19) / 20 + " sek."
+                : name + " - rum " + Math.min(rooms.size(), cleared + 1) + "/" + rooms.size() + " - " + lives + " liv";
         bar.setName(Component.literal(text).withStyle(ChatFormatting.RED));
         bar.setProgress(homeIn >= 0 ? homeIn / (float) HOME_DELAY : cleared / (float) rooms.size());
         for (ServerPlayer player : new ArrayList<>(bar.getPlayers())) {
@@ -597,7 +744,7 @@ final class Dungeon {
                 Dungeons.sendBack(player);
             }
         }
-        for (Room room : rooms) {
+        for (Room room : allRooms()) {
             for (UUID id : room.alive) {
                 Entity entity = level.getEntity(id);
                 if (entity != null) {

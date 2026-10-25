@@ -36,7 +36,7 @@ public class JewelryMenu extends AbstractContainerMenu {
     static final int HANDS_X = 30;
     static final int INVENTORY_Y = 106;
     static final int HOTBAR_Y = INVENTORY_Y + 58;
-    static final int WEAPON_SLOT = 0;
+    public static final int WEAPON_SLOT = 0;
 
     // The order of the slots in the menu
     private static final int ARMOR_START = Jewelry.SLOTS;
