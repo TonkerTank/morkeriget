@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.LootBag;
 import com.morkeriget.loot.Rarity;
 
 import net.minecraft.ChatFormatting;
@@ -11,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -72,7 +74,7 @@ public class SmithyMenu extends AbstractContainerMenu {
         addSlot(new Slot(input, 0, ITEM_X, SLOT_Y) {
             @Override
             public boolean mayPlace(ItemStack stack) {
-                return Loot.getRarity(stack) != null;
+                return Smithy.salvageRarity(stack) != null;
             }
 
             @Override
@@ -115,14 +117,14 @@ public class SmithyMenu extends AbstractContainerMenu {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return false;
         }
-        if (id >= SALVAGE_ALL && id <= SALVAGE_ALL + Rarity.LEGENDARY.ordinal()) {
+        if (id >= SALVAGE_ALL && id <= SALVAGE_ALL + Rarity.SET.ordinal()) {
             return salvageAll(serverPlayer, Rarity.values()[id - SALVAGE_ALL]);
         }
         if (id == COMBINE) {
             return combine(serverPlayer);
         }
         ItemStack stack = input.getItem(0);
-        Rarity rarity = Loot.getRarity(stack);
+        Rarity rarity = Smithy.salvageRarity(stack);
         if (rarity == null) {
             return false;
         }
@@ -227,30 +229,37 @@ public class SmithyMenu extends AbstractContainerMenu {
         return true;
     }
 
-    // Salvages every item in the inventory up to and including this rarity. Skips the item in your hand, set items and
-    // items with gems in them, so nothing you use or have put work into disappears. Worn items aren't in this list at all
+    // Salvages every item up to and including this rarity in the loot bag (see LootBag) and the inventory above the
+    // hotbar. The hotbar and what you wear are never touched. Set items only go when "Sæt" is picked, mythic items never,
+    // and items with gems in them are skipped too, so nothing you have put work into disappears
     private boolean salvageAll(ServerPlayer player, Rarity best) {
-        Inventory inventory = player.getInventory();
-        int count = 0;
-        int essence = 0;
-        for (int slot = 0; slot < inventory.items.size(); slot++) {
-            ItemStack stack = inventory.items.get(slot);
-            Rarity rarity = Loot.getRarity(stack);
-            if (slot != inventory.selected && rarity != null && rarity != Rarity.SET && rarity.ordinal() <= best.ordinal()
-                    && !Gems.hasGems(stack)) {
-                inventory.items.set(slot, ItemStack.EMPTY);
-                count++;
-                essence += Smithy.salvageValue(rarity);
-            }
-        }
+        Container bag = LootBag.get(player);
+        int[] result = new int[2];
+        salvageAll(bag, 0, bag.getContainerSize(), best, result);
+        salvageAll(player.getInventory(), Inventory.getSelectionSize(), player.getInventory().items.size(), best, result);
+        int count = result[0];
+        int essence = result[1];
         if (count == 0) {
-            player.displayClientMessage(Component.literal("Ingen genstande at smelte om"), true);
+            player.displayClientMessage(Component.literal("Ingen genstande at smelte om i loot-tasken (I) eller inventaret"), true);
             return false;
         }
-        inventory.placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), essence));
+        player.getInventory().placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), essence));
         player.displayClientMessage(Component.literal("Smeltede " + count + " genstande om til " + essence + " essens"), true);
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;
+    }
+
+    // Adds how many items it salvaged and the essence they gave to result
+    private static void salvageAll(Container container, int from, int to, Rarity best, int[] result) {
+        for (int slot = from; slot < to; slot++) {
+            ItemStack stack = container.getItem(slot);
+            Rarity rarity = Smithy.salvageRarity(stack);
+            if (rarity != null && rarity.ordinal() <= best.ordinal() && !Gems.hasGems(stack)) {
+                container.setItem(slot, ItemStack.EMPTY);
+                result[0]++;
+                result[1] += Smithy.salvageValue(rarity);
+            }
+        }
     }
 
     private static boolean pay(ServerPlayer player, int cost) {

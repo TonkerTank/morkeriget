@@ -108,6 +108,15 @@ public final class Skills {
         }
     }
 
+    // How much shorter all skill cooldowns are, also shown in the equipment screen. Four Stormcaller pieces make them
+    // 30% shorter, each Time Warp rank 4%, each paragon Cooldown point 0.2% and the Jester's Crown 25%
+    public static float cooldownScale(ServerPlayer player) {
+        float scale = SetBonuses.has(player, ItemSet.STORMCALLER, 4) ? 0.7f : 1;
+        scale *= 1 - 0.04f * Progression.rank(player, Upgrade.TIME_WARP);
+        scale *= 1 - 0.002f * Progression.rank(player, Paragon.COOLDOWN);
+        return MythicItem.has(player, MythicItem.JESTERS_CROWN) ? scale * 0.75f : scale;
+    }
+
     public static void use(ServerPlayer player, Skill skill) {
         // Nothing from the death screen or in spectator mode
         if (!player.isAlive() || player.isSpectator()) {
@@ -180,14 +189,10 @@ public final class Skills {
         };
         if (used) {
             Mana.spend(player, manaCost);
-            // Four Stormcaller pieces make skill cooldowns 30% shorter, each Time Warp rank 4% and each paragon
-            // Cooldown point 0.2% (not the potions)
+            // Not for the potions
             float cooldownScale = 1;
             if (!skill.isPotion()) {
-                cooldownScale *= SetBonuses.has(player, ItemSet.STORMCALLER, 4) ? 0.7f : 1;
-                cooldownScale *= 1 - 0.04f * Progression.rank(player, Upgrade.TIME_WARP);
-                cooldownScale *= 1 - 0.002f * Progression.rank(player, Paragon.COOLDOWN);
-                cooldownScale *= crown ? 0.75f : 1;
+                cooldownScale *= cooldownScale(player);
                 // Ranks above 10 in the skill itself
                 Upgrade upgrade = Upgrade.forSkill(skill);
                 if (upgrade != null) {

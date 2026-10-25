@@ -94,8 +94,8 @@ public final class Config {
 
     static {
         BUILDER.push("loot");
-        DROP_CHANCE = BUILDER.comment("Chance for at et almindeligt monster dropper en genstand (0.15 = 15 %)")
-                .defineInRange("dropChance", 0.15, 0, 1);
+        DROP_CHANCE = BUILDER.comment("Chance for at et almindeligt monster dropper en genstand (0.25 = 25 %)")
+                .defineInRange("dropChance", 0.25, 0, 1);
         AFFIX_PER_LEVEL = BUILDER.comment("Hvor meget stærkere bonusser bliver pr. genstandslevel (0.05 = +5 %, så level 21 er dobbelt så stærkt).",
                         "Det gælder skade, rustning og hårdhed. Liv vokser halvt så hurtigt. Procent-bonusser som fart,",
                         "angrebshastighed, livsstjæl og torne vokser ikke")

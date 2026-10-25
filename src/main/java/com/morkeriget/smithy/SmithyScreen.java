@@ -76,14 +76,15 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         reroll = button(SmithyMenu.REROLL, "Re-roll", 1, 0);
         socket = button(SmithyMenu.SOCKET, "Sæt i", 0, 1);
         unsocket = button(SmithyMenu.UNSOCKET, "Fjern sten (" + SmithyMenu.UNSOCKET_COST + ")", 1, 1);
-        // Clicking the first one picks how good the items "Smelt alle" takes can be
+        // Clicking the first one picks how good the items "Smelt alle" takes can be, up to set items (never mythic)
         addRenderableWidget(Button.builder(limitText(), pressed -> {
-                    salvageUpTo = Rarity.values()[(salvageUpTo.ordinal() + 1) % (Rarity.LEGENDARY.ordinal() + 1)];
+                    salvageUpTo = Rarity.values()[(salvageUpTo.ordinal() + 1) % (Rarity.SET.ordinal() + 1)];
                     pressed.setMessage(limitText());
                 })
                 .bounds(leftPos + 8, topPos + BUTTON_Y + 2 * ROW, 78, 18)
                 .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Component.literal("Smelt alle"), pressed -> click(SmithyMenu.SALVAGE_ALL + salvageUpTo.ordinal()))
+                .tooltip(Tooltip.create(Component.literal("Smelter loot-tasken (I) og inventaret. Hotbaren og det udstyr du har på, bliver aldrig rørt")))
                 .bounds(leftPos + 90, topPos + BUTTON_Y + 2 * ROW, 78, 18)
                 .build(ThemedButton::new));
         combine = addRenderableWidget(Button.builder(Component.literal("Kombinér 3 sten"), pressed -> click(SmithyMenu.COMBINE))
@@ -134,7 +135,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
 
     // The buttons show what they give or cost for the item in the slot
     private void updateButtons() {
-        Rarity rarity = Loot.getRarity(menu.item());
+        Rarity rarity = Smithy.salvageRarity(menu.item());
         salvage.active = rarity != null;
         salvage.setMessage(Component.literal(rarity != null ? "Smelt om (+" + Smithy.salvageValue(rarity) + ")" : "Smelt om"));
         int cost = rarity != null ? Smithy.rerollCost(rarity) : 0;

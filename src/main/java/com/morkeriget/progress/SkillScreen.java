@@ -119,8 +119,8 @@ public class SkillScreen extends Screen {
 
     @Override
     protected void init() {
-        // Menus are opened by the server, so ask it to open the jewelry slots
-        addRenderableWidget(Button.builder(Component.literal("Smykker"), pressed -> PacketDistributor.sendToServer(OpenJewelryPayload.INSTANCE))
+        // Menus are opened by the server, so ask it to open the equipment screen
+        addRenderableWidget(Button.builder(Component.literal("Udstyr"), pressed -> PacketDistributor.sendToServer(OpenJewelryPayload.INSTANCE))
                 .bounds(left() + screenWidth() - 60, top() - 4, 60, 16)
                 .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Component.literal("Smedje"), pressed -> PacketDistributor.sendToServer(OpenSmithyPayload.INSTANCE))

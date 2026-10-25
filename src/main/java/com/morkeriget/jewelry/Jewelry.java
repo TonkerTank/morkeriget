@@ -33,11 +33,12 @@ import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
-// Rings and amulets. The player has two ring slots and one amulet slot, opened from the skill screen.
-// Jewelry stays on when the player dies
+// Rings and amulets. The player has four ring slots and two amulet slots in the equipment screen, opened from the skill
+// screen. Jewelry stays on when the player dies
 public final class Jewelry {
-    public static final int RING_SLOTS = 2;
-    public static final int SLOTS = RING_SLOTS + 1;
+    public static final int RING_SLOTS = 4;
+    public static final int AMULET_SLOTS = 2;
+    public static final int SLOTS = RING_SLOTS + AMULET_SLOTS;
 
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Morkeriget.MODID);
     public static final DeferredItem<Item> RING = ITEMS.registerSimpleItem("ring", new Item.Properties().stacksTo(1));
@@ -65,11 +66,14 @@ public final class Jewelry {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("1").playToServer(OpenJewelryPayload.TYPE, OpenJewelryPayload.STREAM_CODEC, (payload, context) -> {
-            if (context.player() instanceof ServerPlayer player) {
-                open(player);
-            }
-        });
+        event.registrar("1")
+                .playToServer(OpenJewelryPayload.TYPE, OpenJewelryPayload.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        open(player);
+                    }
+                })
+                // The lambda keeps JewelryScreen (client only) from being loaded on a dedicated server
+                .playToClient(EquipmentStats.Payload.TYPE, EquipmentStats.Payload.STREAM_CODEC, (payload, context) -> JewelryScreen.receive(payload));
     }
 
     // Plain rings and amulets without bonuses, mostly for testing. The good ones drop from monsters
@@ -99,7 +103,8 @@ public final class Jewelry {
     private static void open(ServerPlayer player) {
         player.openMenu(new SimpleMenuProvider(
                 (id, inventory, menuPlayer) -> new JewelryMenu(id, inventory, player.getData(EQUIPPED)),
-                Component.literal("Smykker")));
+                Component.literal("Udstyr")));
+        EquipmentStats.send(player);
     }
 
     // Vanilla only uses an item's attribute bonuses in the normal equipment slots, so for jewelry the bonuses are

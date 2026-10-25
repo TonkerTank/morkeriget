@@ -53,21 +53,24 @@ public final class Mana {
     // Regenerates twice a second. It also sends the value every time, so the bar is right after joining or respawning
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         if (event.getEntity() instanceof ServerPlayer player && player.tickCount % 10 == 0) {
-            // Each Spirit upgrade rank makes mana come back 20% faster, and two Stormcaller pieces 50% faster
-            float regen = Config.MANA_REGEN.get().floatValue() * (1 + 0.2f * Progression.rank(player, Upgrade.SPIRIT));
-            if (SetBonuses.has(player, ItemSet.STORMCALLER, 2)) {
-                regen *= 1.5f;
-            }
-            // Each paragon Mana point adds 2%
-            regen *= 1 + 0.02f * Progression.rank(player, Paragon.MANA);
-            // Sorcerers get mana back 40% faster
-            if (Progression.playerClass(player) == PlayerClass.SORCERER) {
-                regen *= 1.4f;
-            }
-            // Sapphires in worn items, and the staff in your hand
-            List<ItemStack> items = PlayerHits.equippedItems(player);
-            regen *= 1 + (PlayerHits.total(items, Gems.MANA_REGEN_TAG) + PlayerHits.total(items, Loot.STAFF_MANA_TAG)) / 100f;
-            set(player, Math.min(MAX, get(player) + regen / 2));
+            set(player, Math.min(MAX, get(player) + regenPerSecond(player, PlayerHits.equippedItems(player)) / 2));
         }
+    }
+
+    // How much mana comes back each second with these items worn, also shown in the equipment screen
+    public static float regenPerSecond(ServerPlayer player, List<ItemStack> items) {
+        // Each Spirit upgrade rank makes mana come back 20% faster, and two Stormcaller pieces 50% faster
+        float regen = Config.MANA_REGEN.get().floatValue() * (1 + 0.2f * Progression.rank(player, Upgrade.SPIRIT));
+        if (SetBonuses.has(player, ItemSet.STORMCALLER, 2)) {
+            regen *= 1.5f;
+        }
+        // Each paragon Mana point adds 2%
+        regen *= 1 + 0.02f * Progression.rank(player, Paragon.MANA);
+        // Sorcerers get mana back 40% faster
+        if (Progression.playerClass(player) == PlayerClass.SORCERER) {
+            regen *= 1.4f;
+        }
+        // Sapphires in worn items, and the staff in your hand
+        return regen * (1 + (PlayerHits.total(items, Gems.MANA_REGEN_TAG) + PlayerHits.total(items, Loot.STAFF_MANA_TAG)) / 100f);
     }
 }

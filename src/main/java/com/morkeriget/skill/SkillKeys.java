@@ -6,6 +6,7 @@ import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.morkeriget.loot.LootFilter;
+import com.morkeriget.loot.OpenLootBagPayload;
 import com.morkeriget.progress.ClassScreen;
 import com.morkeriget.progress.ClientProgress;
 import com.morkeriget.progress.PlayerClass;
@@ -40,6 +41,9 @@ public final class SkillKeys {
     // Switches what the loot filter hides, see LootFilter
     public static final KeyMapping LOOT_FILTER = new KeyMapping("key.morkeriget.loot_filter",
             InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.morkeriget");
+    // Opens the loot bag, see LootBag
+    public static final KeyMapping LOOT_BAG = new KeyMapping("key.morkeriget.loot_bag",
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_I, "key.categories.morkeriget");
 
     // 20 ticks is one second
     static final int DODGE_COOLDOWN = 2 * 20;
@@ -66,6 +70,7 @@ public final class SkillKeys {
         event.register(MANA_POTION);
         event.register(SKILLS);
         event.register(LOOT_FILTER);
+        event.register(LOOT_BAG);
     }
 
     // A hotbar key that is also a skill key would switch item every time you use the skill, so its presses are thrown
@@ -117,6 +122,9 @@ public final class SkillKeys {
         }
         while (LOOT_FILTER.consumeClick()) {
             PacketDistributor.sendToServer(new LootFilter.CyclePayload());
+        }
+        while (LOOT_BAG.consumeClick()) {
+            PacketDistributor.sendToServer(OpenLootBagPayload.INSTANCE);
         }
     }
 

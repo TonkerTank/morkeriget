@@ -34,6 +34,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -45,6 +46,10 @@ import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ProjectileWeaponItem;
+import net.minecraft.world.item.ShieldItem;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.ItemLore;
@@ -170,6 +175,7 @@ public final class Loot {
     public static void register(IEventBus modEventBus) {
         Staffs.register(modEventBus);
         LootFilter.register(modEventBus);
+        LootBag.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(Loot::onLivingDrops);
         NeoForge.EVENT_BUS.addListener(Loot::lessRottenFlesh);
         NeoForge.EVENT_BUS.addListener(Loot::onItemModifiers);
@@ -208,7 +214,12 @@ public final class Loot {
 
     private static void onLivingDrops(LivingDropsEvent event) {
         // Kill credit instead of the damage source, so a monster that burns to death after your hit still drops loot
-        if (!(event.getEntity() instanceof Enemy) || Minions.isAlly(event.getEntity()) || !(event.getEntity().getKillCredit() instanceof Player)) {
+        if (!(event.getEntity() instanceof Enemy) || Minions.isAlly(event.getEntity())) {
+            return;
+        }
+        // Music discs, spider eyes and plain vanilla gear are thrown away, also when no player got the kill
+        int replaced = removeJunk(event);
+        if (!(event.getEntity().getKillCredit() instanceof Player)) {
             return;
         }
         RandomSource random = event.getEntity().getRandom();
@@ -232,6 +243,10 @@ public final class Loot {
                 drops.add(Rarity.roll(random, Rarity.MAGIC));
             }
         } else if (random.nextFloat() < Config.DROP_CHANCE.get()) {
+            drops.add(Rarity.roll(random, Rarity.COMMON));
+        }
+        // Each piece of junk that was thrown away becomes a real piece of loot instead
+        for (int i = 0; i < replaced; i++) {
             drops.add(Rarity.roll(random, Rarity.COMMON));
         }
         Rarity best = null;
@@ -267,6 +282,30 @@ public final class Loot {
 
     // Zombies, husks and drowned fill your inventory with rotten flesh when you kill lots of them, so they only drop
     // a single piece now and then. Only zombies of every kind, so a player who dies keeps all of theirs
+    // Takes the drops nobody wants out, and says how many should be loot instead. Plain gear, like the helmets zombies
+    // spawn with, is only taken when the monster can't pick things up, since then it can't be something a player lost
+    private static int removeJunk(LivingDropsEvent event) {
+        boolean mayCarryPlayerItems = event.getEntity() instanceof Mob mob && mob.canPickUpLoot();
+        int[] replaced = {0};
+        event.getDrops().removeIf(drop -> {
+            ItemStack stack = drop.getItem();
+            boolean junk = stack.has(DataComponents.JUKEBOX_PLAYABLE) || stack.is(Items.SPIDER_EYE)
+                    || !mayCarryPlayerItems && isPlainGear(stack);
+            if (junk) {
+                replaced[0]++;
+            }
+            return junk;
+        });
+        return replaced[0];
+    }
+
+    // A vanilla weapon or piece of armor without a rarity or enchantments
+    public static boolean isPlainGear(ItemStack stack) {
+        Item item = stack.getItem();
+        return getRarity(stack) == null && !stack.isEnchanted() && (item instanceof ArmorItem || item instanceof SwordItem
+                || item instanceof ProjectileWeaponItem || item instanceof ShieldItem || item instanceof TridentItem);
+    }
+
     private static void lessRottenFlesh(LivingDropsEvent event) {
         if (!(event.getEntity() instanceof Zombie)) {
             return;

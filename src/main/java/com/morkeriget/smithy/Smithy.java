@@ -8,6 +8,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
+import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -102,6 +103,13 @@ public final class Smithy {
     }
 
     // How much essence you get for salvaging an item
+    // The rarity the smithy treats the item as. Plain vanilla gear, like a zombie's helmet, counts as common, so it can
+    // be salvaged too. Null for things the smithy can't use
+    public static Rarity salvageRarity(ItemStack stack) {
+        Rarity rarity = Loot.getRarity(stack);
+        return rarity == null && Loot.isPlainGear(stack) ? Rarity.COMMON : rarity;
+    }
+
     public static int salvageValue(Rarity rarity) {
         return switch (rarity) {
             case COMMON -> 1;
