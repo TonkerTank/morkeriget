@@ -2,9 +2,11 @@ package com.morkeriget.smithy;
 
 import java.util.List;
 
+import com.morkeriget.loot.Favorites;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.LootBag;
+import com.morkeriget.loot.Masterwork;
 import com.morkeriget.loot.Rarity;
 
 import net.minecraft.ChatFormatting;
@@ -31,6 +33,7 @@ public class SmithyMenu extends AbstractContainerMenu {
     public static final int SOCKET = 2;
     public static final int UNSOCKET = 3;
     public static final int EXTRACT = 4;
+    public static final int MASTERWORK = 5;
     public static final int COMBINE = 6;
     // "Salvage all" sends this plus the best rarity to salvage, e.g. SALVAGE_ALL + RARE.ordinal()
     public static final int SALVAGE_ALL = 10;
@@ -40,11 +43,12 @@ public class SmithyMenu extends AbstractContainerMenu {
     private static final int CODEX_SLOTS = (LegendaryPower.values().length + 7) / 8;
     // What it costs to take the gems out of an item
     public static final int UNSOCKET_COST = 3;
+    private static final String FAVORITE_MESSAGE = "Favoritter kan ikke smeltes - fjern stjernen med Alt+klik";
     // Where the slots are drawn, used by SmithyScreen too
     static final int ITEM_X = 62;
     static final int GEM_X = 98;
     static final int SLOT_Y = 20;
-    static final int INVENTORY_Y = 136;
+    static final int INVENTORY_Y = 156;
 
     private final SimpleContainer input = new SimpleContainer(2);
     private final ContainerData codex;
@@ -137,12 +141,17 @@ public class SmithyMenu extends AbstractContainerMenu {
             case SOCKET -> socket(serverPlayer, stack);
             case UNSOCKET -> unsocket(serverPlayer, stack);
             case EXTRACT -> extract(serverPlayer, stack);
+            case MASTERWORK -> masterwork(serverPlayer, stack);
             default -> false;
         };
     }
 
     // Takes the power out of the item and into the codex. The item is used up, but its gems are given back
     private boolean extract(ServerPlayer player, ItemStack stack) {
+        if (Favorites.is(stack)) {
+            player.displayClientMessage(Component.literal(FAVORITE_MESSAGE), true);
+            return false;
+        }
         LegendaryPower power = LegendaryPower.of(stack);
         if (power == null) {
             player.displayClientMessage(Component.literal("Genstanden har ingen legendarisk kraft"), true);
@@ -178,10 +187,37 @@ public class SmithyMenu extends AbstractContainerMenu {
 
     // Gems in the item are given back
     private boolean salvage(ServerPlayer player, ItemStack stack, Rarity rarity) {
+        if (Favorites.is(stack)) {
+            player.displayClientMessage(Component.literal(FAVORITE_MESSAGE), true);
+            return false;
+        }
         giveBack(player, Gems.removeAll(stack));
         input.setItem(0, ItemStack.EMPTY);
         player.getInventory().placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), Smithy.salvageValue(rarity)));
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
+        return true;
+    }
+
+    // Makes all the item's bonuses stronger, see Masterwork
+    private boolean masterwork(ServerPlayer player, ItemStack stack) {
+        if (!Masterwork.canUpgrade(stack)) {
+            player.displayClientMessage(Component.literal(Masterwork.rank(stack) >= Masterwork.MAX_RANK
+                    ? "Genstanden er allerede fuldt mesterværk" : "Genstanden har ingen bonusser at forbedre"), true);
+            return false;
+        }
+        if (!pay(player, Masterwork.cost(stack))) {
+            return false;
+        }
+        Component bigStep = Masterwork.upgrade(stack, player.getRandom());
+        input.setChanged();
+        String rank = "Mesterværk " + Masterwork.rank(stack) + "/" + Masterwork.MAX_RANK;
+        if (bigStep != null) {
+            player.displayClientMessage(Component.literal(rank + " - stort spring: ").append(bigStep.copy()).withStyle(ChatFormatting.GOLD), true);
+            player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
+        } else {
+            player.displayClientMessage(Component.literal(rank).withStyle(ChatFormatting.GOLD), true);
+        }
+        player.playNotifySound(SoundEvents.ANVIL_USE, SoundSource.PLAYERS, 0.8f, 1.0f + Masterwork.rank(stack) * 0.04f);
         return true;
     }
 
@@ -231,7 +267,7 @@ public class SmithyMenu extends AbstractContainerMenu {
 
     // Salvages every item up to and including this rarity in the loot bag (see LootBag) and the inventory above the
     // hotbar. The hotbar and what you wear are never touched. Set items only go when "Sæt" is picked, mythic items never,
-    // and items with gems in them are skipped too, so nothing you have put work into disappears
+    // and favorites and items with gems in them are skipped too, so nothing you have put work into disappears
     private boolean salvageAll(ServerPlayer player, Rarity best) {
         Container bag = LootBag.get(player);
         int[] result = new int[2];
@@ -254,7 +290,7 @@ public class SmithyMenu extends AbstractContainerMenu {
         for (int slot = from; slot < to; slot++) {
             ItemStack stack = container.getItem(slot);
             Rarity rarity = Smithy.salvageRarity(stack);
-            if (rarity != null && rarity.ordinal() <= best.ordinal() && !Gems.hasGems(stack)) {
+            if (rarity != null && rarity.ordinal() <= best.ordinal() && !Gems.hasGems(stack) && !Favorites.is(stack)) {
                 container.setItem(slot, ItemStack.EMPTY);
                 result[0]++;
                 result[1] += Smithy.salvageValue(rarity);

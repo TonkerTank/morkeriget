@@ -4,6 +4,7 @@ import com.morkeriget.combat.DamageNumbers;
 import com.morkeriget.combat.TargetFrame;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
+import com.morkeriget.loot.FavoriteClicks;
 import com.morkeriget.loot.LootBeams;
 import com.morkeriget.loot.LootTooltips;
 import com.morkeriget.merchant.Merchant;
@@ -64,6 +65,10 @@ public class MorkerigetClient {
         });
         // Loot tooltips compare the item with what you are wearing
         NeoForge.EVENT_BUS.addListener(LootTooltips::onTooltip);
+        // Alt+click marks loot as a favorite, and favorites have a star on their slot
+        NeoForge.EVENT_BUS.addListener(FavoriteClicks::onMousePressed);
+        NeoForge.EVENT_BUS.addListener(FavoriteClicks::onMouseReleased);
+        NeoForge.EVENT_BUS.addListener(FavoriteClicks::onForeground);
         // The screens for the jewelry slots, the smithy and the merchant
         modEventBus.addListener((RegisterMenuScreensEvent event) -> {
             event.register(Jewelry.MENU.get(), JewelryScreen::new);

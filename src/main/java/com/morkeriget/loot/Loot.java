@@ -65,7 +65,7 @@ public final class Loot {
     private static final String ITEM_LEVEL_TAG = "morkeriget_item_level";
     private static final String ITEM_POWER_TAG = "morkeriget_item_power";
     private static final String ITEM_LEVEL_LORE = "Genstandslevel ";
-    private static final String ITEM_POWER_LORE = "Genstandsstyrke ";
+    static final String ITEM_POWER_LORE = "Genstandsstyrke ";
     // Special affixes. The value is stored on the item and used in PlayerHits
     public static final String LIFESTEAL_TAG = "morkeriget_lifesteal";
     public static final String FIRE_TAG = "morkeriget_fire";
@@ -176,6 +176,7 @@ public final class Loot {
         Staffs.register(modEventBus);
         LootFilter.register(modEventBus);
         LootBag.register(modEventBus);
+        Favorites.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(Loot::onLivingDrops);
         NeoForge.EVENT_BUS.addListener(Loot::lessRottenFlesh);
         NeoForge.EVENT_BUS.addListener(Loot::onItemModifiers);
@@ -447,6 +448,8 @@ public final class Loot {
         Journey.copyFound(old, rerolled);
         // What the player put on it themselves stays too
         rerolled.copyFrom(old, DataComponents.ENCHANTMENTS, DataComponents.TRIM, DataComponents.DYED_COLOR, DataComponents.REPAIR_COST);
+        Favorites.copy(old, rerolled);
+        Masterwork.carryOver(old, rerolled, random);
         return rerolled;
     }
 
@@ -600,6 +603,19 @@ public final class Loot {
         return storedNumber(stack, ITEM_POWER_TAG, ITEM_POWER_LORE);
     }
 
+    // Raises the item power, both the number and the line in the lore. Used by Masterwork
+    static void addItemPower(ItemStack stack, int amount) {
+        int power = itemPower(stack) + amount;
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(ITEM_POWER_TAG, power));
+        List<Component> lore = new ArrayList<>(stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY).lines());
+        for (int i = 0; i < lore.size(); i++) {
+            if (lore.get(i).getString().startsWith(ITEM_POWER_LORE)) {
+                lore.set(i, Component.literal(ITEM_POWER_LORE + power).withStyle(ChatFormatting.GRAY));
+            }
+        }
+        stack.set(DataComponents.LORE, new ItemLore(lore));
+    }
+
     // Items from before the level and power were saved as numbers only have them in the lore, so read them from there
     private static int storedNumber(ItemStack stack, String tag, String lorePrefix) {
         int stored = affix(stack, tag);
@@ -620,7 +636,7 @@ public final class Loot {
     }
 
     // The same text vanilla uses for attribute bonuses, e.g. "+3 Attack Damage" or "+12% Speed"
-    private static Component statLine(Holder<Attribute> attribute, AttributeModifier.Operation operation, double amount) {
+    static Component statLine(Holder<Attribute> attribute, AttributeModifier.Operation operation, double amount) {
         double shown = operation == AttributeModifier.Operation.ADD_VALUE ? amount : amount * 100;
         return Component.translatable("attribute.modifier.plus." + operation.id(),
                 ItemAttributeModifiers.ATTRIBUTE_MODIFIER_FORMAT.format(shown),
@@ -633,6 +649,11 @@ public final class Loot {
             return null;
         }
         return Rarity.byName(data.copyTag().getString(RARITY_TAG));
+    }
+
+    // The text a special affix has in the lore, with %d for the value
+    static String specialLore(String tag) {
+        return AFFIXES.stream().filter(affix -> tag.equals(affix.tag)).map(Affix::lore).findFirst().orElse("%d");
     }
 
     // The value of a special affix on one item, or 0

@@ -3,8 +3,10 @@ package com.morkeriget.smithy;
 import java.util.Arrays;
 import java.util.List;
 
+import com.morkeriget.loot.Favorites;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.Masterwork;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.SkillScreen;
 import com.morkeriget.skill.SkillKeys;
@@ -26,6 +28,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     private static final int ROW = 20;
     private Button salvage;
     private Button reroll;
+    private Button masterwork;
     private Button socket;
     private Button unsocket;
     private Button combine;
@@ -74,21 +77,26 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
                 .build(ThemedButton::new));
         salvage = button(SmithyMenu.SALVAGE, "Smelt om", 0, 0);
         reroll = button(SmithyMenu.REROLL, "Re-roll", 1, 0);
-        socket = button(SmithyMenu.SOCKET, "Sæt i", 0, 1);
-        unsocket = button(SmithyMenu.UNSOCKET, "Fjern sten (" + SmithyMenu.UNSOCKET_COST + ")", 1, 1);
+        masterwork = addRenderableWidget(Button.builder(Component.literal("Mesterværk"), pressed -> click(SmithyMenu.MASTERWORK))
+                .tooltip(Tooltip.create(Component.literal("Gør alle bonusser 5% stærkere pr. rang, op til " + Masterwork.MAX_RANK
+                        + ". Rang 4, 8 og 12 giver også én tilfældig bonus 25% ekstra")))
+                .bounds(leftPos + 8, topPos + BUTTON_Y + ROW, 160, 18)
+                .build(ThemedButton::new));
+        socket = button(SmithyMenu.SOCKET, "Sæt i", 0, 2);
+        unsocket = button(SmithyMenu.UNSOCKET, "Fjern sten (" + SmithyMenu.UNSOCKET_COST + ")", 1, 2);
         // Clicking the first one picks how good the items "Smelt alle" takes can be, up to set items (never mythic)
         addRenderableWidget(Button.builder(limitText(), pressed -> {
                     salvageUpTo = Rarity.values()[(salvageUpTo.ordinal() + 1) % (Rarity.SET.ordinal() + 1)];
                     pressed.setMessage(limitText());
                 })
-                .bounds(leftPos + 8, topPos + BUTTON_Y + 2 * ROW, 78, 18)
+                .bounds(leftPos + 8, topPos + BUTTON_Y + 3 * ROW, 78, 18)
                 .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Component.literal("Smelt alle"), pressed -> click(SmithyMenu.SALVAGE_ALL + salvageUpTo.ordinal()))
-                .tooltip(Tooltip.create(Component.literal("Smelter loot-tasken (I) og inventaret. Hotbaren og det udstyr du har på, bliver aldrig rørt")))
-                .bounds(leftPos + 90, topPos + BUTTON_Y + 2 * ROW, 78, 18)
+                .tooltip(Tooltip.create(Component.literal("Smelter loot-tasken (I) og inventaret. Hotbaren, det udstyr du har på, og favoritter (Alt+klik) bliver aldrig rørt")))
+                .bounds(leftPos + 90, topPos + BUTTON_Y + 3 * ROW, 78, 18)
                 .build(ThemedButton::new));
         combine = addRenderableWidget(Button.builder(Component.literal("Kombinér 3 sten"), pressed -> click(SmithyMenu.COMBINE))
-                .bounds(leftPos + 8, topPos + BUTTON_Y + 3 * ROW, 160, 18)
+                .bounds(leftPos + 8, topPos + BUTTON_Y + 4 * ROW, 160, 18)
                 .build(ThemedButton::new));
         updateButtons();
     }
@@ -136,8 +144,15 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     // The buttons show what they give or cost for the item in the slot
     private void updateButtons() {
         Rarity rarity = Smithy.salvageRarity(menu.item());
-        salvage.active = rarity != null;
-        salvage.setMessage(Component.literal(rarity != null ? "Smelt om (+" + Smithy.salvageValue(rarity) + ")" : "Smelt om"));
+        boolean favorite = Favorites.is(menu.item());
+        salvage.active = rarity != null && !favorite;
+        salvage.setMessage(Component.literal(favorite ? "★ Favorit" : rarity != null ? "Smelt om (+" + Smithy.salvageValue(rarity) + ")" : "Smelt om"));
+        int rank = Masterwork.rank(menu.item());
+        boolean canMasterwork = Masterwork.canUpgrade(menu.item());
+        masterwork.active = canMasterwork && essence() >= Masterwork.cost(menu.item());
+        masterwork.setMessage(Component.literal(canMasterwork
+                ? "Mesterværk " + rank + " → " + (rank + 1) + " (" + Masterwork.cost(menu.item()) + ")"
+                : rank >= Masterwork.MAX_RANK ? "Mesterværk " + rank + "/" + rank + " (fuldt)" : "Mesterværk"));
         int cost = rarity != null ? Smithy.rerollCost(rarity) : 0;
         reroll.active = cost > 0 && essence() >= cost;
         reroll.setMessage(Component.literal(cost > 0 ? "Re-roll (" + cost + ")" : "Re-roll"));
@@ -156,7 +171,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
             selected = known.isEmpty() ? null : known.get(0);
         }
         LegendaryPower onItem = LegendaryPower.of(menu.item());
-        extract.active = onItem != null && !menu.knows(onItem);
+        extract.active = onItem != null && !menu.knows(onItem) && !favorite;
         previousPower.active = known.size() > 1;
         nextPower.active = known.size() > 1;
         imprint.active = selected != null && rarity == Rarity.LEGENDARY && onItem != selected && essence() >= Codex.IMPRINT_COST;

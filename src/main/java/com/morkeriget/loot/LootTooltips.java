@@ -49,6 +49,11 @@ public final class LootTooltips {
         if (player == null || Loot.getRarity(stack) == null) {
             return;
         }
+        // Under the name, so it is seen before anything else
+        if (Favorites.is(stack)) {
+            event.getToolTip().add(Math.min(1, event.getToolTip().size()),
+                    Component.literal("★ Favorit - kan ikke smeltes (Alt+klik fjerner)").withStyle(ChatFormatting.GOLD));
+        }
         EquipmentSlot slot = slotFor(stack);
         if (slot == null) {
             return;
