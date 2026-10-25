@@ -15,6 +15,7 @@ import com.morkeriget.skill.Skill;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -50,6 +51,7 @@ public final class Progression {
     private static final ResourceLocation PARAGON_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_damage");
     private static final ResourceLocation PARAGON_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_health");
     private static final ResourceLocation PARAGON_SPEED_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_speed");
+    private static final String HEALTH_TAG = "morkeriget_logout_health";
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
     private static final Supplier<AttachmentType<PlayerProgress>> PROGRESS = ATTACHMENTS.register("progress",
@@ -63,6 +65,7 @@ public final class Progression {
         modEventBus.addListener(Progression::registerPayloads);
         NeoForge.EVENT_BUS.addListener(Progression::onDeath);
         NeoForge.EVENT_BUS.addListener(Progression::onLogin);
+        NeoForge.EVENT_BUS.addListener(Progression::onLogout);
         NeoForge.EVENT_BUS.addListener(Progression::onRespawn);
         NeoForge.EVENT_BUS.addListener(Progression::registerCommands);
     }
@@ -172,7 +175,10 @@ public final class Progression {
             level++;
             points++;
         }
+        // What is left over after reaching level 100 goes towards the first paragon level
+        int overflow = 0;
         if (level >= MAX_LEVEL) {
+            overflow = xp;
             xp = 0;
         }
         player.setData(PROGRESS, progress.withLevel(level, xp, points));
@@ -183,6 +189,10 @@ public final class Progression {
             player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 0.8f);
             player.serverLevel().sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1, player.getZ(),
                     40, 0.4, 0.8, 0.4, 0.3);
+        }
+        if (overflow > 0) {
+            addParagonXp(player, player.getData(PROGRESS), overflow);
+            return;
         }
         sync(player);
     }
@@ -322,6 +332,7 @@ public final class Progression {
                 }
             }
             applyPassives(player);
+            restoreHealth(player);
             sync(player);
             if (playerClass(player) == null) {
                 player.sendSystemMessage(Component.literal("Vælg en klasse: tryk K").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
@@ -329,10 +340,27 @@ public final class Progression {
         }
     }
 
+    // The game loads health before the extra max health is back on, which would cut it down to 20. So it is saved here
+    // and put back after applyPassives
+    private static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        event.getEntity().getPersistentData().putFloat(HEALTH_TAG, event.getEntity().getHealth());
+    }
+
+    private static void restoreHealth(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        if (data.contains(HEALTH_TAG) && player.isAlive()) {
+            player.setHealth(Math.min(data.getFloat(HEALTH_TAG), player.getMaxHealth()));
+        }
+        data.remove(HEALTH_TAG);
+    }
+
     private static void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             applyPassives(player);
-            player.setHealth(player.getMaxHealth());
+            // Coming back from the End is also a respawn, but only death heals you
+            if (!event.isEndConquered()) {
+                player.setHealth(player.getMaxHealth());
+            }
             sync(player);
         }
     }

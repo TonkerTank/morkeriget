@@ -1,11 +1,14 @@
 package com.morkeriget.elite;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.LootFilter;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.smithy.Smithy;
@@ -35,20 +38,24 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
 // Elites out in the world come in packs, like in Diablo: the elite is the leader, with a gold name, and a few monsters
 // of the same kind come with it. They have blue names and the leader's modifiers, but are weaker than it. When the
 // leader dies the rest go wild, and killing the whole pack gives a bonus. Shielding and Healing leaders protect their
-// pack, so it pays to go for the leader first. Server only
+// pack, so it pays to go for the leader first. Elites without a pack, like in rifts, only protect themselves. Server only
 public final class ElitePacks {
     // Every monster in a pack has the leader's id under this, the leader too
     private static final String PACK_TAG = "morkeriget_pack";
     private static final String MEMBER_TAG = "morkeriget_pack_member";
     // The leader brings its pack the first time it ticks. Adding monsters while one joins the world isn't safe
     private static final String PENDING_TAG = "morkeriget_pack_pending";
+    // Put on the last one of a pack when it dies, so it drops the bonus
+    private static final String LAST_TAG = "morkeriget_pack_last";
     private static final ResourceLocation MEMBER_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "pack_member_boost");
     private static final ResourceLocation ENRAGED = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "pack_enraged");
     private static final double MEMBER_HEALTH = 1.8;
@@ -62,6 +69,11 @@ public final class ElitePacks {
     private static final int HEAL_INTERVAL = 6 * 20;
     private static final float HEAL_SHARE = 0.1f;
     private static final double MEMBER_LOOT_CHANCE = 0.4;
+    // How many of each pack are still alive, by the pack's id, so the bonus comes once and only when the whole pack is
+    // dead, however far apart they are. It's only kept while the server runs, so after a restart the last one is the
+    // one with no others close by
+    private static final Map<String, Integer> ALIVE = new HashMap<>();
+    private static final double UNTRACKED_RANGE = 48.0;
 
     private ElitePacks() {
     }
@@ -70,6 +82,9 @@ public final class ElitePacks {
         NeoForge.EVENT_BUS.addListener(ElitePacks::onEntityTick);
         NeoForge.EVENT_BUS.addListener(ElitePacks::onDeath);
         NeoForge.EVENT_BUS.addListener(ElitePacks::onDrops);
+        NeoForge.EVENT_BUS.addListener(ElitePacks::onLeaveLevel);
+        // In singleplayer the game can go on to another world, which has packs of its own
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> ALIVE.clear());
         NeoForge.EVENT_BUS.addListener(ElitePacks::registerCommands);
     }
 
@@ -120,14 +135,18 @@ public final class ElitePacks {
     }
 
     // The others in the same pack close by that are still alive
-    private static List<Monster> rest(ServerLevel level, Monster monster) {
+    private static List<Monster> rest(ServerLevel level, Monster monster, double range) {
         String pack = pack(monster);
-        return level.getEntitiesOfClass(Monster.class, monster.getBoundingBox().inflate(PACK_RANGE),
+        if (pack.isEmpty()) {
+            return List.of();
+        }
+        return level.getEntitiesOfClass(Monster.class, monster.getBoundingBox().inflate(range),
                 other -> other != monster && other.isAlive() && pack.equals(pack(other)));
     }
 
     private static void onEntityTick(EntityTickEvent.Post event) {
-        if (!(event.getEntity() instanceof Monster monster) || !(monster.level() instanceof ServerLevel level) || pack(monster).isEmpty()) {
+        if (!(event.getEntity() instanceof Monster monster) || !(monster.level() instanceof ServerLevel level)
+                || pack(monster).isEmpty() && !Elites.isElite(monster)) {
             return;
         }
         if (monster.getPersistentData().getBoolean(PENDING_TAG)) {
@@ -148,17 +167,20 @@ public final class ElitePacks {
 
     private static void spawnPack(ServerLevel level, Monster leader) {
         RandomSource random = leader.getRandom();
-        int min = Config.PACK_MIN_SIZE.get();
-        int size = min + random.nextInt(Math.max(1, Config.PACK_MAX_SIZE.get() - min + 1));
+        int max = Config.PACK_MAX_SIZE.get();
+        int min = Math.min(Config.PACK_MIN_SIZE.get(), max);
+        int size = min + random.nextInt(max - min + 1);
+        // Shielding and Healing stay with the leader, since only it protects the pack
         List<EliteModifier> modifiers = new ArrayList<>();
         for (EliteModifier modifier : EliteModifier.values()) {
-            if (modifier.isOn(leader)) {
+            if (modifier.isOn(leader) && modifier != EliteModifier.SHIELDING && modifier != EliteModifier.HEALING) {
                 modifiers.add(modifier);
             }
         }
+        int spawned = 0;
         for (int i = 0; i < size; i++) {
             if (!(leader.getType().create(level) instanceof Monster member)) {
-                return;
+                break;
             }
             double x = leader.getX() + (random.nextDouble() - 0.5) * 5;
             double z = leader.getZ() + (random.nextDouble() - 0.5) * 5;
@@ -177,6 +199,38 @@ public final class ElitePacks {
             member.setTarget(leader.getTarget());
             level.addFreshEntity(member);
             level.sendParticles(ParticleTypes.POOF, x, leader.getY() + 0.5, z, 8, 0.3, 0.3, 0.3, 0.02);
+            spawned++;
+        }
+        if (spawned == 0) {
+            // No room for any, e.g. in a narrow tunnel, so it's just an elite and gives no pack bonus
+            leader.getPersistentData().remove(PACK_TAG);
+        } else {
+            ALIVE.put(pack(leader), spawned + 1);
+        }
+    }
+
+    // One less of the pack alive. The last one is marked so it drops the bonus
+    private static void countDown(Monster monster, boolean killed) {
+        String pack = pack(monster);
+        Integer alive = ALIVE.get(pack);
+        if (alive == null) {
+            return;
+        }
+        if (alive > 1) {
+            ALIVE.put(pack, alive - 1);
+        } else {
+            ALIVE.remove(pack);
+            if (killed) {
+                monster.getPersistentData().putBoolean(LAST_TAG, true);
+            }
+        }
+    }
+
+    // A pack member that despawns isn't there to be killed anymore
+    private static void onLeaveLevel(EntityLeaveLevelEvent event) {
+        if (!event.getLevel().isClientSide() && event.getEntity() instanceof Monster monster && !pack(monster).isEmpty()
+                && monster.getRemovalReason() == Entity.RemovalReason.DISCARDED) {
+            countDown(monster, false);
         }
     }
 
@@ -198,7 +252,7 @@ public final class ElitePacks {
 
     // Shielding: the leader and its pack take far less damage for a moment, with a blue ring on each
     private static void shield(ServerLevel level, Monster leader) {
-        List<Monster> pack = new ArrayList<>(rest(level, leader));
+        List<Monster> pack = new ArrayList<>(rest(level, leader, PACK_RANGE));
         pack.add(leader);
         for (Monster monster : pack) {
             monster.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, SHIELD_TIME, 1));
@@ -213,7 +267,7 @@ public final class ElitePacks {
 
     // Healing: the leader and its pack get some health back, with hearts over each
     private static void heal(ServerLevel level, Monster leader) {
-        List<Monster> pack = new ArrayList<>(rest(level, leader));
+        List<Monster> pack = new ArrayList<>(rest(level, leader, PACK_RANGE));
         pack.add(leader);
         for (Monster monster : pack) {
             if (monster.getHealth() < monster.getMaxHealth()) {
@@ -227,11 +281,14 @@ public final class ElitePacks {
 
     // When the leader dies, the rest of the pack goes wild: stronger and faster until they die too
     private static void onDeath(LivingDeathEvent event) {
-        if (!(event.getEntity() instanceof Monster leader) || !(leader.level() instanceof ServerLevel level) || pack(leader).isEmpty()
-                || isMember(leader)) {
+        if (!(event.getEntity() instanceof Monster leader) || !(leader.level() instanceof ServerLevel level) || pack(leader).isEmpty()) {
             return;
         }
-        List<Monster> rest = rest(level, leader);
+        countDown(leader, true);
+        if (isMember(leader)) {
+            return;
+        }
+        List<Monster> rest = rest(level, leader, PACK_RANGE);
         if (rest.isEmpty()) {
             return;
         }
@@ -250,14 +307,26 @@ public final class ElitePacks {
     // The last one of a pack to die drops a bonus for the whole pack
     private static void onDrops(LivingDropsEvent event) {
         if (!(event.getEntity() instanceof Monster monster) || !(monster.level() instanceof ServerLevel level) || pack(monster).isEmpty()
-                || !(monster.getKillCredit() instanceof ServerPlayer player) || !rest(level, monster).isEmpty()) {
+                || !(monster.getKillCredit() instanceof ServerPlayer player)) {
+            return;
+        }
+        boolean last = monster.getPersistentData().getBoolean(LAST_TAG)
+                || !ALIVE.containsKey(pack(monster)) && rest(level, monster, UNTRACKED_RANGE).isEmpty();
+        if (!last) {
             return;
         }
         RandomSource random = monster.getRandom();
         int itemLevel = Math.max(1, MonsterLevels.get(monster));
-        List<ItemStack> bonus = List.of(
-                Loot.create(random, Rarity.roll(random, Rarity.RARE), itemLevel, Progression.playerClass(player)),
-                new ItemStack(Smithy.ESSENCE.get(), 5 + random.nextInt(6)));
+        Rarity rarity = Rarity.roll(random, Rarity.RARE);
+        int essence = 5 + random.nextInt(6);
+        List<ItemStack> bonus = new ArrayList<>();
+        // The killer's loot filter turns the item into essence, like normal drops
+        if (LootFilter.hides(player, rarity)) {
+            essence += Smithy.salvageValue(rarity);
+        } else {
+            bonus.add(Loot.create(random, rarity, itemLevel, Progression.playerClass(player)));
+        }
+        bonus.add(new ItemStack(Smithy.ESSENCE.get(), essence));
         for (ItemStack stack : bonus) {
             event.getDrops().add(new ItemEntity(level, monster.getX(), monster.getY(), monster.getZ(), stack));
         }

@@ -40,6 +40,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
 // Rare named bosses: an elite with three modifiers that is bigger and much tougher, has a boss bar,
@@ -79,6 +80,12 @@ public final class Bosses {
         NeoForge.EVENT_BUS.addListener(Bosses::onDeath);
         NeoForge.EVENT_BUS.addListener(Bosses::onLeaveLevel);
         NeoForge.EVENT_BUS.addListener(Bosses::onDamagePre);
+        // In singleplayer the game can go on to another world, which must start without this one's bars
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> {
+            BARS.values().forEach(ServerBossEvent::removeAllPlayers);
+            BARS.clear();
+            BossAbility.forgetAll();
+        });
     }
 
     // As a share of the player's max health, e.g. 0.4 for 40%
@@ -181,7 +188,8 @@ public final class Bosses {
                 BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10));
         bar.setProgress(boss.getHealth() / boss.getMaxHealth());
         for (ServerPlayer player : List.copyOf(bar.getPlayers())) {
-            if (player.level() != level || player.distanceTo(boss) > BAR_RANGE) {
+            // A player that died or logged out is an old object that stays where it was, so it has to go too
+            if (player.isRemoved() || player.level() != level || player.distanceTo(boss) > BAR_RANGE) {
                 bar.removePlayer(player);
             }
         }

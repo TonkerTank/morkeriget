@@ -101,7 +101,7 @@ public final class LootTooltips {
 
     // Adds up the item's attribute bonuses, including the base ones like a sword's damage
     private static void addStats(Map<Stat, double[]> stats, ItemStack stack, int index) {
-        for (ItemAttributeModifiers.Entry entry : stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY).modifiers()) {
+        for (ItemAttributeModifiers.Entry entry : stack.getAttributeModifiers().modifiers()) {
             stats.computeIfAbsent(new Stat(entry.attribute(), entry.modifier().operation()), stat -> new double[2])[index] += entry.modifier().amount();
         }
     }

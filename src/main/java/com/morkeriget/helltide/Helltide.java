@@ -182,8 +182,8 @@ public final class Helltide {
         private final BlockPos center;
         private final Set<BlockPos> chests = new HashSet<>();
         private final Set<UUID> monsters = new HashSet<>();
-        // The chests are put out the first time a player comes close, so the chunks are loaded by then
-        private boolean chestsPlaced;
+        // How many chests have been put out. That happens when a player comes close, so the chunks are loaded by then
+        private int chestsPlaced;
         // One for each player, since it says how far and which way it is for them
         private final PlayerBars bars = new PlayerBars(BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
 
@@ -226,7 +226,7 @@ public final class Helltide {
                 } else {
                     bars.show(player, Component.literal("Helltide: " + (int) (distance(player) - RADIUS) + " blokke mod " + direction(player)), progress);
                 }
-                if (!chestsPlaced && distance(player) < RADIUS + 48) {
+                if (chestsPlaced < CHESTS && distance(player) < RADIUS + 48) {
                     placeChests();
                 }
             }
@@ -248,17 +248,21 @@ public final class Helltide {
             return names[Math.floorMod((int) Math.round(angle / 45), 8)];
         }
 
+        // Tried again until all are placed, since some spots can be in chunks that aren't loaded yet, or on water
         private void placeChests() {
-            chestsPlaced = true;
             RandomSource random = level.getRandom();
-            for (int attempt = 0; attempt < 30 && chests.size() < CHESTS; attempt++) {
+            for (int attempt = 0; attempt < 10 && chestsPlaced < CHESTS; attempt++) {
                 double angle = random.nextDouble() * Math.PI * 2;
                 double distance = random.nextDouble() * (RADIUS - 8);
                 BlockPos column = center.offset((int) (Math.cos(angle) * distance), 0, (int) (Math.sin(angle) * distance));
+                if (!level.hasChunkAt(column)) {
+                    continue;
+                }
                 BlockPos pos = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column);
                 if (level.getBlockState(pos).isAir() && level.getBlockState(pos.below()).isSolid()) {
                     level.setBlockAndUpdate(pos, Blocks.CHEST.defaultBlockState());
                     chests.add(pos);
+                    chestsPlaced++;
                 }
             }
         }

@@ -40,6 +40,11 @@ public final class Mana {
         set(player, Math.min(MAX, get(player) + amount));
     }
 
+    // Onto the new player object, when the game makes one. The bar is sent again on the next regen tick
+    static void copy(ServerPlayer from, ServerPlayer to) {
+        to.getPersistentData().putFloat(MANA_TAG, get(from));
+    }
+
     private static void set(ServerPlayer player, float mana) {
         player.getPersistentData().putFloat(MANA_TAG, mana);
         PacketDistributor.sendToPlayer(player, new ManaPayload(mana));

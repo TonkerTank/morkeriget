@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import com.morkeriget.Morkeriget;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
@@ -20,6 +21,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
@@ -52,11 +54,21 @@ public final class Stash {
         HolderLookup.Provider registries = player.registryAccess();
         SimpleContainer container = new SimpleContainer(ROWS * 9);
         UUID uuid = player.getUUID();
-        load(uuid, container, registries);
-        // Saved every time something is put in or taken out, so a crash can't lose or copy items
-        container.addListener(changed -> save(uuid, container, registries));
-        player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new ChestMenu(MenuType.GENERIC_9x6, id, inventory, container, ROWS),
-                Component.literal("Kiste")));
+        if (!load(uuid, container, registries)) {
+            // Opening it empty would save over the broken file, and everything in it would be gone
+            player.displayClientMessage(Component.literal("Kisten kunne ikke indlæses - se loggen").withStyle(ChatFormatting.RED), true);
+            return;
+        }
+        player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new ChestMenu(MenuType.GENERIC_9x6, id, inventory, container, ROWS) {
+            // Saved when it is closed, also when the player logs out, together with the player's own inventory. Then a
+            // crash takes both back to the same moment, so it can't lose or copy items
+            @Override
+            public void removed(Player closing) {
+                super.removed(closing);
+                save(uuid, container, registries);
+                player.server.getPlayerList().saveAll();
+            }
+        }, Component.literal("Kiste")));
         player.playNotifySound(SoundEvents.ENDER_CHEST_OPEN, SoundSource.PLAYERS, 0.6f, 1.0f);
     }
 
@@ -64,10 +76,11 @@ public final class Stash {
         return FMLPaths.GAMEDIR.get().resolve(Morkeriget.MODID).resolve("stash").resolve(player + ".dat");
     }
 
-    private static void load(UUID player, SimpleContainer container, HolderLookup.Provider registries) {
+    // False if the file is there but can't be read
+    private static boolean load(UUID player, SimpleContainer container, HolderLookup.Provider registries) {
         Path file = file(player);
         if (!Files.exists(file)) {
-            return;
+            return true;
         }
         try {
             CompoundTag tag = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
@@ -76,8 +89,10 @@ public final class Stash {
             for (int slot = 0; slot < items.size(); slot++) {
                 container.setItem(slot, items.get(slot));
             }
-        } catch (IOException e) {
+            return true;
+        } catch (IOException | RuntimeException e) {
             Morkeriget.LOGGER.error("Could not load the stash {}", file, e);
+            return false;
         }
     }
 

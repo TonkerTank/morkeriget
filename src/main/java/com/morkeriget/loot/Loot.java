@@ -51,6 +51,7 @@ import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.ItemAttributeModifierEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 
 // Monsters you kill can drop weapons, armour, shields and jewelry with a rarity, an item power and random bonuses (affixes)
@@ -171,7 +172,38 @@ public final class Loot {
         LootFilter.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(Loot::onLivingDrops);
         NeoForge.EVENT_BUS.addListener(Loot::lessRottenFlesh);
+        NeoForge.EVENT_BUS.addListener(Loot::onItemModifiers);
         SetBonuses.register();
+    }
+
+    // The item's own attributes before any bonuses. Armor keeps its base armor outside the component, so writing
+    // bonuses into an empty component would lose it
+    public static ItemAttributeModifiers baseModifiers(ItemStack stack) {
+        ItemAttributeModifiers modifiers = stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+        return modifiers.modifiers().isEmpty() ? stack.getItem().getDefaultAttributeModifiers(stack) : modifiers;
+    }
+
+    // The bonuses on every item have the same ids (affix_0, gem_0 and so on), but the game takes a bonus off by its id
+    // when gear changes, so the same id on a helmet and boots would cancel each other out. Here each one gets its slot
+    // in the id. Armor rolled before baseModifiers existed also gets its base armor back
+    private static void onItemModifiers(ItemAttributeModifierEvent event) {
+        List<ItemAttributeModifiers.Entry> bonuses = event.getModifiers().stream()
+                .filter(entry -> entry.modifier().id().getNamespace().equals(Morkeriget.MODID)
+                        && (entry.modifier().id().getPath().startsWith("affix_") || entry.modifier().id().getPath().startsWith("gem_")))
+                .toList();
+        if (bonuses.isEmpty()) {
+            return;
+        }
+        for (ItemAttributeModifiers.Entry entry : bonuses) {
+            AttributeModifier modifier = entry.modifier();
+            event.removeModifier(entry.attribute(), modifier.id());
+            event.addModifier(entry.attribute(), new AttributeModifier(modifier.id().withSuffix("_" + entry.slot().getSerializedName()),
+                    modifier.amount(), modifier.operation()), entry.slot());
+        }
+        ItemStack stack = event.getItemStack();
+        for (ItemAttributeModifiers.Entry entry : stack.getItem().getDefaultAttributeModifiers(stack).modifiers()) {
+            event.addModifier(entry.attribute(), entry.modifier(), entry.slot());
+        }
     }
 
     private static void onLivingDrops(LivingDropsEvent event) {
@@ -374,6 +406,8 @@ public final class Loot {
         // The sockets and gems stay as they were, and it is still the same find for the season journey
         Gems.copy(old, rerolled);
         Journey.copyFound(old, rerolled);
+        // What the player put on it themselves stays too
+        rerolled.copyFrom(old, DataComponents.ENCHANTMENTS, DataComponents.TRIM, DataComponents.DYED_COLOR, DataComponents.REPAIR_COST);
         return rerolled;
     }
 
@@ -415,7 +449,7 @@ public final class Loot {
 
         // Pick different affixes that fit this kind of item and roll how strong each one is
         List<Affix> available = new ArrayList<>(AFFIXES.stream().filter(affix -> affix.kinds.contains(kind)).toList());
-        ItemAttributeModifiers modifiers = stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+        ItemAttributeModifiers modifiers = baseModifiers(stack);
         List<Component> affixLore = new ArrayList<>();
         if (Staffs.isStaff(stack)) {
             int mana = STAFF_MANA_MIN + random.nextInt(STAFF_MANA_MAX - STAFF_MANA_MIN + 1);

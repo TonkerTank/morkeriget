@@ -17,6 +17,7 @@ import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -68,13 +69,14 @@ public final class Skills {
         NeoForge.EVENT_BUS.addListener(TreeSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onDamagePost);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onProjectileImpact);
-        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> TreeSkills.forget(event.getEntity()));
-        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> TreeSkills.forget(event.getEntity()));
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> forget(event.getEntity()));
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> forget(event.getEntity()));
         NeoForge.EVENT_BUS.addListener((LivingDeathEvent event) -> {
             if (event.getEntity() instanceof Player player) {
-                TreeSkills.forget(player);
+                forget(player);
             }
         });
+        NeoForge.EVENT_BUS.addListener(Skills::onClone);
         NeoForge.EVENT_BUS.addListener(SummonGear::onInteract);
     }
 
@@ -86,7 +88,31 @@ public final class Skills {
                 .playToClient(CooldownPayload.TYPE, CooldownPayload.STREAM_CODEC, (payload, context) -> SkillBar.set(payload));
     }
 
+    private static void forget(Player player) {
+        TreeSkills.forget(player);
+        ClassSkills.forget(player);
+    }
+
+    // The game makes a new player object after death and when leaving the End, and only copies some of the saved data.
+    // Cooldowns carry over so they match the skill bar. Mana is full after death, like health, but not after the End
+    private static void onClone(PlayerEvent.Clone event) {
+        CompoundTag old = event.getOriginal().getPersistentData();
+        CompoundTag now = event.getEntity().getPersistentData();
+        for (String key : old.getAllKeys()) {
+            if (key.startsWith("morkeriget_") && key.endsWith("_ready")) {
+                now.putLong(key, old.getLong(key));
+            }
+        }
+        if (!event.isWasDeath() && event.getOriginal() instanceof ServerPlayer original && event.getEntity() instanceof ServerPlayer player) {
+            Mana.copy(original, player);
+        }
+    }
+
     public static void use(ServerPlayer player, Skill skill) {
+        // Nothing from the death screen or in spectator mode
+        if (!player.isAlive() || player.isSpectator()) {
+            return;
+        }
         // Skills belong to a class and have to be unlocked in its tree. The potions are for everyone
         if (!skill.isPotion()) {
             PlayerClass playerClass = Progression.playerClass(player);

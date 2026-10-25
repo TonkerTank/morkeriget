@@ -14,6 +14,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enemy;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
@@ -36,13 +37,16 @@ public final class LegendaryEffects {
 
     static void register() {
         NeoForge.EVENT_BUS.addListener(LegendaryEffects::onDamagePre);
+        // Last, so damage that other bonuses add on top (rift affixes, Helltide and so on) is counted too
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, (LivingDamageEvent.Pre event) -> {
+            if (event.getEntity() instanceof ServerPlayer victim) {
+                cheatDeath(victim, event);
+            }
+        });
         NeoForge.EVENT_BUS.addListener(LegendaryEffects::onDeath);
     }
 
     private static void onDamagePre(LivingDamageEvent.Pre event) {
-        if (event.getEntity() instanceof ServerPlayer victim) {
-            cheatDeath(victim, event);
-        }
         // Bloodlust works on all damage from the player, also from skills, but not thorns or what minions do
         if (event.getSource().getEntity() instanceof ServerPlayer player && player != event.getEntity()) {
             int stacks = bloodlustStacks(player);

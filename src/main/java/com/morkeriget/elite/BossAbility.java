@@ -113,6 +113,10 @@ enum BossAbility {
         PENDING.remove(boss);
     }
 
+    static void forgetAll() {
+        PENDING.clear();
+    }
+
     private void warn(ServerLevel level, Monster boss) {
         Component message = Component.empty().append(boss.getDisplayName())
                 .append(Component.literal(" " + warning).withStyle(ChatFormatting.GOLD));

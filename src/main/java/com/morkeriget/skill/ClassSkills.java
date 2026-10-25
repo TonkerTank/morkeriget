@@ -32,6 +32,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
@@ -79,6 +80,12 @@ final class ClassSkills {
     }
 
     private static final Map<UUID, Rain> RAINS = new HashMap<>();
+
+    // A rain or leap shouldn't go on after the player logs out, dies or goes through a portal
+    static void forget(Player player) {
+        RAINS.remove(player.getUUID());
+        LEAPING.remove(player.getUUID());
+    }
 
     private ClassSkills() {
     }

@@ -23,6 +23,8 @@ public final class Minions {
 
     static void makeAlly(Monster monster, ServerPlayer owner) {
         monster.getPersistentData().putUUID(OWNER_TAG, owner.getUUID());
+        // Vanilla lets some skeletons pick up items, and a summon that runs out would take the loot with it
+        monster.setCanPickUpLoot(false);
     }
 
     public static boolean isAlly(Entity entity) {

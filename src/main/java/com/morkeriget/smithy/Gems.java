@@ -148,7 +148,7 @@ public final class Gems {
         int sockets = sockets(stack);
 
         // Attribute bonuses: take the old gem ones off and put the current ones on
-        ItemAttributeModifiers old = stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
+        ItemAttributeModifiers old = Loot.baseModifiers(stack);
         List<ItemAttributeModifiers.Entry> kept = old.modifiers().stream()
                 .filter(entry -> !entry.modifier().id().getPath().startsWith(GEM_MODIFIER_PREFIX))
                 .toList();

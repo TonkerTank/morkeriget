@@ -33,6 +33,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -201,8 +202,9 @@ public final class WorldBoss {
                     // Remembered, so the bar still points the right way if its chunk is unloaded
                     x = (int) boss.getX();
                     z = (int) boss.getZ();
-                } else if (level.hasChunkAt(new BlockPos(x, 64, z))) {
-                    // Its chunk is loaded but it isn't there, so something took it away without killing it
+                } else if (level.areEntitiesLoaded(ChunkPos.asLong(x >> 4, z >> 4))) {
+                    // The monsters in its chunk are loaded but it isn't there, so something took it away without killing it.
+                    // The chunk itself loads a moment before its monsters, so that isn't enough to tell
                     end(kind.name + " forsvandt");
                     return true;
                 }

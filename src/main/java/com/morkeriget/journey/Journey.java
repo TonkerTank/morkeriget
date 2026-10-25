@@ -245,6 +245,11 @@ public final class Journey {
 
     private static void give(ServerPlayer player, List<ItemStack> rewards) {
         for (ItemStack reward : rewards) {
+            // The journey's own rewards never count towards it, also not if they drop because the inventory is full
+            // (only items that count, so the essence still stacks with other essence)
+            if (statFor(reward) != null) {
+                markFound(reward);
+            }
             player.getInventory().placeItemBackInInventory(reward);
         }
     }
