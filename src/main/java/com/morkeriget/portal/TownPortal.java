@@ -1,6 +1,7 @@
 package com.morkeriget.portal;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.rift.Rifts;
 
 import net.minecraft.ChatFormatting;
@@ -52,6 +53,10 @@ public final class TownPortal {
     static boolean use(ServerPlayer player) {
         if (Rifts.isInRift(player)) {
             player.displayClientMessage(Component.literal("Du kan ikke bruge en portal i en rift"), true);
+            return false;
+        }
+        if (Dungeons.isInDungeon(player)) {
+            player.displayClientMessage(Component.literal("Brug lodestenen ved indgangen for at forlade dungeonet"), true);
             return false;
         }
         ServerLevel homeLevel = homeLevel(player);

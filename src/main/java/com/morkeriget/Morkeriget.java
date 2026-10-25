@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 
 import com.morkeriget.bounty.Bounties;
 import com.morkeriget.combat.PlayerHits;
+import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.helltide.Helltide;
@@ -53,6 +54,8 @@ public class Morkeriget {
         Merchant.register(modEventBus);
         // Rift stones open rifts with waves of monsters and a guardian at the end
         Rifts.register(modEventBus);
+        // Dungeon keys open a built dungeon with rooms, a seal and a boss
+        Dungeons.register(modEventBus);
         // Town portal scrolls take you home and back again
         TownPortal.register(modEventBus);
         // A stash that is the same in every world

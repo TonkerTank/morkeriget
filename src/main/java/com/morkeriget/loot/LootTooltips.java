@@ -25,6 +25,8 @@ import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 // with better numbers in green and worse in red. Jewelry isn't compared, since the client doesn't know what you wear there.
 // Client only
 public final class LootTooltips {
+    private static final int GREATER_COLOR = 0xFF9F1C;
+
     private record Stat(Holder<Attribute> attribute, AttributeModifier.Operation operation) {
     }
 
@@ -53,6 +55,17 @@ public final class LootTooltips {
         if (Favorites.is(stack)) {
             event.getToolTip().add(Math.min(1, event.getToolTip().size()),
                     Component.literal("★ Favorit - kan ikke smeltes (Alt+klik fjerner)").withStyle(ChatFormatting.GOLD));
+        }
+        // The greater bonuses as they are now, so a masterwork shows. Vanilla already lists them among the others, but
+        // without telling which ones are greater
+        List<Component> greater = new ArrayList<>();
+        for (String key : Loot.greater(stack)) {
+            greater.add(Component.literal("✦ ").withColor(GREATER_COLOR).append(Masterwork.line(stack, key).copy().withColor(GREATER_COLOR)));
+        }
+        if (!greater.isEmpty()) {
+            int at = Math.min(Favorites.is(stack) ? 2 : 1, event.getToolTip().size());
+            event.getToolTip().add(at, Component.literal("Større bonus" + (greater.size() > 1 ? "ser" : "")).withColor(GREATER_COLOR));
+            event.getToolTip().addAll(at + 1, greater);
         }
         EquipmentSlot slot = slotFor(stack);
         if (slot == null) {

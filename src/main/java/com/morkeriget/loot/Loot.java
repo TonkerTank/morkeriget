@@ -26,6 +26,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -78,6 +81,11 @@ public final class Loot {
     private static final int STAFF_MANA_MAX = 35;
     // How often a monster still drops its rotten flesh, see lessRottenFlesh
     private static final double ROTTEN_FLESH_CHANCE = 0.25;
+    // Greater bonuses, see Quality
+    private static final String GREATER_TAG = "morkeriget_greater";
+    private static final double GREATER_BONUS = 1.5;
+    private static final double NORMAL_GREATER_CHANCE = 0.03;
+    private static final int GREATER_POWER = 25;
 
     // An item that can drop, and the item levels it drops at. Better base items only drop from higher level monsters.
     // The item is a supplier because rings and amulets are our own items, which don't exist until they are registered
@@ -391,6 +399,21 @@ public final class Loot {
         return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass), null);
     }
 
+    // The same, but rolled better than normal, see Quality. Used for dungeon rewards
+    public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, PlayerClass forClass, Quality quality) {
+        return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass), null, quality);
+    }
+
+    // How well an item's bonuses roll. floor is the worst a bonus can roll, from 0 (any roll) to 1 (always the best).
+    // Each bonus has greaterChance of being a greater bonus, like in Diablo 4: 50% stronger and marked with ✦ in the
+    // tooltip. guaranteed is how many greater bonuses the item has at least
+    public record Quality(double floor, double greaterChance, int guaranteed) {
+        // Legendary, set and mythic loot sometimes has a greater bonus. Worse loot never does
+        static Quality normal(Rarity rarity) {
+            return new Quality(0, rarity.ordinal() >= Rarity.LEGENDARY.ordinal() ? NORMAL_GREATER_CHANCE : 0, 0);
+        }
+    }
+
     // Loot made from a chosen base item, e.g. for the /morkeriget loot command
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, Item item) {
         return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, null), null);
@@ -442,7 +465,9 @@ public final class Loot {
         }
         Rarity rarity = getRarity(old) != null ? getRarity(old) : Rarity.COMMON;
         LegendaryPower power = LegendaryPower.of(old) != null ? LegendaryPower.of(old) : power(random, rarity, null);
-        ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power, MythicItem.of(old));
+        // It keeps as many greater bonuses as it had, but which bonuses they are is rolled again
+        Quality quality = new Quality(0, Quality.normal(rarity).greaterChance(), greater(old).size());
+        ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power, MythicItem.of(old), quality);
         // The sockets and gems stay as they were, and it is still the same find for the season journey
         Gems.copy(old, rerolled);
         Journey.copyFound(old, rerolled);
@@ -483,6 +508,11 @@ public final class Loot {
     // power is null for items that aren't legendary, and mythic for items that aren't mythic
     private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece,
                                   LegendaryPower power, MythicItem mythic) {
+        return roll(stack, random, rarity, itemLevel, set, piece, power, mythic, Quality.normal(rarity));
+    }
+
+    private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece,
+                                  LegendaryPower power, MythicItem mythic, Quality rollQuality) {
         // Flat affixes get stronger with the item level, see Scaling
         double fullScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
         double halfScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1) / 2;
@@ -499,17 +529,32 @@ public final class Loot {
             affixLore.add(Component.literal("+" + mana + "% hurtigere mana").withStyle(ChatFormatting.AQUA));
         }
         double totalQuality = 0;
-        for (int i = 0; i < rarity.affixCount && !available.isEmpty(); i++) {
+        // Which of the bonuses are sure to be greater ones
+        int affixCount = Math.min(rarity.affixCount, available.size());
+        List<Integer> sureGreater = new ArrayList<>();
+        for (int i = 0; i < affixCount; i++) {
+            sureGreater.add(i);
+        }
+        while (sureGreater.size() > rollQuality.guaranteed()) {
+            sureGreater.remove(random.nextInt(sureGreater.size()));
+        }
+        ListTag greater = new ListTag();
+        for (int i = 0; i < affixCount; i++) {
             Affix affix = available.remove(random.nextInt(available.size()));
-            // Mythic bonuses always roll in the top 40%
-            double quality = mythic != null ? 0.6 + 0.4 * random.nextDouble() : random.nextDouble();
+            // Mythic bonuses always roll in the top 40%, and some rewards have a floor of their own
+            double floor = Math.max(rollQuality.floor(), mythic != null ? 0.6 : 0);
+            double quality = floor + (1 - floor) * random.nextDouble();
             totalQuality += quality;
             double scale = switch (affix.scaling) {
                 case FULL -> fullScale;
                 case HALF -> halfScale;
                 case NONE -> 1;
             };
-            double amount = (affix.min + (affix.max - affix.min) * quality) * scale;
+            boolean isGreater = sureGreater.contains(i) || random.nextDouble() < rollQuality.greaterChance();
+            double amount = (affix.min + (affix.max - affix.min) * quality) * scale * (isGreater ? GREATER_BONUS : 1);
+            if (isGreater) {
+                greater.add(StringTag.valueOf(affix.tag != null ? affix.tag : "affix_" + i));
+            }
             if (affix.tag != null) {
                 int value = (int) Math.round(amount);
                 CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(affix.tag, value));
@@ -526,7 +571,8 @@ public final class Loot {
         stack.set(DataComponents.ATTRIBUTE_MODIFIERS, kind == ItemKind.JEWELRY ? modifiers.withTooltip(false) : modifiers);
 
         // Item power works like in Diablo: a quick number that tells you how good the item is
-        int itemPower = 100 + rarity.ordinal() * 150 + itemLevel * 10 + (int) (totalQuality * 50) + random.nextInt(25);
+        int itemPower = 100 + rarity.ordinal() * 150 + itemLevel * 10 + (int) (totalQuality * 50) + random.nextInt(25)
+                + greater.size() * GREATER_POWER;
 
         Component baseName = stack.getItem().getDescription();
         Component name;
@@ -576,6 +622,9 @@ public final class Loot {
             tag.putString(RARITY_TAG, rarity.name());
             tag.putInt(ITEM_LEVEL_TAG, itemLevel);
             tag.putInt(ITEM_POWER_TAG, itemPower);
+            if (!greater.isEmpty()) {
+                tag.put(GREATER_TAG, greater);
+            }
         });
         int sockets = Gems.rollSockets(random, rarity);
         if (sockets > 0) {
@@ -654,6 +703,12 @@ public final class Loot {
     // The text a special affix has in the lore, with %d for the value
     static String specialLore(String tag) {
         return AFFIXES.stream().filter(affix -> tag.equals(affix.tag)).map(Affix::lore).findFirst().orElse("%d");
+    }
+
+    // The keys of the item's greater bonuses: "affix_0" and so on for attribute bonuses, the tag for special ones
+    static List<String> greater(ItemStack stack) {
+        ListTag list = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().getList(GREATER_TAG, Tag.TAG_STRING);
+        return list.stream().map(Tag::getAsString).toList();
     }
 
     // The value of a special affix on one item, or 0

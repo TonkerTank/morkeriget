@@ -191,8 +191,8 @@ public final class Masterwork {
         return 1 + PER_RANK * rank + BIG_STEP * bigSteps;
     }
 
-    // The bonus as the tooltip shows it, for the message about a big step
-    private static Component line(ItemStack stack, String key) {
+    // The bonus as the tooltip shows it, for the message about a big step and the greater bonuses in LootTooltips
+    static Component line(ItemStack stack, String key) {
         if (SPECIAL_TAGS.contains(key)) {
             return Component.literal(String.format(Loot.specialLore(key), Loot.affix(stack, key)));
         }

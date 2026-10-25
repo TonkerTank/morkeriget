@@ -199,7 +199,7 @@ public final class Rifts {
         return Math.max(1, Math.min(MAX_TIER, tier));
     }
 
-    static String roman(int tier) {
+    public static String roman(int tier) {
         return List.of("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X").get(Math.max(1, Math.min(MAX_TIER, tier)) - 1);
     }
 
