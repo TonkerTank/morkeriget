@@ -26,6 +26,7 @@ import com.morkeriget.portal.TownPortal;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.smithy.Gems;
 import com.morkeriget.smithy.Smithy;
+import com.morkeriget.uber.Uber;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
@@ -131,6 +132,7 @@ public final class Rifts {
                     .serialize(Codec.unboundedMap(Codec.STRING, Codec.INT)).copyOnDeath().build());
     // Closing a rift in less than this gets more essence
     private static final int FAST_TIME = TIME_LIMIT / 2;
+    private static final double RIFT_CORE_CHANCE = 0.4;
 
     private Rifts() {
     }
@@ -663,6 +665,10 @@ public final class Rifts {
             }
             int nextTier = Math.min(MAX_TIER, tier + 1);
             rewards.add(stone(nextTier, random));
+            // One of the materials for Mørkets Kald, see Uber
+            if (tier >= 3 && random.nextDouble() < RIFT_CORE_CHANCE) {
+                rewards.add(Uber.riftCore());
+            }
             // A town portal scroll, so you can get home with your loot
             rewards.add(TownPortal.scroll());
             for (ItemStack reward : rewards) {

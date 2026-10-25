@@ -178,6 +178,15 @@ public final class Dungeons {
 
     // Returns false if the dungeon couldn't open, so the key isn't used up
     static boolean start(ServerPlayer player, int tier, List<RiftAffix> affixes) {
+        return open(player, tier, affixes, false);
+    }
+
+    // The fight with Mørkets Herre from Mørkets Kald, as hard as a tier X dungeon. Returns false if it couldn't open
+    public static boolean startUber(ServerPlayer player) {
+        return open(player, MAX_TIER, List.of(), true);
+    }
+
+    private static boolean open(ServerPlayer player, int tier, List<RiftAffix> affixes, boolean uber) {
         ServerLevel dungeonLevel = player.server.getLevel(LEVEL);
         if (dungeonLevel == null) {
             player.displayClientMessage(Component.literal("Dungeon-dimensionen mangler i denne verden"), true);
@@ -208,14 +217,22 @@ public final class Dungeons {
         for (ServerPlayer member : party) {
             monsterLevel = Math.max(monsterLevel, Progression.monsterLevel(member));
         }
-        DungeonTheme theme = DungeonTheme.random(player.getRandom());
-        Dungeon dungeon = new Dungeon(dungeonLevel, freeSlot(), tier, monsterLevel + tier - 1, theme, affixes, party);
+        // Mørkets Herre lives in the nether
+        DungeonTheme theme = uber ? DungeonTheme.NETHER : DungeonTheme.random(player.getRandom());
+        Dungeon dungeon = new Dungeon(dungeonLevel, freeSlot(), tier, monsterLevel + tier - 1, theme, affixes, uber, party);
         dungeon.build(player.getRandom());
         ACTIVE.add(dungeon);
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.TRIAL_SPAWNER_OMINOUS_ACTIVATE, SoundSource.PLAYERS, 1.0f, 0.8f);
         for (ServerPlayer member : party) {
             saveReturn(member);
             dungeon.toEntrance(member);
+            if (uber) {
+                member.sendSystemMessage(Component.literal("Mørkets Herre venter i arenaen! ").withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD)
+                        .append(Component.literal("Han har tre faser og bruger alle evner. I har " + Dungeon.LIVES + " liv tilsammen.")
+                                .withStyle(ChatFormatting.LIGHT_PURPLE)));
+                member.sendSystemMessage(Component.literal("Lodestenen ved indgangen fører dig ud igen.").withStyle(ChatFormatting.GRAY));
+                continue;
+            }
             member.sendSystemMessage(Component.literal(theme.displayName + " (" + Rifts.roman(tier) + ")! ").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
                     .append(Component.literal("Ryd rummene, bryd seglet og dræb bossen i det sidste rum. I har " + Dungeon.LIVES
                             + " liv tilsammen.").withStyle(ChatFormatting.RED)));

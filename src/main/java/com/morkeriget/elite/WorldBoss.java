@@ -14,6 +14,7 @@ import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.smithy.Gems;
 import com.morkeriget.smithy.Smithy;
+import com.morkeriget.uber.Uber;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
@@ -295,6 +296,8 @@ public final class WorldBoss {
                 rewards.add(new ItemStack(Smithy.ESSENCE.get(), 25 + random.nextInt(16)));
                 rewards.add(Gems.random(random, itemLevel, 1));
                 rewards.add(Gems.random(random, itemLevel, 1));
+                // The rarest material for Mørkets Kald, see Uber
+                rewards.add(Uber.worldHeart());
                 for (ItemStack reward : rewards) {
                     // Counts as found for the season journey, since it is never picked up off the ground
                     Journey.found(player, reward);

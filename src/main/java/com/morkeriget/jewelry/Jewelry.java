@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.loot.LootTooltips;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
@@ -28,6 +29,7 @@ import net.neoforged.neoforge.attachment.AttachmentType;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -73,7 +75,8 @@ public final class Jewelry {
                     }
                 })
                 // The lambda keeps JewelryScreen (client only) from being loaded on a dedicated server
-                .playToClient(EquipmentStats.Payload.TYPE, EquipmentStats.Payload.STREAM_CODEC, (payload, context) -> JewelryScreen.receive(payload));
+                .playToClient(EquipmentStats.Payload.TYPE, EquipmentStats.Payload.STREAM_CODEC, (payload, context) -> JewelryScreen.receive(payload))
+                .playToClient(WornJewelryPayload.TYPE, WornJewelryPayload.STREAM_CODEC, (payload, context) -> LootTooltips.setWornJewelry(payload.items()));
     }
 
     // Plain rings and amulets without bonuses, mostly for testing. The good ones drop from monsters
@@ -108,7 +111,8 @@ public final class Jewelry {
     }
 
     // Vanilla only uses an item's attribute bonuses in the normal equipment slots, so for jewelry the bonuses are
-    // put on the player by hand. They aren't saved, so this runs again on login, respawn and when jewelry changes
+    // put on the player by hand. They aren't saved, so this runs again on login, respawn and when jewelry changes. The
+    // client is told what is worn at the same time
     static void applyStats(ServerPlayer player) {
         JewelryHandler handler = player.getData(EQUIPPED);
         for (int slot = 0; slot < SLOTS; slot++) {
@@ -131,6 +135,11 @@ public final class Jewelry {
                 }
             }
         }
+        List<ItemStack> worn = new ArrayList<>();
+        for (int slot = 0; slot < SLOTS; slot++) {
+            worn.add(handler.getStackInSlot(slot).copy());
+        }
+        PacketDistributor.sendToPlayer(player, new WornJewelryPayload(worn));
         // Max health may have gone down
         if (player.getHealth() > player.getMaxHealth()) {
             player.setHealth(player.getMaxHealth());

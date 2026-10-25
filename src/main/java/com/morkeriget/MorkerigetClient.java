@@ -1,5 +1,7 @@
 package com.morkeriget;
 
+import java.util.List;
+
 import com.morkeriget.combat.DamageNumbers;
 import com.morkeriget.combat.TargetFrame;
 import com.morkeriget.jewelry.Jewelry;
@@ -48,7 +50,10 @@ public class MorkerigetClient {
                 event.registerEntityRenderer(SkillEntities.STORM_BOLT.get(), StormBoltRenderer::new));
         // The mod's XP in place of the vanilla XP bar
         modEventBus.addListener(XpBar::register);
-        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> XpBar.reset());
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
+            XpBar.reset();
+            LootTooltips.setWornJewelry(List.of());
+        });
         // Skill icons with keys and cooldowns next to the mana bar
         modEventBus.addListener(SkillBar::register);
         NeoForge.EVENT_BUS.addListener(SkillBar::onClientTick);

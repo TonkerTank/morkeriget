@@ -82,6 +82,14 @@ public final class Bosses {
     private static final int SHIELD_TIME = 15 * 20;
     private static final int SHIELD_MINIONS = 4;
     private static final ResourceLocation ENRAGE_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "boss_enrage");
+    // The uber boss, see makeUberBoss
+    private static final String UBER_NAME = "Mørkets Herre";
+    private static final String UBER_TAG = "morkeriget_uber_boss";
+    private static final String FINAL_PHASE_TAG = "morkeriget_boss_final_phase";
+    private static final ResourceLocation UBER_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "uber_boost");
+    private static final ResourceLocation FINAL_PHASE_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "boss_final_phase");
+    private static final List<BossAbility> UBER_ROTATION = List.of(BossAbility.FIRE_RAIN, BossAbility.DOOM_CIRCLES, BossAbility.CHARGE,
+            BossAbility.BLOOD_DRAIN, BossAbility.DOOM_CIRCLES, BossAbility.RAISE_DEAD, BossAbility.DARKNESS, BossAbility.CROWS);
 
     private static final List<String> NAMES = List.of(
             "Slagteren", "Gravkongen", "Blodmoderen", "Den Hule Ridder", "Askeherren",
@@ -181,6 +189,9 @@ public final class Bosses {
         if (!data.getBoolean(ENRAGED_TAG) && boss.getHealth() <= boss.getMaxHealth() / 2) {
             enrage(level, boss);
         }
+        if (data.getBoolean(UBER_TAG) && !data.getBoolean(FINAL_PHASE_TAG) && boss.getHealth() <= boss.getMaxHealth() / 4) {
+            finalPhase(level, boss);
+        }
         if (isShielded(boss)) {
             tickShield(level, boss);
         }
@@ -203,13 +214,38 @@ public final class Bosses {
         // Each boss's own ability, halfway between two slams
         BossAbility ability = BossAbility.byName(boss.getPersistentData().getString(ABILITY_TAG));
         boolean enraged = data.getBoolean(ENRAGED_TAG);
-        int interval = enraged ? BossAbility.INTERVAL / 2 : BossAbility.INTERVAL;
+        boolean uber = data.getBoolean(UBER_TAG);
+        // The uber boss uses its abilities twice as often from the start, and faster with each phase
+        int interval = BossAbility.INTERVAL / (uber ? (data.getBoolean(FINAL_PHASE_TAG) ? 6 : enraged ? 4 : 2) : enraged ? 2 : 1);
         if (ability != null && boss.tickCount % interval == interval / 2) {
             int count = data.getInt(ABILITY_COUNT_TAG);
             data.putInt(ABILITY_COUNT_TAG, count + 1);
-            (enraged && count % 2 == 1 ? BossAbility.DOOM_CIRCLES : ability).use(level, boss, target);
+            BossAbility next = uber ? UBER_ROTATION.get(count % UBER_ROTATION.size()) : enraged && count % 2 == 1 ? BossAbility.DOOM_CIRCLES : ability;
+            next.use(level, boss, target);
         }
         BossAbility.tickPending(level, boss);
+    }
+
+    // Mørkets Herre, the uber boss summoned with Mørkets Kald (see Uber): a boss with a bigger body that uses every
+    // ability in turn, and has a third phase at a quarter of its health. Its health comes from the dungeon it is in
+    public static void makeUberBoss(Monster monster) {
+        makeBoss(monster);
+        boost(monster, UBER_BOOST, Attributes.SCALE, 0.5, AttributeModifier.Operation.ADD_VALUE);
+        boost(monster, UBER_BOOST, Attributes.KNOCKBACK_RESISTANCE, 0.5, AttributeModifier.Operation.ADD_VALUE);
+        monster.setCustomName(Component.literal(UBER_NAME).withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD));
+        monster.getPersistentData().putBoolean(UBER_TAG, true);
+        monster.getPersistentData().putString(TITLE_TAG, UBER_NAME + " - Uber-boss");
+    }
+
+    // Faster and harder hitting, and the abilities come one after the other
+    private static void finalPhase(ServerLevel level, Monster boss) {
+        boss.getPersistentData().putBoolean(FINAL_PHASE_TAG, true);
+        boost(boss, FINAL_PHASE_BOOST, Attributes.MOVEMENT_SPEED, 0.2, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+        boost(boss, FINAL_PHASE_BOOST, Attributes.ATTACK_DAMAGE, 0.3, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+        title(level, boss, Component.literal("Fase 3").withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD),
+                Component.empty().append(boss.getDisplayName()).append(Component.literal(" kalder mørket ned!").withStyle(ChatFormatting.LIGHT_PURPLE)));
+        level.playSound(null, boss.blockPosition(), SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 2.0f, 0.5f);
+        level.sendParticles(ParticleTypes.SCULK_SOUL, boss.getX(), boss.getY() + 1, boss.getZ(), 80, 2, 1, 2, 0.05);
     }
 
     private static boolean isShielded(Monster boss) {

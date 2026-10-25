@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {"item": "morkeriget:soul_shard"},
+    {"item": "morkeriget:soul_shard"},
+    {"item": "morkeriget:rift_core"},
+    {"item": "morkeriget:rift_core"},
+    {"item": "morkeriget:world_heart"}
+  ],
+  "result": {"id": "morkeriget:dark_summon", "count": 1}
+}

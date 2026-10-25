@@ -22,7 +22,7 @@ import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 // When you hover over loot, the tooltip ends with how it compares to what you are wearing in the same place,
-// with better numbers in green and worse in red. Jewelry isn't compared, since the client doesn't know what you wear there.
+// with better numbers in green and worse in red. Rings and amulets are compared with the worst one you wear.
 // Client only
 public final class LootTooltips {
     private static final int GREATER_COLOR = 0xFF9F1C;
@@ -67,11 +67,16 @@ public final class LootTooltips {
             event.getToolTip().add(at, Component.literal("Større bonus" + (greater.size() > 1 ? "ser" : "")).withColor(GREATER_COLOR));
             event.getToolTip().addAll(at + 1, greater);
         }
-        EquipmentSlot slot = slotFor(stack);
-        if (slot == null) {
-            return;
+        ItemStack worn;
+        if (ItemKind.of(stack) == ItemKind.JEWELRY) {
+            worn = weakestWorn(stack);
+            // The ring or amulet is worn itself, e.g. in the equipment screen
+            if (worn == null) {
+                return;
+            }
+        } else {
+            worn = player.getItemBySlot(slotFor(stack));
         }
-        ItemStack worn = player.getItemBySlot(slot);
         // Don't compare the item you are wearing with itself
         if (worn == stack) {
             return;
@@ -80,7 +85,8 @@ public final class LootTooltips {
         List<Component> lines = event.getToolTip();
         lines.add(Component.empty());
         if (worn.isEmpty()) {
-            lines.add(Component.literal("Du har intet på her").withStyle(ChatFormatting.DARK_GRAY));
+            lines.add(Component.literal(ItemKind.of(stack) == ItemKind.JEWELRY ? "Du har en ledig plads til den (Udstyr)" : "Du har intet på her")
+                    .withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
         lines.add(Component.literal("Sammenlignet med ").withStyle(ChatFormatting.GRAY).append(worn.getHoverName()));
@@ -107,14 +113,40 @@ public final class LootTooltips {
         lines.addAll(differences);
     }
 
-    // Where the item has to be worn. Weapons are compared with what is in your main hand
+    // Where the item has to be worn. Weapons are compared with what is in your main hand. Not for jewelry, see weakestWorn
     private static EquipmentSlot slotFor(ItemStack stack) {
         return switch (ItemKind.of(stack)) {
             case ARMOR -> ((ArmorItem) stack.getItem()).getEquipmentSlot();
             case SHIELD -> EquipmentSlot.OFFHAND;
-            case MELEE, RANGED -> EquipmentSlot.MAINHAND;
-            case JEWELRY -> null;
+            case MELEE, RANGED, JEWELRY -> EquipmentSlot.MAINHAND;
         };
+    }
+
+    // The jewelry the player wears, from the server, see Jewelry.applyStats
+    private static List<ItemStack> wornJewelry = List.of();
+
+    public static void setWornJewelry(List<ItemStack> items) {
+        wornJewelry = items;
+    }
+
+    // A new ring is compared with the worst ring you wear, the one it would replace, and an amulet with the worst amulet.
+    // Empty if a slot is free, and null if the item is one of those you wear
+    private static ItemStack weakestWorn(ItemStack stack) {
+        ItemStack weakest = null;
+        for (ItemStack worn : wornJewelry) {
+            if (!worn.isEmpty() && !worn.is(stack.getItem())) {
+                continue;
+            }
+            if (ItemStack.matches(worn, stack)) {
+                return null;
+            }
+            if (worn.isEmpty()) {
+                weakest = ItemStack.EMPTY;
+            } else if (weakest == null || !weakest.isEmpty() && Loot.itemPower(worn) < Loot.itemPower(weakest)) {
+                weakest = worn;
+            }
+        }
+        return weakest != null ? weakest : ItemStack.EMPTY;
     }
 
     // Adds up the item's attribute bonuses, including the base ones like a sword's damage

@@ -21,12 +21,16 @@ import com.morkeriget.rift.RiftAffix;
 import com.morkeriget.rift.Rifts;
 import com.morkeriget.smithy.Gems;
 import com.morkeriget.smithy.Smithy;
+import com.morkeriget.uber.Uber;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
@@ -64,6 +68,7 @@ final class Dungeon {
     private static final int CELL = 16;
     private static final int HEIGHT = 6;
     private static final int FLOOR_Y = 64;
+    private static final int ARENA_HEIGHT = 10;
     // How far apart the dungeons are. The row of rooms can wind at most this far from its entrance
     private static final int SLOT_SPACING = 512;
     private static final int[][] DIRECTIONS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -79,6 +84,7 @@ final class Dungeon {
     private static final double EXPLOSION_RADIUS = 3.0;
     private static final float EXPLOSION_DAMAGE = 0.15f;
     private static final int METEOR_INTERVAL = 7 * 20;
+    private static final double UBER_MYTHIC_CHANCE = 0.5;
     private static final double METEOR_RADIUS = 2.5;
     private static final float METEOR_DAMAGE = 0.25f;
 
@@ -89,6 +95,8 @@ final class Dungeon {
     private static final class Room {
         final int cellX;
         final int cellZ;
+        // How many cells it covers each way, 2 for the uber boss's arena
+        int size = 1;
         Kind kind = Kind.NORMAL;
         boolean entered;
         boolean cleared;
@@ -111,6 +119,8 @@ final class Dungeon {
     private final int monsterLevel;
     private final DungeonTheme theme;
     private final List<RiftAffix> affixes;
+    // A fight with Mørkets Herre instead of a normal dungeon: only the entrance and a big arena, see Uber
+    final boolean uber;
     final Set<UUID> members = new HashSet<>();
     // The row from the entrance to the boss
     private final List<Room> rooms = new ArrayList<>();
@@ -130,13 +140,15 @@ final class Dungeon {
     private int empty;
     private int ticks;
 
-    Dungeon(ServerLevel level, int slot, int tier, int monsterLevel, DungeonTheme theme, List<RiftAffix> affixes, List<ServerPlayer> party) {
+    Dungeon(ServerLevel level, int slot, int tier, int monsterLevel, DungeonTheme theme, List<RiftAffix> affixes, boolean uber,
+            List<ServerPlayer> party) {
         this.level = level;
         this.slot = slot;
         this.tier = tier;
         this.monsterLevel = monsterLevel;
         this.theme = theme;
         this.affixes = affixes;
+        this.uber = uber;
         for (ServerPlayer player : party) {
             members.add(player.getUUID());
         }
@@ -169,6 +181,10 @@ final class Dungeon {
 
     // One more room for every second tier, from 5 at tier I to 9 at tier X. One treasure room, two from tier IV
     void build(RandomSource random) {
+        if (uber) {
+            buildArena(random);
+            return;
+        }
         int count = 5 + (tier - 1) / 2;
         layOut(random, count);
         rooms.get(0).kind = Kind.ENTRANCE;
@@ -187,6 +203,22 @@ final class Dungeon {
         Room entrance = rooms.get(0);
         entrance.entered = true;
         entrance.cleared = true;
+    }
+
+    // The entrance, and the arena right next to it, two cells each way and taller, for a boss twice the normal size
+    private void buildArena(RandomSource random) {
+        Room entrance = new Room(0, 0);
+        entrance.kind = Kind.ENTRANCE;
+        entrance.entered = true;
+        entrance.cleared = true;
+        Room arena = new Room(1, 0);
+        arena.kind = Kind.BOSS;
+        arena.size = 2;
+        rooms.add(entrance);
+        rooms.add(arena);
+        buildRoom(entrance, random);
+        buildRoom(arena, random);
+        setDoor(entrance, arena, false);
     }
 
     // A random walk through the grid that never crosses itself. It can walk into a dead end, so it tries again then
@@ -266,17 +298,20 @@ final class Dungeon {
     private void buildRoom(Room room, RandomSource random) {
         int x0 = originX(room);
         int z0 = originZ(room);
-        for (int dx = 0; dx < CELL; dx++) {
-            for (int dz = 0; dz < CELL; dz++) {
-                boolean wall = dx == 0 || dz == 0 || dx == CELL - 1 || dz == CELL - 1;
-                boolean middle = Math.abs(dx - 7.5) < 3 && Math.abs(dz - 7.5) < 3;
-                for (int dy = 0; dy <= HEIGHT; dy++) {
+        int span = span(room);
+        int height = height(room);
+        double center = span / 2.0 - 0.5;
+        for (int dx = 0; dx < span; dx++) {
+            for (int dz = 0; dz < span; dz++) {
+                boolean wall = dx == 0 || dz == 0 || dx == span - 1 || dz == span - 1;
+                boolean middle = Math.abs(dx - center) < 3 * room.size && Math.abs(dz - center) < 3 * room.size;
+                for (int dy = 0; dy <= height; dy++) {
                     BlockState state;
                     if (dy == 0) {
                         state = middle && room.kind == Kind.BOSS ? Blocks.CRYING_OBSIDIAN.defaultBlockState()
                                 : middle && room.kind == Kind.TREASURE ? Blocks.GILDED_BLACKSTONE.defaultBlockState()
                                 : theme.floor(random);
-                    } else if (dy == HEIGHT) {
+                    } else if (dy == height) {
                         state = theme.ceiling();
                     } else if (wall) {
                         state = theme.wall(random);
@@ -288,12 +323,17 @@ final class Dungeon {
             }
         }
         BlockState light = (room.kind == Kind.BOSS ? Blocks.LANTERN : theme.light()).defaultBlockState().setValue(LanternBlock.HANGING, true);
-        for (int[] spot : new int[][] {{4, 4}, {11, 4}, {4, 11}, {11, 11}}) {
-            set(x0 + spot[0], FLOOR_Y + HEIGHT - 1, z0 + spot[1], light);
+        int[] lights = room.size > 1 ? new int[] {4, span / 2, span - 5} : new int[] {4, span - 5};
+        for (int a : lights) {
+            for (int b : lights) {
+                set(x0 + a, FLOOR_Y + height - 1, z0 + b, light);
+            }
         }
-        for (int[] corner : new int[][] {{1, 1}, {14, 1}, {1, 14}, {14, 14}}) {
-            if (random.nextFloat() < 0.5f) {
-                set(x0 + corner[0], FLOOR_Y + theme.decorationHeight(HEIGHT), z0 + corner[1], theme.decoration());
+        for (int a : new int[] {1, span - 2}) {
+            for (int b : new int[] {1, span - 2}) {
+                if (random.nextFloat() < 0.5f) {
+                    set(x0 + a, FLOOR_Y + theme.decorationHeight(height), z0 + b, theme.decoration());
+                }
             }
         }
         if (room.kind == Kind.ENTRANCE) {
@@ -303,6 +343,16 @@ final class Dungeon {
             set(pos.getX(), pos.getY(), pos.getZ(), Blocks.CHEST.defaultBlockState());
             fillChest(pos, random);
         }
+    }
+
+    // How many blocks the room is across, walls included
+    private static int span(Room room) {
+        return CELL * room.size;
+    }
+
+    // The arena is taller, so the uber boss fits
+    private static int height(Room room) {
+        return room.size > 1 ? ARENA_HEIGHT : HEIGHT;
     }
 
     // Better than what monsters drop, but not as good as the boss: two items, essence and a gem
@@ -434,7 +484,7 @@ final class Dungeon {
     private boolean isIn(ServerPlayer player, Room room) {
         double x = player.getX() - originX(room);
         double z = player.getZ() - originZ(room);
-        return x > 1 && x < CELL - 1 && z > 1 && z < CELL - 1;
+        return x > 1 && x < span(room) - 1 && z > 1 && z < span(room) - 1;
     }
 
     private void enter(Room room, List<ServerPlayer> inside) {
@@ -466,15 +516,17 @@ final class Dungeon {
                 tell(inside, Component.literal("Et skatkammer! Dets vogtere vil ikke give slip på det").withStyle(ChatFormatting.GOLD));
             }
             case BOSS -> {
-                Monster boss = spawn(room, theme.boss(random), -1, inside);
-                for (int i = 0; i < 2 + extra / 2; i++) {
+                // Mørkets Herre is a wither skeleton, with more helpers around it
+                Monster boss = spawn(room, uber ? EntityType.WITHER_SKELETON : theme.boss(random), -1, inside);
+                for (int i = 0; i < (uber ? 4 : 2) + extra / 2; i++) {
                     spawn(room, theme.monster(random), 0, inside);
                 }
                 if (boss != null) {
                     tell(inside, Component.literal("☠ ").append(boss.getDisplayName()).append(" venter på jer!")
                             .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
                 }
-                level.playSound(null, originX(room) + 8, FLOOR_Y + 1, originZ(room) + 8, SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 0.7f, 1.0f);
+                level.playSound(null, originX(room) + span(room) / 2, FLOOR_Y + 1, originZ(room) + span(room) / 2, SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE,
+                        uber ? 1.5f : 0.7f, uber ? 0.6f : 1.0f);
             }
             default -> {
             }
@@ -492,8 +544,9 @@ final class Dungeon {
         }
         RandomSource random = level.getRandom();
         // Anywhere in the room but by the walls and the treasure chest, the boss in the middle
-        double x = originX(room) + (elite < 0 ? 7.5 : 3 + random.nextInt(10) + 0.5);
-        double z = originZ(room) + (elite < 0 ? 7.5 : 3 + random.nextInt(10) + 0.5);
+        double center = span(room) / 2.0;
+        double x = originX(room) + (elite < 0 ? center : 3 + random.nextInt(span(room) - 6) + 0.5);
+        double z = originZ(room) + (elite < 0 ? center : 3 + random.nextInt(span(room) - 6) + 0.5);
         if (room.kind == Kind.TREASURE && Math.abs(x - originX(room) - 7.5) < 1 && Math.abs(z - originZ(room) - 7.5) < 1) {
             x += 2;
         }
@@ -505,7 +558,11 @@ final class Dungeon {
             MonsterLevels.apply(monster, elite < 0 ? monsterLevel + 1 : monsterLevel);
         }
         if (elite < 0) {
-            Bosses.makeBoss(monster);
+            if (uber) {
+                Bosses.makeUberBoss(monster);
+            } else {
+                Bosses.makeBoss(monster);
+            }
             // The boss can take 30% of your health in one hit at tier I, and 4% more per tier
             Bosses.setMaxHit(monster, 0.3f + 0.04f * (tier - 1));
             bossId = monster.getUUID();
@@ -515,7 +572,9 @@ final class Dungeon {
         // On top of the level, each tier above I gives the monsters 15% more health and 6% more damage. The boss has four
         // times the health of a normal boss at tier I and 60% more per tier, and can only lose a little of it in one hit,
         // see Dungeons.onBossDamage. Armored adds 40%. The extra health gives no extra XP, see Dungeons.xpScale
-        double health = (elite < 0 ? 3 + 0.6 * (tier - 1) : 0.15 * (tier - 1)) + (has(RiftAffix.ARMORED) ? 0.4 : 0);
+        // The uber boss has twice the health of a tier X boss
+        double bossHealth = (4 + 0.6 * (tier - 1)) * (uber ? 2 : 1) - 1;
+        double health = (elite < 0 ? bossHealth : 0.15 * (tier - 1)) + (has(RiftAffix.ARMORED) ? 0.4 : 0);
         if (health > 0) {
             boost(monster, TIER_BOOST, Attributes.MAX_HEALTH, health);
             monster.setHealth(monster.getMaxHealth());
@@ -554,7 +613,7 @@ final class Dungeon {
                 return false;
             }
             if (entity == null && !died.contains(id)) {
-                ChunkPos chunk = new ChunkPos(new BlockPos(originX(room) + 8, FLOOR_Y, originZ(room) + 8));
+                ChunkPos chunk = new ChunkPos(new BlockPos(originX(room) + span(room) / 2, FLOOR_Y, originZ(room) + span(room) / 2));
                 if (!level.areEntitiesLoaded(chunk.toLong())) {
                     return false;
                 }
@@ -678,6 +737,10 @@ final class Dungeon {
     private void complete(Vec3 at) {
         homeIn = HOME_DELAY;
         RandomSource random = level.getRandom();
+        if (uber) {
+            completeUber(at, random);
+            return;
+        }
         Rarity minimum = tier >= 5 ? Rarity.LEGENDARY : Rarity.RARE;
         int itemLevel = monsterLevel + 5;
         double affixBonus = 1 + RiftAffix.REWARD_PER_AFFIX * affixes.size();
@@ -704,6 +767,10 @@ final class Dungeon {
                 rewards.add(Gems.random(random, monsterLevel, tier / 4));
             }
             rewards.add(Dungeons.key(nextTier, random));
+            // One of the materials for Mørkets Kald, see Uber. More likely at higher tiers
+            if (tier >= 3 && random.nextDouble() < 0.25 + 0.05 * tier) {
+                rewards.add(Uber.soulShard());
+            }
             rewards.add(TownPortal.scroll());
             for (ItemStack reward : rewards) {
                 level.addFreshEntity(new ItemEntity(level, at.x, at.y + 0.5, at.z, reward));
@@ -717,11 +784,46 @@ final class Dungeon {
         level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, at.x, at.y + 1, at.z, 80, 0.5, 1, 0.5, 0.4);
     }
 
+    // The best rewards in the game: two legendaries with more and greater bonuses than a tier X dungeon gives, a good
+    // chance of a mythic, plenty of essence and better gems
+    private void completeUber(Vec3 at, RandomSource random) {
+        int itemLevel = monsterLevel + 10;
+        for (ServerPlayer player : online()) {
+            List<ItemStack> rewards = new ArrayList<>();
+            PlayerClass playerClass = Progression.playerClass(player);
+            for (int i = 0; i < 2; i++) {
+                rewards.add(Loot.createFor(player, random, Rarity.LEGENDARY, itemLevel, Loot.Quality.dungeon(Dungeons.MAX_TIER, 2, 2)));
+            }
+            rewards.add(Loot.createFor(player, random, Rarity.LEGENDARY, itemLevel, Loot.Quality.dungeon(Dungeons.MAX_TIER, 0, 1)));
+            if (random.nextDouble() < UBER_MYTHIC_CHANCE) {
+                ItemStack mythic = Loot.createMythic(random, itemLevel, playerClass);
+                rewards.add(mythic);
+                Loot.announceMythic(player, mythic);
+            }
+            rewards.add(new ItemStack(Smithy.ESSENCE.get(), 80 + random.nextInt(41)));
+            for (int i = 0; i < 3; i++) {
+                rewards.add(Gems.random(random, monsterLevel, 3));
+            }
+            rewards.add(TownPortal.scroll());
+            for (ItemStack reward : rewards) {
+                level.addFreshEntity(new ItemEntity(level, at.x, at.y + 0.5, at.z, reward));
+            }
+            Progression.addXp(player, 3000 + 100 * monsterLevel);
+            player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
+            player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal("Saml jeres loot - I sendes hjem om " + HOME_DELAY / 20 + " sekunder")
+                    .withStyle(ChatFormatting.YELLOW)));
+            player.connection.send(new ClientboundSetTitleTextPacket(Component.literal("Mørkets Herre er faldet!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
+            player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 0.8f);
+        }
+        level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, at.x, at.y + 1, at.z, 200, 1, 2, 1, 0.5);
+    }
+
     // "Den Frosne Krypt III - rum 3/6 - 2 liv" for the members who are here. Treasure rooms don't count
     private void updateBar(List<ServerPlayer> inside) {
         long cleared = rooms.stream().filter(room -> room.cleared).count();
-        String name = theme.displayName + " " + Rifts.roman(tier);
+        String name = uber ? "Mørkets Herre" : theme.displayName + " " + Rifts.roman(tier);
         String text = homeIn >= 0 ? name + " klaret - hjem om " + (homeIn + 19) / 20 + " sek."
+                : uber ? name + " - " + lives + " liv"
                 : name + " - rum " + Math.min(rooms.size(), cleared + 1) + "/" + rooms.size() + " - " + lives + " liv";
         bar.setName(Component.literal(text).withStyle(ChatFormatting.RED));
         bar.setProgress(homeIn >= 0 ? homeIn / (float) HOME_DELAY : cleared / (float) rooms.size());

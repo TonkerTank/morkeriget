@@ -18,6 +18,7 @@ import com.morkeriget.rift.Rifts;
 import com.morkeriget.skill.Skills;
 import com.morkeriget.smithy.Smithy;
 import com.morkeriget.stash.Stash;
+import com.morkeriget.uber.Uber;
 import com.mojang.logging.LogUtils;
 
 import net.neoforged.bus.api.IEventBus;
@@ -56,6 +57,8 @@ public class Morkeriget {
         Rifts.register(modEventBus);
         // Dungeon keys open a built dungeon with rooms, a seal and a boss
         Dungeons.register(modEventBus);
+        // Materials from the big fights make Mørkets Kald, which summons the uber boss
+        Uber.register(modEventBus);
         // Town portal scrolls take you home and back again
         TownPortal.register(modEventBus);
         // A stash that is the same in every world
