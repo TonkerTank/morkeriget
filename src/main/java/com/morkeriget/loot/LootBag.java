@@ -6,6 +6,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.journey.Journey;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -16,7 +17,7 @@ import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
@@ -39,6 +40,10 @@ public final class LootBag {
     private static final Supplier<AttachmentType<Contents>> BAG = ATTACHMENTS.register("loot_bag",
             () -> AttachmentType.serializable(Contents::new).copyOnDeath().build());
 
+    private static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(BuiltInRegistries.MENU, Morkeriget.MODID);
+    public static final Supplier<MenuType<LootBagMenu>> MENU = MENUS.register("loot_bag",
+            () -> new MenuType<>(LootBagMenu::new, FeatureFlags.DEFAULT_FLAGS));
+
     // 20 ticks is one second. How often "the bag is full" is said while you stand on loot
     private static final int FULL_MESSAGE_INTERVAL = 3 * 20;
 
@@ -47,6 +52,7 @@ public final class LootBag {
 
     public static void register(IEventBus modEventBus) {
         ATTACHMENTS.register(modEventBus);
+        MENUS.register(modEventBus);
         modEventBus.addListener(LootBag::registerPayloads);
         NeoForge.EVENT_BUS.addListener(LootBag::onPickup);
     }
@@ -69,7 +75,7 @@ public final class LootBag {
             return;
         }
         Container bag = get(player);
-        player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new ChestMenu(MenuType.GENERIC_9x6, id, inventory, bag, ROWS),
+        player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new LootBagMenu(id, inventory, bag),
                 Component.literal("Loot-taske")));
         player.playNotifySound(SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.PLAYERS, 0.6f, 1.0f);
     }

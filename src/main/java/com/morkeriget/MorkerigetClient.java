@@ -5,6 +5,8 @@ import com.morkeriget.combat.TargetFrame;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.FavoriteClicks;
+import com.morkeriget.loot.LootBag;
+import com.morkeriget.loot.LootBagScreen;
 import com.morkeriget.loot.LootBeams;
 import com.morkeriget.loot.LootTooltips;
 import com.morkeriget.merchant.Merchant;
@@ -69,11 +71,12 @@ public class MorkerigetClient {
         NeoForge.EVENT_BUS.addListener(FavoriteClicks::onMousePressed);
         NeoForge.EVENT_BUS.addListener(FavoriteClicks::onMouseReleased);
         NeoForge.EVENT_BUS.addListener(FavoriteClicks::onForeground);
-        // The screens for the jewelry slots, the smithy and the merchant
+        // The screens for the jewelry slots, the smithy, the merchant and the loot bag
         modEventBus.addListener((RegisterMenuScreensEvent event) -> {
             event.register(Jewelry.MENU.get(), JewelryScreen::new);
             event.register(Smithy.MENU.get(), SmithyScreen::new);
             event.register(Merchant.MENU.get(), MerchantScreen::new);
+            event.register(LootBag.MENU.get(), LootBagScreen::new);
         });
     }
 }

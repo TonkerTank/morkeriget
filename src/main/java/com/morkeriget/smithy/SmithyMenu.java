@@ -271,8 +271,8 @@ public class SmithyMenu extends AbstractContainerMenu {
     private boolean salvageAll(ServerPlayer player, Rarity best) {
         Container bag = LootBag.get(player);
         int[] result = new int[2];
-        salvageAll(bag, 0, bag.getContainerSize(), best, result);
-        salvageAll(player.getInventory(), Inventory.getSelectionSize(), player.getInventory().items.size(), best, result);
+        Smithy.salvage(bag, 0, bag.getContainerSize(), best, result);
+        Smithy.salvage(player.getInventory(), Inventory.getSelectionSize(), player.getInventory().items.size(), best, result);
         int count = result[0];
         int essence = result[1];
         if (count == 0) {
@@ -283,19 +283,6 @@ public class SmithyMenu extends AbstractContainerMenu {
         player.displayClientMessage(Component.literal("Smeltede " + count + " genstande om til " + essence + " essens"), true);
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;
-    }
-
-    // Adds how many items it salvaged and the essence they gave to result
-    private static void salvageAll(Container container, int from, int to, Rarity best, int[] result) {
-        for (int slot = from; slot < to; slot++) {
-            ItemStack stack = container.getItem(slot);
-            Rarity rarity = Smithy.salvageRarity(stack);
-            if (rarity != null && rarity.ordinal() <= best.ordinal() && !Gems.hasGems(stack) && !Favorites.is(stack)) {
-                container.setItem(slot, ItemStack.EMPTY);
-                result[0]++;
-                result[1] += Smithy.salvageValue(rarity);
-            }
-        }
     }
 
     private static boolean pay(ServerPlayer player, int cost) {

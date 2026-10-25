@@ -14,7 +14,11 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
@@ -40,6 +44,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
@@ -64,6 +69,18 @@ public final class Bosses {
     private static final int SLAM_INTERVAL = 8 * 20;
     private static final int SLAM_WARNING = 20;
     private static final int MINION_INTERVAL = 10 * 20;
+    // The second phase, like the bosses in Diablo 4: at half health the boss gets a shield and calls helpers. It takes
+    // no damage until they are dead, or SHIELD_TIME has gone so it can't last forever. After that it is faster and uses
+    // its ability twice as often, taking turns with Doom Circles
+    private static final String ENRAGED_TAG = "morkeriget_boss_enraged";
+    // The game time the shield runs out
+    private static final String SHIELD_TAG = "morkeriget_boss_shield";
+    // On the helpers, the boss they shield
+    private static final String SHIELD_MINION_TAG = "morkeriget_shield_minion";
+    private static final String ABILITY_COUNT_TAG = "morkeriget_boss_ability_count";
+    private static final int SHIELD_TIME = 15 * 20;
+    private static final int SHIELD_MINIONS = 4;
+    private static final ResourceLocation ENRAGE_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "boss_enrage");
 
     private static final List<String> NAMES = List.of(
             "Slagteren", "Gravkongen", "Blodmoderen", "Den Hule Ridder", "Askeherren",
@@ -80,6 +97,7 @@ public final class Bosses {
         NeoForge.EVENT_BUS.addListener(Bosses::onDeath);
         NeoForge.EVENT_BUS.addListener(Bosses::onLeaveLevel);
         NeoForge.EVENT_BUS.addListener(Bosses::onDamagePre);
+        NeoForge.EVENT_BUS.addListener(Bosses::onIncomingDamage);
         // In singleplayer the game can go on to another world, which must start without this one's bars
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> {
             BARS.values().forEach(ServerBossEvent::removeAllPlayers);
@@ -158,6 +176,13 @@ public final class Bosses {
             return;
         }
         updateBar(level, boss);
+        CompoundTag data = boss.getPersistentData();
+        if (!data.getBoolean(ENRAGED_TAG) && boss.getHealth() <= boss.getMaxHealth() / 2) {
+            enrage(level, boss);
+        }
+        if (isShielded(boss)) {
+            tickShield(level, boss);
+        }
 
         LivingEntity target = boss.getTarget();
         if (target == null || !target.isAlive()) {
@@ -176,10 +201,72 @@ public final class Bosses {
         }
         // Each boss's own ability, halfway between two slams
         BossAbility ability = BossAbility.byName(boss.getPersistentData().getString(ABILITY_TAG));
-        if (ability != null && boss.tickCount % BossAbility.INTERVAL == BossAbility.INTERVAL / 2) {
-            ability.use(level, boss, target);
+        boolean enraged = data.getBoolean(ENRAGED_TAG);
+        int interval = enraged ? BossAbility.INTERVAL / 2 : BossAbility.INTERVAL;
+        if (ability != null && boss.tickCount % interval == interval / 2) {
+            int count = data.getInt(ABILITY_COUNT_TAG);
+            data.putInt(ABILITY_COUNT_TAG, count + 1);
+            (enraged && count % 2 == 1 ? BossAbility.DOOM_CIRCLES : ability).use(level, boss, target);
         }
         BossAbility.tickPending(level, boss);
+    }
+
+    private static boolean isShielded(Monster boss) {
+        return boss.getPersistentData().getLong(SHIELD_TAG) > boss.level().getGameTime();
+    }
+
+    private static void enrage(ServerLevel level, Monster boss) {
+        CompoundTag data = boss.getPersistentData();
+        data.putBoolean(ENRAGED_TAG, true);
+        data.putLong(SHIELD_TAG, level.getGameTime() + SHIELD_TIME);
+        // So the first ability in the new phase is Doom Circles
+        data.putInt(ABILITY_COUNT_TAG, 1);
+        boost(boss, ENRAGE_BOOST, Attributes.MOVEMENT_SPEED, 0.25, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+        LivingEntity target = boss.getTarget() != null ? boss.getTarget() : level.getNearestPlayer(boss, BAR_RANGE);
+        String id = boss.getStringUUID();
+        summon(level, boss, target, boss.getType(), SHIELD_MINIONS, minion -> minion.getPersistentData().putString(SHIELD_MINION_TAG, id));
+        title(level, boss, Component.literal("Fase 2").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD),
+                Component.empty().append(boss.getDisplayName()).append(Component.literal(" skjolder sig - dræb dens tjenere!").withStyle(ChatFormatting.GOLD)));
+        level.playSound(null, boss.blockPosition(), SoundEvents.ELDER_GUARDIAN_CURSE, SoundSource.HOSTILE, 1.5f, 0.8f);
+    }
+
+    // A ring of light round the boss while the shield is up. It breaks when the helpers are dead
+    private static void tickShield(ServerLevel level, Monster boss) {
+        for (int i = 0; i < 12; i++) {
+            double angle = Math.PI * 2 * i / 12 + boss.tickCount * 0.1;
+            double radius = boss.getBbWidth() + 0.4;
+            level.sendParticles(ParticleTypes.END_ROD, boss.getX() + Math.cos(angle) * radius, boss.getY() + boss.getBbHeight() * 0.5,
+                    boss.getZ() + Math.sin(angle) * radius, 1, 0, 0.3, 0, 0);
+        }
+        String id = boss.getStringUUID();
+        boolean helpersLeft = !level.getEntitiesOfClass(Monster.class, boss.getBoundingBox().inflate(BAR_RANGE),
+                monster -> monster.isAlive() && id.equals(monster.getPersistentData().getString(SHIELD_MINION_TAG))).isEmpty();
+        if (!helpersLeft) {
+            boss.getPersistentData().remove(SHIELD_TAG);
+            title(level, boss, Component.empty(), Component.literal("Skjoldet er brudt!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+            level.playSound(null, boss.blockPosition(), SoundEvents.SHIELD_BREAK, SoundSource.HOSTILE, 1.5f, 0.6f);
+        }
+    }
+
+    // The shield takes every hit
+    private static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof Monster boss && isBoss(boss) && isShielded(boss)) {
+            event.setCanceled(true);
+            if (boss.tickCount % 10 == 0) {
+                boss.level().playSound(null, boss.blockPosition(), SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 1.0f, 0.8f);
+            }
+        }
+    }
+
+    // Big text in the middle of the screen for the players close by
+    private static void title(ServerLevel level, Monster boss, Component title, Component subtitle) {
+        for (ServerPlayer player : level.players()) {
+            if (player.distanceTo(boss) <= BAR_RANGE) {
+                player.connection.send(new ClientboundSetTitlesAnimationPacket(5, 40, 10));
+                player.connection.send(new ClientboundSetSubtitleTextPacket(subtitle));
+                player.connection.send(new ClientboundSetTitleTextPacket(title));
+            }
+        }
     }
 
     private static void updateBar(ServerLevel level, Monster boss) {

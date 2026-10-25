@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -24,6 +25,7 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Vex;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 
 // Every boss has its own ability, picked from its name, that it uses every INTERVAL ticks.
 // The ones that hit a moment later (fire rain, the end of a charge) are remembered in PENDING until then
@@ -33,7 +35,9 @@ enum BossAbility {
     CROWS("Kragesværm", "sender sine krager!"),
     BLOOD_DRAIN("Livsdræn", "drikker dit liv!"),
     CHARGE("Angreb", "styrter frem!"),
-    DARKNESS("Mørke", "slukker lyset!");
+    DARKNESS("Mørke", "slukker lyset!"),
+    // Every boss uses this one too in its second phase, taking turns with its own, see Bosses
+    DOOM_CIRCLES("Dødscirkler", "mærker jer til døden - kom væk fra cirklen!");
 
     // 20 ticks is one second
     static final int INTERVAL = 12 * 20;
@@ -44,6 +48,10 @@ enum BossAbility {
     private static final double DARKNESS_RADIUS = 16.0;
     private static final double CHARGE_HIT_RADIUS = 3.0;
     private static final double MESSAGE_RANGE = 32.0;
+    // A red circle under each player that blows up a moment and a half later, so there is just time to step out
+    private static final int DOOM_DELAY = 30;
+    private static final double DOOM_RADIUS = 2.5;
+    private static final DustParticleOptions DOOM_DUST = new DustParticleOptions(new Vector3f(1.0f, 0.1f, 0.1f), 2.0f);
 
     private static final Map<String, BossAbility> BY_BOSS = Map.of(
             "Slagteren", CHARGE, "Gravkongen", RAISE_DEAD, "Blodmoderen", BLOOD_DRAIN, "Den Hule Ridder", CHARGE,
@@ -87,13 +95,23 @@ enum BossAbility {
             case BLOOD_DRAIN -> bloodDrain(level, boss);
             case CHARGE -> charge(level, boss, target);
             case DARKNESS -> darkness(level, boss);
+            case DOOM_CIRCLES -> doomCircles(level, boss);
         }
     }
 
     // Runs every time the boss ticks, and does what is waiting once its time has come
     static void tickPending(ServerLevel level, Monster boss) {
         Pending pending = PENDING.get(boss.getUUID());
-        if (pending == null || level.getGameTime() < pending.time) {
+        if (pending == null) {
+            return;
+        }
+        if (level.getGameTime() < pending.time) {
+            // The circles are drawn again until they go off, so they can be seen the whole time
+            if (pending.ability == DOOM_CIRCLES) {
+                for (Vec3 spot : pending.spots) {
+                    doomRing(level, spot);
+                }
+            }
             return;
         }
         PENDING.remove(boss.getUUID());
@@ -104,6 +122,11 @@ enum BossAbility {
                 }
             }
             case CHARGE -> chargeLanding(level, boss);
+            case DOOM_CIRCLES -> {
+                for (Vec3 spot : pending.spots) {
+                    doomStrike(level, boss, spot);
+                }
+            }
             default -> {
             }
         }
@@ -226,6 +249,38 @@ enum BossAbility {
         }
         circle(level, boss.position(), 4, ParticleTypes.SQUID_INK);
         level.playSound(null, boss.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK, SoundSource.HOSTILE, 2.0f, 0.7f);
+    }
+
+    // Marks where every player close by stands
+    private static void doomCircles(ServerLevel level, Monster boss) {
+        List<Vec3> spots = new ArrayList<>();
+        for (Player player : players(level, boss.position(), MESSAGE_RANGE)) {
+            spots.add(player.position());
+        }
+        for (Vec3 spot : spots) {
+            doomRing(level, spot);
+        }
+        level.playSound(null, boss.blockPosition(), SoundEvents.TRIAL_SPAWNER_OMINOUS_ACTIVATE, SoundSource.HOSTILE, 1.5f, 0.7f);
+        PENDING.put(boss.getUUID(), new Pending(DOOM_CIRCLES, spots, level.getGameTime() + DOOM_DELAY));
+    }
+
+    private static void doomRing(ServerLevel level, Vec3 center) {
+        for (int i = 0; i < 36; i++) {
+            double angle = Math.PI * 2 * i / 36;
+            level.sendParticles(DOOM_DUST, center.x + Math.cos(angle) * DOOM_RADIUS, center.y + 0.1, center.z + Math.sin(angle) * DOOM_RADIUS,
+                    1, 0, 0, 0, 0);
+        }
+        level.sendParticles(DOOM_DUST, center.x, center.y + 0.1, center.z, 14, DOOM_RADIUS / 3, 0, DOOM_RADIUS / 3, 0);
+    }
+
+    private static void doomStrike(ServerLevel level, Monster boss, Vec3 spot) {
+        level.sendParticles(ParticleTypes.EXPLOSION, spot.x, spot.y + 0.5, spot.z, 3, 0.8, 0.2, 0.8, 0);
+        level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, spot.x, spot.y + 0.3, spot.z, 25, 1.0, 0.3, 1.0, 0.05);
+        level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 0.8f, 0.8f);
+        float damage = (float) boss.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.9f;
+        for (Player player : players(level, spot, DOOM_RADIUS)) {
+            player.hurt(boss.damageSources().mobAttack(boss), damage);
+        }
     }
 
     // Players that can be hurt within the radius of the spot

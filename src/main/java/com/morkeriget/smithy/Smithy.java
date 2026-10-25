@@ -8,6 +8,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
+import com.morkeriget.loot.Favorites;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 
@@ -16,6 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
@@ -108,6 +110,21 @@ public final class Smithy {
     public static Rarity salvageRarity(ItemStack stack) {
         Rarity rarity = Loot.getRarity(stack);
         return rarity == null && Loot.isPlainGear(stack) ? Rarity.COMMON : rarity;
+    }
+
+    // Salvages every item up to and including this rarity in the slots from from to to. Mythic items are never taken, set
+    // items only when best is SET, and favorites and items with gems in them are skipped. Adds how many items it
+    // salvaged and the essence they gave to result. Used by "Smelt alle" in the smithy and the loot bag
+    public static void salvage(Container container, int from, int to, Rarity best, int[] result) {
+        for (int slot = from; slot < to; slot++) {
+            ItemStack stack = container.getItem(slot);
+            Rarity rarity = salvageRarity(stack);
+            if (rarity != null && rarity.ordinal() <= best.ordinal() && !Gems.hasGems(stack) && !Favorites.is(stack)) {
+                container.setItem(slot, ItemStack.EMPTY);
+                result[0]++;
+                result[1] += salvageValue(rarity);
+            }
+        }
     }
 
     public static int salvageValue(Rarity rarity) {

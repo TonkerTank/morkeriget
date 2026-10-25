@@ -19,6 +19,8 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -75,6 +77,9 @@ public final class Dungeons {
     static final String MONSTER_TAG = "morkeriget_dungeon";
     // Where each player was before the dungeon, so they can be sent back there
     private static final String RETURN_TAG = "morkeriget_dungeon_return";
+    // The inventory of a player who is dying in a dungeon, and the one to give back once the death has happened
+    private static final String DYING_ITEMS_TAG = "morkeriget_dungeon_dying_items";
+    private static final String KEPT_ITEMS_TAG = "morkeriget_dungeon_kept_items";
     // Players this close to the one using the key come along
     private static final double PARTY_RANGE = 8.0;
     // Keys drop from bosses and elites outside dungeons. Inside, the boss gives one for the next tier
@@ -103,6 +108,8 @@ public final class Dungeons {
         NeoForge.EVENT_BUS.addListener(Dungeons::onConversion);
         NeoForge.EVENT_BUS.addListener(Dungeons::onDeath);
         NeoForge.EVENT_BUS.addListener(Dungeons::onDrops);
+        NeoForge.EVENT_BUS.addListener(Dungeons::onPlayerDrops);
+        NeoForge.EVENT_BUS.addListener(Dungeons::onClone);
         NeoForge.EVENT_BUS.addListener(Dungeons::onRespawn);
         NeoForge.EVENT_BUS.addListener(Dungeons::onLogin);
         NeoForge.EVENT_BUS.addListener(Dungeons::onRightClickBlock);
@@ -317,6 +324,13 @@ public final class Dungeons {
 
     private static void onDeath(LivingDeathEvent event) {
         Entity entity = event.getEntity();
+        // What a player carries is saved when they die, and only kept if the death is in a dungeon and really happens
+        if (entity instanceof ServerPlayer player) {
+            player.getPersistentData().remove(DYING_ITEMS_TAG);
+            if (isInDungeon(player)) {
+                player.getPersistentData().put(DYING_ITEMS_TAG, player.getInventory().save(new ListTag()));
+            }
+        }
         if (entity.getPersistentData().getBoolean(MONSTER_TAG)) {
             Dungeon dungeon = dungeonWith(entity);
             if (dungeon != null) {
@@ -327,6 +341,24 @@ public final class Dungeons {
             if (dungeon != null) {
                 dungeon.playerDied(player);
             }
+        }
+    }
+
+    // Dying in a dungeon never costs you your things, like in Diablo 4: nothing is dropped, and everything is put back in
+    // the same slots when you respawn, see onClone. It is saved with the player, so it survives a restart before respawning
+    private static void onPlayerDrops(LivingDropsEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player && isInDungeon(player) && player.getPersistentData().contains(DYING_ITEMS_TAG)) {
+            CompoundTag data = player.getPersistentData();
+            data.put(KEPT_ITEMS_TAG, data.get(DYING_ITEMS_TAG));
+            data.remove(DYING_ITEMS_TAG);
+            event.setCanceled(true);
+        }
+    }
+
+    private static void onClone(PlayerEvent.Clone event) {
+        CompoundTag old = event.getOriginal().getPersistentData();
+        if (event.isWasDeath() && old.contains(KEPT_ITEMS_TAG)) {
+            event.getEntity().getInventory().load(old.getList(KEPT_ITEMS_TAG, Tag.TAG_COMPOUND));
         }
     }
 
