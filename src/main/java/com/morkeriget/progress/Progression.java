@@ -7,6 +7,7 @@ import java.util.function.Supplier;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.skill.Minions;
@@ -154,7 +155,7 @@ public final class Progression {
         int bonus = Bosses.isBoss(monster) ? 5 : Elites.isElite(monster) ? 2 : 1;
         // Each paragon Wisdom point adds 1%
         double wisdom = 1 + 0.01 * rank(player, Paragon.WISDOM);
-        int xp = (int) Math.max(1, Math.round(monster.getMaxHealth() / 2 * bonus * wisdom * Config.XP_MULTIPLIER.get()));
+        int xp = (int) Math.max(1, Math.round(monster.getMaxHealth() / 2 * bonus * wisdom * Config.XP_MULTIPLIER.get() * Dungeons.xpScale(monster)));
         addXp(player, xp);
         if (bonus > 1) {
             player.displayClientMessage(Component.literal("+" + xp + " XP").withStyle(ChatFormatting.LIGHT_PURPLE), true);

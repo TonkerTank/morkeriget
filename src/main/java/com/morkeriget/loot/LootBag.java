@@ -33,7 +33,7 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 // hotbar and the things you carry stay as they are. "Salvage all" in the smithy never touches the hotbar. Opened with I.
 // It is saved with the player and kept when you die. When it is full, loot goes into the normal inventory again
 public final class LootBag {
-    public static final int ROWS = 4;
+    public static final int ROWS = 6;
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
     private static final Supplier<AttachmentType<Contents>> BAG = ATTACHMENTS.register("loot_bag",
@@ -69,7 +69,7 @@ public final class LootBag {
             return;
         }
         Container bag = get(player);
-        player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new ChestMenu(MenuType.GENERIC_9x4, id, inventory, bag, ROWS),
+        player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new ChestMenu(MenuType.GENERIC_9x6, id, inventory, bag, ROWS),
                 Component.literal("Loot-taske")));
         player.playNotifySound(SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.PLAYERS, 0.6f, 1.0f);
     }
@@ -112,6 +112,12 @@ public final class LootBag {
     private static final class Contents extends ItemStackHandler implements Container {
         Contents() {
             super(ROWS * 9);
+        }
+
+        // A bag saved when it was smaller gets the new size when it is loaded, with its items where they were
+        @Override
+        public void setSize(int size) {
+            super.setSize(Math.max(size, ROWS * 9));
         }
 
         @Override

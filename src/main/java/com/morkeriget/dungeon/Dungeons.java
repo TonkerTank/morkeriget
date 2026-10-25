@@ -30,6 +30,9 @@ import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -40,6 +43,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
@@ -47,6 +51,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingConversionEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -75,6 +80,10 @@ public final class Dungeons {
     // Keys drop from bosses and elites outside dungeons. Inside, the boss gives one for the next tier
     private static final double BOSS_KEY_CHANCE = 0.5;
     private static final double ELITE_KEY_CHANCE = 0.05;
+    // A dungeon boss loses at most this share of its max health in one hit, so even a very strong group needs a while
+    private static final float BOSS_MAX_HIT = 0.05f;
+    // Dungeon rooms are full of monsters, so each one gives half the XP it would outside
+    private static final double MONSTER_XP = 0.5;
 
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Morkeriget.MODID);
     public static final DeferredItem<Item> KEY = ITEMS.registerItem("dungeon_key", DungeonKeyItem::new,
@@ -100,6 +109,7 @@ public final class Dungeons {
         NeoForge.EVENT_BUS.addListener(Dungeons::onBreak);
         NeoForge.EVENT_BUS.addListener(Dungeons::onPlace);
         NeoForge.EVENT_BUS.addListener(Dungeons::onExplosion);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, Dungeons::onBossDamage);
         NeoForge.EVENT_BUS.addListener(Dungeons::registerCommands);
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> ACTIVE.clear());
     }
@@ -270,6 +280,24 @@ public final class Dungeons {
         if (!event.getLevel().isClientSide() && event.getEntity().getPersistentData().getBoolean(MONSTER_TAG)
                 && dungeonWith(event.getEntity()) == null) {
             event.setCanceled(true);
+        }
+    }
+
+    // How much of a monster's XP to give, since XP comes from its health (see Progression). The extra health from the
+    // dungeon tier doesn't count, and dungeon monsters give half
+    public static double xpScale(LivingEntity monster) {
+        if (!monster.getPersistentData().getBoolean(MONSTER_TAG)) {
+            return 1;
+        }
+        AttributeInstance health = monster.getAttribute(Attributes.MAX_HEALTH);
+        AttributeModifier boost = health != null ? health.getModifier(Dungeon.TIER_BOOST) : null;
+        return MONSTER_XP / (boost != null ? 1 + boost.amount() : 1);
+    }
+
+    private static void onBossDamage(LivingDamageEvent.Pre event) {
+        LivingEntity entity = event.getEntity();
+        if (entity.getPersistentData().getBoolean(MONSTER_TAG) && Bosses.isBoss(entity)) {
+            event.setNewDamage(Math.min(event.getNewDamage(), entity.getMaxHealth() * BOSS_MAX_HIT));
         }
     }
 

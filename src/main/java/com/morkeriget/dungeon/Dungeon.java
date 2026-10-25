@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.morkeriget.Config;
+import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
@@ -21,8 +22,10 @@ import com.morkeriget.smithy.Smithy;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -33,6 +36,10 @@ import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.item.ItemStack;
@@ -59,6 +66,7 @@ final class Dungeon {
     // has left without using the exit
     private static final int HOME_DELAY = 30 * 20;
     private static final int EMPTY_TIMEOUT = 60 * 20;
+    static final ResourceLocation TIER_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "dungeon_tier");
     private static final List<EntityType<? extends Monster>> MONSTERS = List.of(
             EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SKELETON, EntityType.SPIDER, EntityType.HUSK,
             EntityType.VINDICATOR, EntityType.STRAY, EntityType.WITCH);
@@ -399,6 +407,17 @@ final class Dungeon {
         } else if (elite > 0) {
             Elites.makeElite(monster, elite);
         }
+        // On top of the level, each tier above I gives the monsters 15% more health and 6% more damage. The boss has four
+        // times the health of a normal boss at tier I and 60% more per tier, and can only lose a little of it in one hit,
+        // see Dungeons.onBossDamage. The extra health gives no extra XP, see Dungeons.xpScale
+        double health = elite < 0 ? 3 + 0.6 * (tier - 1) : 0.15 * (tier - 1);
+        if (health > 0) {
+            boost(monster, Attributes.MAX_HEALTH, health);
+            monster.setHealth(monster.getMaxHealth());
+        }
+        if (tier > 1) {
+            boost(monster, Attributes.ATTACK_DAMAGE, 0.06 * (tier - 1));
+        }
         monster.getPersistentData().putBoolean(Dungeons.MONSTER_TAG, true);
         monster.setPersistenceRequired();
         if (!inside.isEmpty()) {
@@ -409,6 +428,13 @@ final class Dungeon {
         level.addFreshEntity(monster);
         level.sendParticles(ParticleTypes.SOUL, x, FLOOR_Y + 1.5, z, 12, 0.3, 0.6, 0.3, 0.02);
         return monster;
+    }
+
+    private static void boost(Monster monster, Holder<Attribute> attribute, double amount) {
+        AttributeInstance instance = monster.getAttribute(attribute);
+        if (instance != null) {
+            instance.addPermanentModifier(new AttributeModifier(TIER_BOOST, amount, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
     }
 
     // Monsters that are gone without dying count as dead too, so a room can't get stuck. Only once the monsters in
@@ -502,24 +528,25 @@ final class Dungeon {
     // Loot for each member where the boss died, a key for the next tier each, and XP. The loot is better than what
     // monsters drop: a legendary with a greater bonus for everyone, items five levels above the monsters, bonuses that
     // always roll in the top half, more so at higher tiers (from 50% at tier I to the top 5% at tier X), and a much
-    // better chance of greater bonuses
+    // better chance of greater bonuses. Higher tiers give more items and more greater bonuses on the legendary
     private void complete(Vec3 at) {
         homeIn = HOME_DELAY;
         RandomSource random = level.getRandom();
         Rarity minimum = tier >= 5 ? Rarity.LEGENDARY : Rarity.RARE;
         int itemLevel = monsterLevel + 5;
         double floor = 0.5 + 0.05 * (tier - 1);
-        double greaterChance = 0.15 + 0.03 * (tier - 1);
-        Loot.Quality sureGreater = new Loot.Quality(floor, greaterChance, 1);
+        double greaterChance = 0.08 + 0.02 * (tier - 1);
         Loot.Quality quality = new Loot.Quality(floor, greaterChance, 0);
         int nextTier = Math.min(Dungeons.MAX_TIER, tier + 1);
         List<ServerPlayer> everyone = online();
         for (ServerPlayer player : everyone) {
             List<ItemStack> rewards = new ArrayList<>();
             PlayerClass playerClass = Progression.playerClass(player);
-            rewards.add(Loot.create(random, Rarity.LEGENDARY, itemLevel, playerClass, sureGreater));
+            // The legendary has at least one greater bonus, sometimes two or three, more often at higher tiers
+            int sure = 1 + (random.nextDouble() < 0.1 + 0.03 * (tier - 1) ? 1 : 0) + (random.nextDouble() < 0.02 + 0.01 * (tier - 1) ? 1 : 0);
+            rewards.add(Loot.createFor(player, random, Rarity.LEGENDARY, itemLevel, new Loot.Quality(floor, greaterChance, sure)));
             for (int i = 0; i < 1 + (tier - 1) / 3; i++) {
-                rewards.add(Loot.create(random, Rarity.roll(random, minimum), itemLevel, playerClass, quality));
+                rewards.add(Loot.createFor(player, random, Rarity.roll(random, minimum), itemLevel, quality));
             }
             if (random.nextDouble() < Config.MYTHIC_CHANCE_RIFT.get() * tier) {
                 ItemStack mythic = Loot.createMythic(random, itemLevel, playerClass);

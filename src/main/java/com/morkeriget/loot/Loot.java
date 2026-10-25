@@ -46,6 +46,8 @@ import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -83,7 +85,7 @@ public final class Loot {
     private static final double ROTTEN_FLESH_CHANCE = 0.25;
     // Greater bonuses, see Quality
     private static final String GREATER_TAG = "morkeriget_greater";
-    private static final double GREATER_BONUS = 1.5;
+    private static final double GREATER_BONUS = 2.0;
     private static final double NORMAL_GREATER_CHANCE = 0.03;
     private static final int GREATER_POWER = 25;
 
@@ -399,13 +401,63 @@ public final class Loot {
         return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass), null);
     }
 
+    // Loot for this player: rolled better than normal (see Quality), and a weapon is always the same kind as the one
+    // they fight with, so a ranger with a bow doesn't get a staff. Used for dungeon rewards
+    public static ItemStack createFor(ServerPlayer player, RandomSource random, Rarity rarity, int itemLevel, Quality quality) {
+        WeaponType type = weaponType(player);
+        Item item = randomItem(random, itemLevel, candidate -> type == null || weaponType(new ItemStack(candidate)) == null
+                || weaponType(new ItemStack(candidate)) == type);
+        if (item == null) {
+            item = randomItem(random, itemLevel);
+        }
+        PlayerClass playerClass = Progression.playerClass(player);
+        return roll(new ItemStack(item), random, rarity, itemLevel, null, null, power(random, rarity, playerClass), null, quality);
+    }
+
+    private enum WeaponType {
+        MELEE, STAFF, BOW, CROSSBOW
+    }
+
+    // null for armor, shields and jewelry
+    private static WeaponType weaponType(ItemStack stack) {
+        if (Staffs.isStaff(stack)) {
+            return WeaponType.STAFF;
+        }
+        if (stack.getItem() instanceof CrossbowItem) {
+            return WeaponType.CROSSBOW;
+        }
+        if (stack.getItem() instanceof ProjectileWeaponItem) {
+            return WeaponType.BOW;
+        }
+        return stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem ? WeaponType.MELEE : null;
+    }
+
+    // What the player fights with: the weapon slot, then the hand, then what fits their class. null if nothing does
+    private static WeaponType weaponType(ServerPlayer player) {
+        for (ItemStack stack : List.of(player.getInventory().getItem(0), player.getMainHandItem())) {
+            WeaponType type = weaponType(stack);
+            if (type != null) {
+                return type;
+            }
+        }
+        PlayerClass playerClass = Progression.playerClass(player);
+        if (playerClass == null) {
+            return null;
+        }
+        return switch (playerClass) {
+            case BARBARIAN -> WeaponType.MELEE;
+            case RANGER -> WeaponType.BOW;
+            case SORCERER, NECROMANCER -> WeaponType.STAFF;
+        };
+    }
+
     // The same, but rolled better than normal, see Quality. Used for dungeon rewards
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel, PlayerClass forClass, Quality quality) {
         return roll(new ItemStack(randomItem(random, itemLevel)), random, rarity, itemLevel, null, null, power(random, rarity, forClass), null, quality);
     }
 
     // How well an item's bonuses roll. floor is the worst a bonus can roll, from 0 (any roll) to 1 (always the best).
-    // Each bonus has greaterChance of being a greater bonus, like in Diablo 4: 50% stronger and marked with ✦ in the
+    // Each bonus has greaterChance of being a greater bonus, like in Diablo 4: twice as strong and marked with ✦ in the
     // tooltip. guaranteed is how many greater bonuses the item has at least
     public record Quality(double floor, double greaterChance, int guaranteed) {
         // Legendary, set and mythic loot sometimes has a greater bonus. Worse loot never does
