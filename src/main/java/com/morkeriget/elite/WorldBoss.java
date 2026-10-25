@@ -38,6 +38,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityTravelToDimensionEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -78,6 +79,7 @@ public final class WorldBoss {
         NeoForge.EVENT_BUS.addListener(WorldBoss::onServerTick);
         NeoForge.EVENT_BUS.addListener(WorldBoss::onDeath);
         NeoForge.EVENT_BUS.addListener(WorldBoss::onJoinLevel);
+        NeoForge.EVENT_BUS.addListener(WorldBoss::onTravel);
         NeoForge.EVENT_BUS.addListener(WorldBoss::registerCommands);
         // In singleplayer the game can go on to another world, which must start without this one's boss
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent stopping) -> {
@@ -134,6 +136,13 @@ public final class WorldBoss {
             event.defeated(death.getEntity());
             event = null;
             untilNext = Config.WORLD_BOSS_INTERVAL.get() * 60 - WARNING;
+        }
+    }
+
+    // The event only follows the boss in the overworld, so a world boss lured through a portal would just be gone
+    private static void onTravel(EntityTravelToDimensionEvent travel) {
+        if (travel.getEntity().getPersistentData().getBoolean(WORLD_BOSS_TAG)) {
+            travel.setCanceled(true);
         }
     }
 

@@ -52,6 +52,7 @@ import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -96,6 +97,7 @@ public final class Helltide {
         NeoForge.EVENT_BUS.addListener(Helltide::onDrops);
         NeoForge.EVENT_BUS.addListener(Helltide::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(Helltide::onBreak);
+        NeoForge.EVENT_BUS.addListener(Helltide::onExplosion);
         NeoForge.EVENT_BUS.addListener(Helltide::onServerStopping);
         NeoForge.EVENT_BUS.addListener(Helltide::onDamagePre);
     }
@@ -166,6 +168,13 @@ public final class Helltide {
     private static void onBreak(BlockEvent.BreakEvent event) {
         if (active != null && event.getLevel() == active.level && active.chests.contains(event.getPos())) {
             event.setCanceled(true);
+        }
+    }
+
+    // Nor blown up by creepers or TNT, which would leave a chest nobody can open in the list
+    private static void onExplosion(ExplosionEvent.Detonate event) {
+        if (active != null && event.getLevel() == active.level) {
+            event.getAffectedBlocks().removeIf(active.chests::contains);
         }
     }
 

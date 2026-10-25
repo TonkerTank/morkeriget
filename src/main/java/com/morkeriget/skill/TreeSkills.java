@@ -307,8 +307,9 @@ final class TreeSkills {
         if (event.getProjectile() instanceof Arrow hurricane && hurricane.getPersistentData().getBoolean(HURRICANE_TAG)
                 && hurricane.level() instanceof ServerLevel level) {
             Vec3 hit = event.getRayTraceResult().getLocation();
-            // Two arrows a volley at the same monster would otherwise bounce off while it is still flashing from the last
-            if (event.getRayTraceResult() instanceof EntityHitResult entityHit) {
+            // Two arrows a volley at the same monster would otherwise bounce off while it is still flashing from the last.
+            // Not for players, or a hurricane in PvP would hit them far more often than any other attack
+            if (event.getRayTraceResult() instanceof EntityHitResult entityHit && !(entityHit.getEntity() instanceof Player)) {
                 entityHit.getEntity().invulnerableTime = 0;
             }
             level.sendParticles(ParticleTypes.CRIT, hit.x, hit.y, hit.z, 10, 0.2, 0.2, 0.2, 0.3);
