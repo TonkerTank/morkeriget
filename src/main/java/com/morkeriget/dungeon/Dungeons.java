@@ -29,6 +29,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
@@ -340,9 +341,11 @@ public final class Dungeons {
         return MONSTER_XP / (boost != null ? 1 + boost.amount() : 1);
     }
 
+    // The boss loses at most BOSS_MAX_HIT of its health in one hit, but /kill and the void still kill it
     private static void onBossDamage(LivingDamageEvent.Pre event) {
         LivingEntity entity = event.getEntity();
-        if (entity.getPersistentData().getBoolean(MONSTER_TAG) && Bosses.isBoss(entity)) {
+        if (entity.getPersistentData().getBoolean(MONSTER_TAG) && Bosses.isBoss(entity)
+                && !event.getSource().is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
             event.setNewDamage(Math.min(event.getNewDamage(), entity.getMaxHealth() * BOSS_MAX_HIT));
         }
     }

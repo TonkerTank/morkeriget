@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.smithy.Gems;
 
 import net.minecraft.ChatFormatting;
@@ -130,13 +131,14 @@ public final class LootTooltips {
     }
 
     // A new ring is compared with the worst ring you wear, the one it would replace, and an amulet with the worst amulet.
-    // Empty if a slot is free, and null if the item is one of those you wear
-    private static ItemStack weakestWorn(ItemStack stack) {
+    // Empty if a slot is free, and null if the item is one of those you wear. The rings come first in the list, then the
+    // amulets, so a free amulet slot doesn't count as room for a ring
+    static ItemStack weakestWorn(ItemStack stack) {
+        boolean ring = stack.is(Jewelry.RING.get());
+        int from = ring ? 0 : Jewelry.RING_SLOTS;
+        int to = Math.min(ring ? Jewelry.RING_SLOTS : Jewelry.SLOTS, wornJewelry.size());
         ItemStack weakest = null;
-        for (ItemStack worn : wornJewelry) {
-            if (!worn.isEmpty() && !worn.is(stack.getItem())) {
-                continue;
-            }
+        for (ItemStack worn : wornJewelry.subList(Math.min(from, to), to)) {
             if (ItemStack.matches(worn, stack)) {
                 return null;
             }

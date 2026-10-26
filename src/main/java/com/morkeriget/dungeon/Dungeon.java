@@ -171,6 +171,10 @@ final class Dungeon {
         return !failed && homeIn < 0;
     }
 
+    int lives() {
+        return lives;
+    }
+
     private List<Room> allRooms() {
         List<Room> all = new ArrayList<>(rooms);
         all.addAll(sideRooms);

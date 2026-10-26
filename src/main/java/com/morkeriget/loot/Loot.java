@@ -420,7 +420,7 @@ public final class Loot {
 
     // From item level 20, when netherite and the star staff drop, the worse materials are left out of rewards, since
     // their base damage and armor are much lower
-    private static boolean outclassed(Item item, int itemLevel) {
+    static boolean outclassed(Item item, int itemLevel) {
         if (itemLevel < 20) {
             return false;
         }

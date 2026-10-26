@@ -248,8 +248,20 @@ public final class Bosses {
         level.sendParticles(ParticleTypes.SCULK_SOUL, boss.getX(), boss.getY() + 1, boss.getZ(), 80, 2, 1, 2, 0.05);
     }
 
-    private static boolean isShielded(Monster boss) {
+    static boolean isShielded(Monster boss) {
         return boss.getPersistentData().getLong(SHIELD_TAG) > boss.level().getGameTime();
+    }
+
+    static boolean isEnraged(Monster boss) {
+        return boss.getPersistentData().getBoolean(ENRAGED_TAG);
+    }
+
+    static boolean inFinalPhase(Monster boss) {
+        return boss.getPersistentData().getBoolean(FINAL_PHASE_TAG);
+    }
+
+    static boolean isShieldMinion(Monster monster, Monster boss) {
+        return boss.getStringUUID().equals(monster.getPersistentData().getString(SHIELD_MINION_TAG));
     }
 
     private static void enrage(ServerLevel level, Monster boss) {
