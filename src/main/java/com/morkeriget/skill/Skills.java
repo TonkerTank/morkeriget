@@ -211,7 +211,7 @@ public final class Skills {
         boolean maelstrom = LegendaryPower.has(player, LegendaryPower.MAELSTROM);
         // Each Whirlwind upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.WHIRLWIND);
-        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.5 * upgrade * (maelstrom ? 1.3 : 1));
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.1 * upgrade * (maelstrom ? 1.3 : 1));
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(WHIRLWIND_RADIUS),
                 entity -> Minions.isEnemy(entity))) {
             target.hurt(player.damageSources().playerAttack(player), damage);

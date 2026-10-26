@@ -150,7 +150,7 @@ public final class TrainingDummy {
     }
 
     // The player who did it: themselves, or the owner of the skeleton or wolf that did
-    private static ServerPlayer credit(ServerLevel level, Entity attacker) {
+    static ServerPlayer credit(ServerLevel level, Entity attacker) {
         if (attacker instanceof ServerPlayer player) {
             return player;
         }

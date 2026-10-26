@@ -58,7 +58,7 @@ final class ClassSkills {
     private static final double ARROW_RAIN_RANGE = 24.0;
     private static final double ARROW_RAIN_RADIUS = 4.0;
     // Before the bow's level and the ranger bonus. Three waves of this, half a second apart
-    private static final double ARROW_RAIN_DAMAGE = 4.0;
+    private static final double ARROW_RAIN_DAMAGE = 6.2;
     private static final int ARROW_RAIN_WAVES = 3;
     private static final int ARROW_RAIN_WAVE_TIME = 10;
     // Looking at the ground this close to an enemy still puts the rain on the enemy
@@ -70,6 +70,7 @@ final class ClassSkills {
     private static final double ARROW_DAMAGE = 2.0;
     // Summoned wolves and skeletons disappear at this game time
     static final String SUMMON_UNTIL_TAG = "morkeriget_summon_until";
+    static final String MULTISHOT_TAG = "morkeriget_multishot_arrow";
     private static final ResourceLocation WOLF_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "wolf_boost");
 
     // Players in the air after Leap, and when they jumped
@@ -150,7 +151,7 @@ final class ClassSkills {
         ServerLevel level = player.serverLevel();
         // Each Leap upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.LEAP);
-        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 1.8 * upgrade);
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.5 * upgrade);
         boolean earthbreaker = LegendaryPower.has(player, LegendaryPower.EARTHBREAKER);
         for (LivingEntity target : enemies(level, player.position(), LEAP_RADIUS)) {
             target.hurt(player.damageSources().playerAttack(player), damage);
@@ -225,7 +226,8 @@ final class ClassSkills {
             if (steps++ % 2 == 0) {
                 level.sendParticles(ParticleTypes.SMOKE, point.x, point.y, point.z, 1, 0.05, 0.05, 0.05, 0);
             }
-            if (!enemies(level, point, 0.6).isEmpty()) {
+            // What the ball touches, not how far it is from their feet, or it would fly over a monster aimed at the head
+            if (!level.getEntitiesOfClass(LivingEntity.class, new AABB(point, point).inflate(0.6), Minions::isEnemy).isEmpty()) {
                 impact = point;
                 break;
             }
@@ -262,6 +264,8 @@ final class ClassSkills {
         float spread = storm ? 6 : 8;
         for (int i = -side; i <= side; i++) {
             Arrow arrow = arrow(level, player, damage);
+            // So all of them can hit a monster up close, see TreeSkills.onProjectileImpact
+            arrow.getPersistentData().putBoolean(MULTISHOT_TAG, true);
             arrow.shootFromRotation(player, player.getXRot(), player.getYRot() + i * spread, 0, 3.0f, 1.0f);
             level.addFreshEntity(arrow);
             // A streak flying off the bow along each arrow, so the fan can be seen

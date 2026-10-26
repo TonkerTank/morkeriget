@@ -117,7 +117,7 @@ final class NecroSkills {
             army.get(i).discard();
         }
         // Death Lord adds 10% a rank
-        double strength = (1 + 0.05 * (Progression.level(player) - 1)) * (1 + 0.15 * rank)
+        double strength = (1 + 0.025 * (Progression.level(player) - 1)) * (1 + 0.15 * rank)
                 * (1 + 0.1 * Progression.rank(player, Upgrade.DEATH_LORD)) - 1;
         RandomSource random = player.getRandom();
         for (int i = 0; i < count; i++) {

@@ -1,7 +1,9 @@
 package com.morkeriget.progress;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -306,6 +308,16 @@ public final class Progression {
         if (speed.getValue() > max) {
             speed.addTransientModifier(new AttributeModifier(SPEED_CAP_ID, max / speed.getValue() - 1, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
+    }
+
+    // For the tests: the player gets this level and class with these ranks, as if the points were spent like that
+    public static void setForTests(ServerPlayer player, int level, PlayerClass playerClass, Map<Upgrade, Integer> ranks) {
+        Map<String, Integer> named = new HashMap<>();
+        ranks.forEach((upgrade, rank) -> named.put(upgrade.name(), rank));
+        PlayerProgress start = PlayerProgress.START;
+        player.setData(PROGRESS, new PlayerProgress(level, 0, 0, Map.copyOf(named), playerClass.name(), start.slots(), 0, 0, Map.of()));
+        applyPassives(player);
+        sync(player);
     }
 
     // The extra health, damage and speed aren't saved with the player, so they are put on again when they log in or respawn

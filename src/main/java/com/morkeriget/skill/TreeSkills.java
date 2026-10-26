@@ -53,7 +53,7 @@ final class TreeSkills {
     private static final String EXPLOSIVE_TAG = "morkeriget_explosive_arrow";
     private static final double EXPLOSIVE_RADIUS = 3.0;
     // Before the bow's level, the ranger bonus and Marksman, like Arrow Rain
-    private static final double EXPLOSIVE_DAMAGE = 6.0;
+    private static final double EXPLOSIVE_DAMAGE = 8.4;
     private static final double BEAR_TRAP_DAMAGE = 8.0;
     private static final double BEAR_TRAP_RADIUS = 1.5;
     private static final int BEAR_TRAP_LIFETIME = 15 * 20;
@@ -125,7 +125,7 @@ final class TreeSkills {
         Vec3 flat = new Vec3(look.x, 0, look.z);
         Vec3 center = flat.lengthSqr() < 0.01 ? player.position() : player.position().add(flat.normalize().scale(3));
         // Each Earthquake rank adds 20% damage
-        float damage = attackDamage(player, 0.6, Upgrade.EARTHQUAKE, 0.2);
+        float damage = attackDamage(player, 1.0, Upgrade.EARTHQUAKE, 0.2);
         // Aftershock makes it go on twice as long
         int pulses = LegendaryPower.has(player, LegendaryPower.AFTERSHOCK) ? EARTHQUAKE_PULSES * 2 : EARTHQUAKE_PULSES;
         add(player, new Effect(Kind.EARTHQUAKE, center, damage, pulses, level.getGameTime(), 0));
@@ -151,7 +151,7 @@ final class TreeSkills {
         Vec3 end = level.clip(new ClipContext(start, start.add(flat.scale(RUSH_DISTANCE)),
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player)).getLocation();
         // Each Rush rank adds 20% damage
-        float damage = attackDamage(player, 1.5, Upgrade.RUSH, 0.2);
+        float damage = attackDamage(player, 2.1, Upgrade.RUSH, 0.2);
         List<LivingEntity> hit = new ArrayList<>();
         double distance = end.distanceTo(start);
         // A burst of dust behind you as you push off
@@ -192,9 +192,9 @@ final class TreeSkills {
     static boolean meteor(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         Vec3 center = ClassSkills.arrowRainTarget(level, player);
-        // The sorcerer's big hit: three Fireballs' worth, since it is slow to come down and costs a lot.
+        // The sorcerer's big hit: almost three Fireballs' worth, since it is slow to come down and costs a lot.
         // Each Meteor rank adds 20% damage
-        float damage = attackDamage(player, 6.0, Upgrade.METEOR, 0.2);
+        float damage = attackDamage(player, 5.4, Upgrade.METEOR, 0.2);
         add(player, new Effect(Kind.METEOR, center, damage, 1, level.getGameTime() + METEOR_DELAY, 0));
         meteorMark(level, center);
         // Meteor Shower: two more a little after, a few blocks to the sides
@@ -303,6 +303,11 @@ final class TreeSkills {
     }
 
     static void onProjectileImpact(ProjectileImpactEvent event) {
+        // Multishot's arrows fly side by side, so up close several hit the same monster at once. Each one counts
+        if (event.getProjectile() instanceof Arrow multishot && multishot.getPersistentData().getBoolean(ClassSkills.MULTISHOT_TAG)
+                && event.getRayTraceResult() instanceof EntityHitResult entityHit && !(entityHit.getEntity() instanceof Player)) {
+            entityHit.getEntity().invulnerableTime = 0;
+        }
         // A burst of gold where an Arrow Hurricane arrow hits. The arrow itself works like any other
         if (event.getProjectile() instanceof Arrow hurricane && hurricane.getPersistentData().getBoolean(HURRICANE_TAG)
                 && hurricane.level() instanceof ServerLevel level) {
@@ -502,7 +507,7 @@ final class TreeSkills {
     static boolean doomSlam(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         // Each Doom Slam rank adds 20% damage
-        float damage = attackDamage(player, 3.0, Upgrade.DOOM_SLAM, 0.2);
+        float damage = attackDamage(player, 4.8, Upgrade.DOOM_SLAM, 0.2);
         player.setDeltaMovement(player.getDeltaMovement().x * 0.3, DOOM_SLAM_JUMP, player.getDeltaMovement().z * 0.3);
         player.hurtMarked = true;
         long now = level.getGameTime();
@@ -659,7 +664,7 @@ final class TreeSkills {
         Vec3 center = ClassSkills.arrowRainTarget(level, player);
         // Each Army of the Dead rank adds 20% damage, and every second rank an arm
         int rank = Progression.rank(player, Upgrade.ARMY_OF_THE_DEAD);
-        float damage = attackDamage(player, 1.8, Upgrade.ARMY_OF_THE_DEAD, 0.2);
+        float damage = attackDamage(player, 1.2, Upgrade.ARMY_OF_THE_DEAD, 0.2);
         int arms = ARMY_ARMS + Upgrade.utility(rank) / 2;
         add(player, new Effect(Kind.ARMY_OF_THE_DEAD, center, damage, arms, level.getGameTime() + 10, 0));
         SkillVisuals.ring(level, center, 0.1, ARMY_RADIUS, 48, SkillVisuals.SHADOW);
