@@ -1,5 +1,11 @@
 package com.morkeriget.progress;
 
+import java.util.List;
+
+import com.morkeriget.glyph.ClientGlyphs;
+import com.morkeriget.glyph.Glyph;
+import com.morkeriget.glyph.GlyphActionPayload;
+import com.morkeriget.glyph.Glyphs;
 import com.morkeriget.skill.SkillKeys;
 import com.morkeriget.ui.ThemedButton;
 import com.morkeriget.ui.UiTheme;
@@ -11,20 +17,30 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 // Spending paragon points, opened from the skill screen once you are level 100. The stats are in two columns, each
-// with a + button. Shift-click spends 10 points at once. Client only
+// with a + button. Shift-click spends 10 points at once. Below them are the glyph slots, see Glyphs. Client only
 public class ParagonScreen extends Screen {
     private static final int COLUMN_WIDTH = 190;
     private static final int COLUMN_GAP = 20;
+    private static final int TOTAL_WIDTH = 2 * COLUMN_WIDTH + COLUMN_GAP;
     private static final int ROW_HEIGHT = 30;
     private static final int COMPACT_ROW_HEIGHT = 25;
     private static final int ROWS = (Paragon.values().length + 1) / 2;
+    // The glyph section: a heading and a line for each slot
+    private static final int GLYPH_ROW = 14;
+    private static final int GLYPHS_HEIGHT = 18 + Glyph.MAX_SLOTS * GLYPH_ROW;
+    // The paragon level each slot opens at, see Glyph.slots
+    private static final int[] SLOT_LEVELS = {1, 10, 25, 50};
 
     public ParagonScreen() {
         super(Component.literal("Paragon"));
     }
 
+    private int left() {
+        return (width - TOTAL_WIDTH) / 2;
+    }
+
     private int columnLeft(Paragon stat) {
-        return (width - 2 * COLUMN_WIDTH - COLUMN_GAP) / 2 + (stat.ordinal() / ROWS) * (COLUMN_WIDTH + COLUMN_GAP);
+        return left() + (stat.ordinal() / ROWS) * (COLUMN_WIDTH + COLUMN_GAP);
     }
 
     // In the middle of the screen. The panel starts 8 above this
@@ -37,9 +53,9 @@ public class ParagonScreen extends Screen {
         return height < panelHeight(ROW_HEIGHT) ? COMPACT_ROW_HEIGHT : ROW_HEIGHT;
     }
 
-    // The title and points, the rows and "Tilbage"
+    // The title and points, the rows, the glyphs and "Tilbage"
     private static int panelHeight(int rowHeight) {
-        return 8 + 36 + ROWS * rowHeight + 32;
+        return 8 + 36 + ROWS * rowHeight + GLYPHS_HEIGHT + 32;
     }
 
     private int rowTop(int row) {
@@ -48,6 +64,18 @@ public class ParagonScreen extends Screen {
 
     private int rowTop(Paragon stat) {
         return rowTop(stat.ordinal() % ROWS);
+    }
+
+    private int glyphsTop() {
+        return rowTop(ROWS) + 4;
+    }
+
+    private int glyphRowTop(int slot) {
+        return glyphsTop() + 16 + slot * GLYPH_ROW;
+    }
+
+    private int bottom() {
+        return glyphsTop() + GLYPHS_HEIGHT;
     }
 
     @Override
@@ -61,12 +89,21 @@ public class ParagonScreen extends Screen {
             button.active = progress.paragonPoints() > 0 && progress.rank(stat) < stat.maxRank;
             addRenderableWidget(button);
         }
+        List<Glyphs.Socketed> glyphs = ClientGlyphs.get(Glyph.slots(progress.paragonLevel()));
+        for (int slot = 0; slot < glyphs.size(); slot++) {
+            if (glyphs.get(slot) != null) {
+                int index = slot;
+                addRenderableWidget(Button.builder(Component.literal("Tag ud"), pressed -> PacketDistributor.sendToServer(new GlyphActionPayload(index)))
+                        .bounds(left() + TOTAL_WIDTH - 50, glyphRowTop(slot) - 2, 50, 12)
+                        .build(ThemedButton::new));
+            }
+        }
         addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new SkillScreen()))
-                .bounds(width / 2 - 40, rowTop(ROWS) + 6, 80, 18)
+                .bounds(width / 2 - 40, bottom() + 6, 80, 18)
                 .build(ThemedButton::new));
     }
 
-    // Called when the server sends new values, e.g. right after clicking +
+    // Called when the server sends new values, e.g. right after clicking + or taking a glyph out
     public void refresh() {
         rebuildWidgets();
     }
@@ -74,8 +111,7 @@ public class ParagonScreen extends Screen {
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
-        int total = 2 * COLUMN_WIDTH + COLUMN_GAP;
-        UiTheme.panel(graphics, (width - total) / 2 - 8, top() - 8, total + 16, rowTop(ROWS) + 32 - (top() - 8));
+        UiTheme.panel(graphics, left() - 8, top() - 8, TOTAL_WIDTH + 16, bottom() + 32 - (top() - 8));
     }
 
     @Override
@@ -86,7 +122,7 @@ public class ParagonScreen extends Screen {
         UiTheme.title(graphics, font, "Paragon " + progress.paragonLevel(), center, top(), 0x55FFFF);
         int pointsColor = progress.paragonPoints() > 0 ? UiTheme.GOOD : UiTheme.MUTED;
         graphics.drawCenteredString(font, "Paragon-points: " + progress.paragonPoints() + "  (shift-klik giver 10)", center, top() + 14, pointsColor);
-        UiTheme.divider(graphics, (width - 2 * COLUMN_WIDTH - COLUMN_GAP) / 2, rowTop(0) - 6, 2 * COLUMN_WIDTH + COLUMN_GAP);
+        UiTheme.divider(graphics, left(), rowTop(0) - 6, TOTAL_WIDTH);
         for (Paragon stat : Paragon.values()) {
             int x = columnLeft(stat);
             int y = rowTop(stat);
@@ -94,6 +130,32 @@ public class ParagonScreen extends Screen {
             graphics.drawString(font, stat.displayName + "  " + rank + "/" + stat.maxRank, x, y + 4,
                     rank >= stat.maxRank ? 0xFFD700 : UiTheme.TEXT);
             graphics.drawString(font, stat.description, x, y + 16, UiTheme.MUTED);
+        }
+        renderGlyphs(graphics, progress.paragonLevel());
+    }
+
+    // A line for each of the four slots: the glyph and what it gives, a free slot, or the paragon level that opens it
+    private void renderGlyphs(GuiGraphics graphics, int paragonLevel) {
+        UiTheme.divider(graphics, left(), glyphsTop() - 2, TOTAL_WIDTH);
+        int slots = Glyph.slots(paragonLevel);
+        graphics.drawString(font, "Glyffer  " + slots + "/" + Glyph.MAX_SLOTS + " pladser  (stiger et level for hvert dungeon, op til 2 pr. tier)",
+                left(), glyphsTop() + 2, UiTheme.TEXT);
+        List<Glyphs.Socketed> glyphs = ClientGlyphs.get(slots);
+        for (int slot = 0; slot < Glyph.MAX_SLOTS; slot++) {
+            int y = glyphRowTop(slot);
+            if (slot >= slots) {
+                graphics.drawString(font, "Låst - åbner ved paragon " + SLOT_LEVELS[slot], left(), y, UiTheme.MUTED);
+                continue;
+            }
+            Glyphs.Socketed socketed = glyphs.get(slot);
+            if (socketed == null) {
+                graphics.drawString(font, "Ledig plads - højreklik på en glyf for at sætte den i", left(), y, UiTheme.MUTED);
+                continue;
+            }
+            Glyph glyph = socketed.glyph();
+            String name = glyph.displayName + " " + socketed.level() + "/" + Glyph.MAX_LEVEL;
+            graphics.drawString(font, name, left(), y, glyph.color.getColor());
+            graphics.drawString(font, glyph.describe(socketed.level()), left() + 110, y, UiTheme.TEXT);
         }
     }
 

@@ -8,6 +8,7 @@ import com.morkeriget.dummy.TrainingDummy;
 import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
+import com.morkeriget.glyph.Glyphs;
 import com.morkeriget.helltide.Helltide;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.journey.Journey;
@@ -72,5 +73,7 @@ public class Morkeriget {
         Journey.register(modEventBus);
         // A training dummy that shows your damage per second
         TrainingDummy.register(modEventBus);
+        // Glyphs for the paragon board, from dungeon bosses
+        Glyphs.register(modEventBus);
     }
 }

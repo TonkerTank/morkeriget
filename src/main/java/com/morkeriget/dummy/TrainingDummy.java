@@ -219,7 +219,7 @@ public final class TrainingDummy {
     }
 
     // For the tests: what the player has done to the dummy in the session going on now, or 0
-    static double total(Entity dummy, ServerPlayer player) {
+    public static double total(Entity dummy, ServerPlayer player) {
         Session session = SESSIONS.get(new Key(dummy.getUUID(), player.getUUID()));
         return session != null ? session.total : 0;
     }

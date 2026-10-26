@@ -12,6 +12,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
+import com.morkeriget.glyph.Glyphs;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.portal.TownPortal;
@@ -85,6 +86,8 @@ final class Dungeon {
     private static final float EXPLOSION_DAMAGE = 0.15f;
     private static final int METEOR_INTERVAL = 7 * 20;
     private static final double UBER_MYTHIC_CHANCE = 0.5;
+    private static final double GLYPH_CHANCE = 0.1;
+    private static final double GLYPH_CHANCE_PER_TIER = 0.03;
     private static final double METEOR_RADIUS = 2.5;
     private static final float METEOR_DAMAGE = 0.25f;
 
@@ -800,11 +803,16 @@ final class Dungeon {
             if (tier >= 3 && random.nextDouble() < 0.25 + 0.05 * tier) {
                 rewards.add(Uber.soulShard());
             }
+            // A glyph for the paragon board, from 13% at tier I to 40% at tier X
+            if (random.nextDouble() < GLYPH_CHANCE + GLYPH_CHANCE_PER_TIER * tier) {
+                rewards.add(Glyphs.random(random));
+            }
             rewards.add(TownPortal.scroll());
             for (ItemStack reward : rewards) {
                 level.addFreshEntity(new ItemEntity(level, at.x, at.y + 0.5, at.z, reward));
             }
             Progression.addXp(player, (int) ((150 + 25 * monsterLevel) * (1 + 0.25 * (tier - 1)) * affixBonus));
+            Glyphs.dungeonCleared(player, tier);
             player.sendSystemMessage(Component.literal(theme.displayName + " (" + Rifts.roman(tier) + ") er klaret! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(Component.literal("Saml jeres loot - I sendes hjem om " + HOME_DELAY / 20 + " sekunder. Du fik også en nøgle "
                             + Rifts.roman(nextTier) + ".").withStyle(ChatFormatting.YELLOW)));
@@ -814,7 +822,7 @@ final class Dungeon {
     }
 
     // The best rewards in the game: two legendaries with more and greater bonuses than a tier X dungeon gives, a good
-    // chance of a mythic, plenty of essence and better gems
+    // chance of a mythic, plenty of essence, better gems and always a glyph
     private void completeUber(Vec3 at, RandomSource random) {
         int itemLevel = monsterLevel + 10;
         for (ServerPlayer player : online()) {
@@ -833,11 +841,13 @@ final class Dungeon {
             for (int i = 0; i < 3; i++) {
                 rewards.add(Gems.random(random, monsterLevel, 3));
             }
+            rewards.add(Glyphs.random(random));
             rewards.add(TownPortal.scroll());
             for (ItemStack reward : rewards) {
                 level.addFreshEntity(new ItemEntity(level, at.x, at.y + 0.5, at.z, reward));
             }
             Progression.addXp(player, 3000 + 100 * monsterLevel);
+            Glyphs.dungeonCleared(player, Dungeons.MAX_TIER);
             player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
             player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal("Saml jeres loot - I sendes hjem om " + HOME_DELAY / 20 + " sekunder")
                     .withStyle(ChatFormatting.YELLOW)));

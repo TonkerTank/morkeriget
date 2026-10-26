@@ -132,6 +132,10 @@ public final class Progression {
         return progress.level() + progress.paragonLevel() / PARAGON_PER_MONSTER_LEVEL;
     }
 
+    public static int paragonLevel(ServerPlayer player) {
+        return player.getData(PROGRESS).paragonLevel();
+    }
+
     public static int rank(ServerPlayer player, Upgrade upgrade) {
         return player.getData(PROGRESS).rank(upgrade);
     }
@@ -312,10 +316,14 @@ public final class Progression {
 
     // For the tests: the player gets this level and class with these ranks, as if the points were spent like that
     public static void setForTests(ServerPlayer player, int level, PlayerClass playerClass, Map<Upgrade, Integer> ranks) {
+        setForTests(player, level, 0, playerClass, ranks);
+    }
+
+    public static void setForTests(ServerPlayer player, int level, int paragonLevel, PlayerClass playerClass, Map<Upgrade, Integer> ranks) {
         Map<String, Integer> named = new HashMap<>();
         ranks.forEach((upgrade, rank) -> named.put(upgrade.name(), rank));
         PlayerProgress start = PlayerProgress.START;
-        player.setData(PROGRESS, new PlayerProgress(level, 0, 0, Map.copyOf(named), playerClass.name(), start.slots(), 0, 0, Map.of()));
+        player.setData(PROGRESS, new PlayerProgress(level, 0, 0, Map.copyOf(named), playerClass.name(), start.slots(), paragonLevel, 0, Map.of()));
         applyPassives(player);
         sync(player);
     }
