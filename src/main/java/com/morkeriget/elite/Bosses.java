@@ -195,6 +195,8 @@ public final class Bosses {
         if (isShielded(boss)) {
             tickShield(level, boss);
         }
+        // Also without a target, so fire rain or doom circles go off on time even if the player it was aimed at died
+        BossAbility.tickPending(level, boss);
 
         LivingEntity target = boss.getTarget();
         if (target == null || !target.isAlive()) {
@@ -223,7 +225,6 @@ public final class Bosses {
             BossAbility next = uber ? UBER_ROTATION.get(count % UBER_ROTATION.size()) : enraged && count % 2 == 1 ? BossAbility.DOOM_CIRCLES : ability;
             next.use(level, boss, target);
         }
-        BossAbility.tickPending(level, boss);
     }
 
     // Mørkets Herre, the uber boss summoned with Mørkets Kald (see Uber): a boss with a bigger body that uses every

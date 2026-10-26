@@ -12,6 +12,7 @@ import com.morkeriget.elite.Elites;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.rift.RiftAffix;
 import com.morkeriget.rift.Rifts;
+import com.morkeriget.skill.Minions;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
@@ -39,6 +40,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -322,11 +324,30 @@ public final class Dungeons {
         }
     }
 
-    // Dungeon monsters are saved with the world, but the dungeon isn't. Ones left over from before a restart are removed
+    // Dungeon monsters are saved with the world, but the dungeon isn't. Ones left over from before a restart, or from a
+    // dungeon that has closed, are removed
     private static void onJoinLevel(EntityJoinLevelEvent event) {
-        if (!event.getLevel().isClientSide() && event.getEntity().getPersistentData().getBoolean(MONSTER_TAG)
-                && dungeonWith(event.getEntity()) == null) {
-            event.setCanceled(true);
+        Entity entity = event.getEntity();
+        if (event.getLevel().isClientSide()) {
+            return;
+        }
+        if (entity.getPersistentData().getBoolean(MONSTER_TAG)) {
+            if (dungeonWith(entity) == null) {
+                event.setCanceled(true);
+            }
+            return;
+        }
+        // Monsters the dungeon didn't spawn itself, like the boss's helpers, belong to the dungeon they come into, so
+        // they go away with it. One from before this, or outside any dungeon, has nothing to be in
+        if (entity.level().dimension() == LEVEL && entity instanceof Monster && !Minions.isAlly(entity)) {
+            Dungeon dungeon = event.loadedFromDisk() ? null
+                    : ACTIVE.stream().filter(active -> active.contains(entity.getX())).findFirst().orElse(null);
+            if (dungeon == null) {
+                event.setCanceled(true);
+                return;
+            }
+            entity.getPersistentData().putBoolean(MONSTER_TAG, true);
+            dungeon.addExtra(entity);
         }
     }
 
@@ -472,13 +493,20 @@ public final class Dungeons {
         }
     }
 
-    // The lodestone at the entrance is the way out
+    // The lodestone at the entrance is the way out, and a treasure chest stays shut while its guards are alive
     private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || !isInDungeon(player)) {
             return;
         }
         Dungeon dungeon = dungeonOf(player);
         BlockPos pos = event.getPos();
+        if (dungeon != null && dungeon.isLockedChest(pos)) {
+            event.setCanceled(true);
+            if (event.getHand() == InteractionHand.MAIN_HAND) {
+                player.displayClientMessage(Component.literal("Kisten er låst - dræb dens vogtere først").withStyle(ChatFormatting.RED), true);
+            }
+            return;
+        }
         if (dungeon != null ? dungeon.isExit(pos) : player.level().getBlockState(pos).is(Blocks.LODESTONE)) {
             event.setCanceled(true);
             if (event.getHand() == InteractionHand.MAIN_HAND) {

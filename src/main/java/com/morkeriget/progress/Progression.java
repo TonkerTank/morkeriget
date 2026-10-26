@@ -291,7 +291,6 @@ public final class Progression {
         sync(player);
     }
 
-    // The extra health, damage and speed aren't saved with the player, so they are put on again when they log in or respawn
     // Speed bonuses on many items add up, and past a point you can't control where you are going. Once a second the
     // speed is worked out without the cap, and if it is too high a modifier takes it down to MAX_SPEED
     private static void capSpeed(PlayerTickEvent.Post event) {
@@ -309,6 +308,7 @@ public final class Progression {
         }
     }
 
+    // The extra health, damage and speed aren't saved with the player, so they are put on again when they log in or respawn
     private static void applyPassives(ServerPlayer player) {
         PlayerClass playerClass = playerClass(player);
         AttributeInstance health = player.getAttribute(Attributes.MAX_HEALTH);

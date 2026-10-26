@@ -9,10 +9,12 @@ import com.morkeriget.gametest.TestPlayers;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Rarity;
+import com.morkeriget.rift.Rifts;
 import com.morkeriget.smithy.Smithy;
 import com.morkeriget.uber.Uber;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
@@ -21,6 +23,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
@@ -31,7 +34,9 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -176,6 +181,73 @@ public final class DungeonTests {
         helper.assertTrue(Dungeons.dungeonOf(player) != null, "Spilleren er ikke med i dungeonet");
         TestPlayers.arrived(player);
         return player;
+    }
+
+    // A treasure chest can't be opened before its guards are dead
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void treasureChestLockedUntilGuardsDie(GameTestHelper helper) {
+        ServerPlayer player = enterDungeon(helper);
+        player.getAbilities().invulnerable = true;
+        Dungeon dungeon = Dungeons.dungeonOf(player);
+        helper.assertFalse(dungeon.treasureChests().isEmpty(), "Dungeonet har intet skatkammer");
+        BlockPos chest = dungeon.treasureChests().get(0);
+        ServerLevel level = player.serverLevel();
+        helper.assertTrue(level.getBlockState(chest).is(Blocks.CHEST), "Der står ingen kiste i skatkammeret");
+        helper.assertTrue(clickStopped(player, chest), "Kisten kunne åbnes, før nogen var gået ind i skatkammeret");
+        TestPlayers.moveTo(player, level, new Vec3(chest.getX() - 3.5, chest.getY(), chest.getZ() + 0.5));
+        AABB room = new AABB(chest).inflate(8);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertFalse(guards(level, room).isEmpty(), "Ingen vogtere kom, da spilleren gik ind i skatkammeret"))
+                .thenExecute(() -> {
+                    helper.assertTrue(clickStopped(player, chest), "Kisten kunne åbnes, mens vogterne levede");
+                    guards(level, room).forEach(Monster::kill);
+                })
+                .thenWaitUntil(() -> helper.assertFalse(clickStopped(player, chest), "Kisten var stadig låst, efter vogterne døde"))
+                .thenExecute(() -> TestPlayers.remove(player))
+                .thenSucceed();
+    }
+
+    private static List<Monster> guards(ServerLevel level, AABB room) {
+        return level.getEntitiesOfClass(Monster.class, room, Monster::isAlive);
+    }
+
+    // A right-click on the block, like a real one. True if something stopped it
+    private static boolean clickStopped(ServerPlayer player, BlockPos pos) {
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
+        return CommonHooks.onRightClickBlock(player, InteractionHand.MAIN_HAND, pos, hit).isCanceled();
+    }
+
+    // Monsters that come into a dungeon from something else than the dungeon, like the boss's helpers, go away with it.
+    // Outside every dungeon none can come in
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void monstersThatComeInGoAwayWithTheDungeon(GameTestHelper helper) {
+        ServerPlayer player = enterDungeon(helper);
+        Dungeon dungeon = Dungeons.dungeonOf(player);
+        ServerLevel level = player.serverLevel();
+        Husk husk = EntityType.HUSK.create(level);
+        husk.moveTo(player.getX() + 2, player.getY(), player.getZ() + 2, 0, 0);
+        helper.assertTrue(level.addFreshEntity(husk), "Monstret kunne ikke komme ind i dungeonet");
+        helper.assertTrue(dungeon.owns(husk.getUUID()), "Dungeonet holder ikke styr på monstret");
+        Husk stray = EntityType.HUSK.create(level);
+        stray.moveTo(-SLOT_SPACING * 10, FLOOR_Y + 1, 0, 0, 0);
+        helper.assertFalse(level.addFreshEntity(stray), "Et monster kunne komme ind i dungeon-dimensionen uden for et dungeon");
+        dungeon.leave(player);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(husk.isRemoved(), "Monstret blev, da dungeonet lukkede"))
+                .thenExecute(() -> TestPlayers.remove(player))
+                .thenSucceed();
+    }
+
+    // A rift stone does nothing in a dungeon and isn't used up
+    @GameTest(template = "empty")
+    public static void noRiftInDungeon(GameTestHelper helper) {
+        ServerPlayer player = enterDungeon(helper);
+        player.setItemInHand(InteractionHand.MAIN_HAND, Rifts.stone(1));
+        player.getMainHandItem().use(player.level(), player, InteractionHand.MAIN_HAND);
+        helper.assertFalse(Rifts.isInRift(player), "En rift åbnede inde i et dungeon");
+        helper.assertTrue(player.getMainHandItem().getCount() == 1, "Riftstenen blev brugt op");
+        TestPlayers.remove(player);
+        helper.succeed();
     }
 
     // Monsters can't change the dungeon, but they can outside it

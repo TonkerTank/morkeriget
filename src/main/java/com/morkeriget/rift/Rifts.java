@@ -16,6 +16,7 @@ import com.mojang.serialization.Codec;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.bounty.Bounties;
+import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
@@ -231,6 +232,11 @@ public final class Rifts {
         // Monsters are taken away right away on Peaceful
         if (player.serverLevel().getDifficulty() == Difficulty.PEACEFUL) {
             player.displayClientMessage(Component.literal("Rifts virker ikke på Peaceful"), true);
+            return false;
+        }
+        // The same the other way round, see Dungeons.open
+        if (Dungeons.isInDungeon(player)) {
+            player.displayClientMessage(Component.literal("Rifts virker ikke i et dungeon"), true);
             return false;
         }
         Rift rift = new Rift(player, tier, affixes);

@@ -1,9 +1,12 @@
 package com.morkeriget.elite;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.gametest.TestPlayers;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
@@ -16,6 +19,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @GameTestHolder(Morkeriget.MODID)
 @PrefixGameTestTemplate(false)
 public final class BossTests {
+    // Players need this long after they join before they can be hurt
+    private static final int SPAWN_PROTECTION = 61;
+
     private BossTests() {
     }
 
@@ -48,6 +54,22 @@ public final class BossTests {
                     boss.setHealth(boss.getMaxHealth() * 0.2f);
                 })
                 .thenWaitUntil(() -> helper.assertTrue(Bosses.inFinalPhase(boss), "Fase 3 startede ikke ved en fjerdedel liv"))
+                .thenSucceed();
+    }
+
+    // Doom Circles go off on time even if the boss has no target anymore, e.g. because the player died
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void doomCirclesGoOffWithoutTarget(GameTestHelper helper) {
+        WitherSkeleton boss = spawn(helper);
+        Bosses.makeBoss(boss);
+        // No AI, so it never picks a target of its own
+        boss.setNoAi(true);
+        ServerPlayer player = TestPlayers.survivor(helper, new BlockPos(2, 2, 2));
+        helper.startSequence()
+                .thenIdle(SPAWN_PROTECTION)
+                .thenExecute(() -> BossAbility.DOOM_CIRCLES.use(helper.getLevel(), boss, player))
+                .thenWaitUntil(() -> helper.assertTrue(player.getHealth() < player.getMaxHealth(), "Dødscirklen gik ikke af, da bossen intet mål havde"))
+                .thenExecute(() -> TestPlayers.remove(player))
                 .thenSucceed();
     }
 

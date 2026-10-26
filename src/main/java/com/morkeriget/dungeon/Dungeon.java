@@ -130,6 +130,9 @@ final class Dungeon {
     private final List<Room> treasureParents = new ArrayList<>();
     // The monsters that really died, as opposed to just being gone
     private final Set<UUID> died = new HashSet<>();
+    // Monsters the dungeon didn't spawn itself but that came in while it was going, like the boss's helpers. They don't
+    // count for clearing rooms, but they go away with the dungeon, see Dungeons.onJoinLevel
+    private final Set<UUID> extras = new HashSet<>();
     private final List<Hazard> hazards = new ArrayList<>();
     private final ServerBossEvent bar = new ServerBossEvent(Component.literal("Dungeon"), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
     private UUID bossId;
@@ -163,7 +166,30 @@ final class Dungeon {
     }
 
     boolean owns(UUID monster) {
-        return monster.equals(bossId) || allRooms().stream().anyMatch(room -> room.alive.contains(monster));
+        return monster.equals(bossId) || extras.contains(monster) || allRooms().stream().anyMatch(room -> room.alive.contains(monster));
+    }
+
+    void addExtra(Entity monster) {
+        extras.add(monster.getUUID());
+    }
+
+    // Whether the spot is in this dungeon's part of the dimension, see SLOT_SPACING
+    boolean contains(double x) {
+        return Math.abs(x - slot * SLOT_SPACING) < SLOT_SPACING / 2.0;
+    }
+
+    // A treasure room's chest can't be opened until its guards are dead
+    boolean isLockedChest(BlockPos pos) {
+        return sideRooms.stream().anyMatch(room -> !room.cleared && pos.equals(chestPos(room)));
+    }
+
+    private BlockPos chestPos(Room room) {
+        return new BlockPos(originX(room) + 7, FLOOR_Y + 1, originZ(room) + 7);
+    }
+
+    // For the tests
+    List<BlockPos> treasureChests() {
+        return sideRooms.stream().map(this::chestPos).toList();
     }
 
     // Still going, so a player who dies can come back in
@@ -343,7 +369,7 @@ final class Dungeon {
         if (room.kind == Kind.ENTRANCE) {
             set(x0 + 7, FLOOR_Y + 1, z0 + 7, Blocks.LODESTONE.defaultBlockState());
         } else if (room.kind == Kind.TREASURE) {
-            BlockPos pos = new BlockPos(x0 + 7, FLOOR_Y + 1, z0 + 7);
+            BlockPos pos = chestPos(room);
             set(pos.getX(), pos.getY(), pos.getZ(), Blocks.CHEST.defaultBlockState());
             fillChest(pos, random);
         }
@@ -477,8 +503,7 @@ final class Dungeon {
         List<ServerPlayer> players = new ArrayList<>();
         for (UUID id : members) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(id);
-            if (player != null && player.level() == level && player.isAlive()
-                    && Math.abs(player.getX() - slot * SLOT_SPACING) < SLOT_SPACING / 2.0) {
+            if (player != null && player.level() == level && player.isAlive() && contains(player.getX())) {
                 players.add(player);
             }
         }
@@ -841,7 +866,8 @@ final class Dungeon {
         }
     }
 
-    // Everyone still here goes home, and the monsters go away
+    // Everyone still here goes home, and the monsters go away. The ones in chunks that aren't loaded are removed when
+    // they are loaded again, see Dungeons.onJoinLevel
     void close() {
         bar.removeAllPlayers();
         for (ServerPlayer player : online()) {
@@ -851,13 +877,18 @@ final class Dungeon {
             }
         }
         for (Room room : allRooms()) {
-            for (UUID id : room.alive) {
-                Entity entity = level.getEntity(id);
-                if (entity != null) {
-                    entity.discard();
-                }
-            }
-            room.alive.clear();
+            discard(room.alive);
         }
+        discard(extras);
+    }
+
+    private void discard(Set<UUID> monsters) {
+        for (UUID id : monsters) {
+            Entity entity = level.getEntity(id);
+            if (entity != null) {
+                entity.discard();
+            }
+        }
+        monsters.clear();
     }
 }
