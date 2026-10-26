@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "minecraft:armor_stand" },
+    { "item": "minecraft:hay_block" }
+  ],
+  "result": {
+    "id": "morkeriget:training_dummy",
+    "count": 1
+  }
+}

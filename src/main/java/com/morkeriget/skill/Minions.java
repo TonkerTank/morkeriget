@@ -36,7 +36,7 @@ public final class Minions {
     }
 
     // The player a minion fights for, if they are online, or null
-    static ServerPlayer owner(ServerLevel level, Entity minion) {
+    public static ServerPlayer owner(ServerLevel level, Entity minion) {
         if (!isAlly(minion)) {
             return null;
         }

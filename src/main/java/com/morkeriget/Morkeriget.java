@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 
 import com.morkeriget.bounty.Bounties;
 import com.morkeriget.combat.PlayerHits;
+import com.morkeriget.dummy.TrainingDummy;
 import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
@@ -69,5 +70,7 @@ public class Morkeriget {
         Helltide.register(modEventBus);
         // The season journey: goals in four chapters with rewards
         Journey.register(modEventBus);
+        // A training dummy that shows your damage per second
+        TrainingDummy.register(modEventBus);
     }
 }
