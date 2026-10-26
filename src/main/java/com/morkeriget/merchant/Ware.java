@@ -1,11 +1,14 @@
 package com.morkeriget.merchant;
 
+import java.util.Locale;
 import java.util.function.Predicate;
 
+import com.morkeriget.Text;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.loot.ItemKind;
 import com.morkeriget.loot.Staffs;
 
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Item;
@@ -13,23 +16,26 @@ import net.minecraft.world.item.ItemStack;
 
 // What the merchant sells: a random item of one kind, and what it costs in essence
 public enum Ware {
-    WEAPON("Våben", 15),
-    STAFF("Stav", 15),
-    RANGED("Bue", 15),
-    HELMET("Hjelm", 12),
-    CHEST("Brystplade", 12),
-    LEGS("Bukser", 12),
-    BOOTS("Støvler", 12),
-    SHIELD("Skjold", 12),
-    RING("Ring", 20),
-    AMULET("Amulet", 20);
+    // Names are in the language files, under ware.<name>
+    WEAPON(15),
+    STAFF(15),
+    RANGED(15),
+    HELMET(12),
+    CHEST(12),
+    LEGS(12),
+    BOOTS(12),
+    SHIELD(12),
+    RING(20),
+    AMULET(20);
 
-    public final String displayName;
     public final int price;
 
-    Ware(String displayName, int price) {
-        this.displayName = displayName;
+    Ware(int price) {
         this.price = price;
+    }
+
+    public MutableComponent displayName() {
+        return Text.tr("ware." + name().toLowerCase(Locale.ROOT));
     }
 
     // Which base items count as this ware

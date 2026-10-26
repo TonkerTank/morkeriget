@@ -2,10 +2,12 @@ package com.morkeriget.dummy;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.skill.Minions;
 
@@ -109,7 +111,7 @@ public final class TrainingDummy {
         dummy.setSilent(true);
         dummy.setPersistenceRequired();
         dummy.setCanPickUpLoot(false);
-        dummy.setCustomName(Component.literal("Træningsdukke").withStyle(ChatFormatting.YELLOW));
+        dummy.setCustomName(Text.tr("dummy.name").withStyle(ChatFormatting.YELLOW));
         dummy.setCustomNameVisible(true);
         AttributeInstance health = dummy.getAttribute(Attributes.MAX_HEALTH);
         if (health != null) {
@@ -179,25 +181,25 @@ public final class TrainingDummy {
                 continue;
             }
             if (over) {
-                player.sendSystemMessage(Component.literal("Træningsdukke: ").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
-                        .append(Component.literal(number(session.perSecond(session.last)) + " skade/sek").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
-                        .append(Component.literal(" - " + number(session.total) + " skade på " + seconds(session.last - session.first)
-                                + ", " + session.hits + " slag, største " + number(session.biggest)).withStyle(ChatFormatting.GRAY)));
+                player.sendSystemMessage(Text.tr("dummy.result").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
+                        .append(Text.tr("dummy.dps", number(session.perSecond(session.last))).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD))
+                        .append(Text.tr("dummy.result.info", number(session.total), seconds(session.last - session.first),
+                                session.hits, number(session.biggest)).withStyle(ChatFormatting.GRAY)));
             } else {
-                player.displayClientMessage(Component.literal(number(session.perSecond(now)) + " skade/sek").withStyle(ChatFormatting.GOLD)
-                        .append(Component.literal("  i alt " + number(session.total) + "  største " + number(session.biggest))
+                player.displayClientMessage(Text.tr("dummy.dps", number(session.perSecond(now))).withStyle(ChatFormatting.GOLD)
+                        .append(Text.tr("dummy.live", number(session.total), number(session.biggest))
                                 .withStyle(ChatFormatting.GRAY)), true);
             }
         }
     }
 
-    // E.g. "1.234", or "12,5" below a hundred
+    // E.g. "1,234", or "12.5" below a hundred
     private static String number(double value) {
-        return value < 100 ? String.format("%.1f", value).replace('.', ',') : String.format("%,d", Math.round(value)).replace(',', '.');
+        return value < 100 ? String.format(Locale.ROOT, "%.1f", value) : String.format(Locale.ROOT, "%,d", Math.round(value));
     }
 
     private static String seconds(long ticks) {
-        return String.format("%.1f sek.", Math.max(1.0, ticks / 20.0)).replace('.', ',');
+        return String.format(Locale.ROOT, "%.1fs", Math.max(1.0, ticks / 20.0));
     }
 
     // Sneak and right-click it with an empty hand to take it down and get the item back

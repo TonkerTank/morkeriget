@@ -2,6 +2,7 @@ package com.morkeriget.uber;
 
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.dungeon.Dungeons;
 
 import net.minecraft.ChatFormatting;
@@ -35,9 +36,9 @@ public class UberSummonItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
-        lines.add(Component.literal("Højreklik for at kalde Mørkets Herre").withStyle(ChatFormatting.DARK_PURPLE));
-        lines.add(Component.literal("Spillets stærkeste boss, med tre faser").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("Spillere tæt på dig kommer med").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("Høj chance for mytiske genstande").withStyle(ChatFormatting.GOLD));
+        lines.add(Text.tr("tooltip.uber.1").withStyle(ChatFormatting.DARK_PURPLE));
+        lines.add(Text.tr("tooltip.uber.2").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("tooltip.uber.3").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("tooltip.uber.4").withStyle(ChatFormatting.GOLD));
     }
 }

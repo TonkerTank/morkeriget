@@ -1,5 +1,6 @@
 package com.morkeriget.progress;
 
+import com.morkeriget.Text;
 import com.morkeriget.skill.Skill;
 import com.morkeriget.skill.SkillBar;
 import com.morkeriget.ui.ThemedButton;
@@ -23,7 +24,7 @@ public class ClassScreen extends Screen {
     private static final int GAP = 2;
 
     public ClassScreen() {
-        super(Component.literal("Vælg klasse"));
+        super(Text.tr("class.title"));
     }
 
     private int panelLeft(PlayerClass playerClass) {
@@ -49,13 +50,13 @@ public class ClassScreen extends Screen {
     protected void init() {
         PlayerClass current = ClientProgress.get().chosenClass();
         for (PlayerClass playerClass : PlayerClass.values()) {
-            String text = playerClass == current ? "Nulstil" : "Vælg";
-            addRenderableWidget(Button.builder(Component.literal(text), pressed -> PacketDistributor.sendToServer(new ChooseClassPayload(playerClass)))
+            Component text = Text.tr(playerClass == current ? "class.reset" : "class.pick");
+            addRenderableWidget(Button.builder(text, pressed -> PacketDistributor.sendToServer(new ChooseClassPayload(playerClass)))
                     .bounds(panelLeft(playerClass) + 6, top() + panelHeight() - 24, PANEL_WIDTH - 12, 18)
                     .build(ThemedButton::new));
         }
         if (current != null) {
-            addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new SkillScreen()))
+            addRenderableWidget(Button.builder(Text.tr("button.back"), pressed -> minecraft.setScreen(new SkillScreen()))
                     .bounds(width / 2 - 40, top() + panelHeight() + 8, 80, 18)
                     .build(ThemedButton::new));
         }
@@ -85,26 +86,24 @@ public class ClassScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         int top = top();
-        UiTheme.title(graphics, font, "Vælg din klasse", width / 2, top - 24);
-        String note = ClientProgress.get().chosenClass() == null
-                ? "Du kan altid skifte senere i K"
-                : "Skifter du klasse, får du alle dine skill-points tilbage";
+        UiTheme.title(graphics, font, Text.tr("class.heading"), width / 2, top - 24);
+        Component note = Text.tr(ClientProgress.get().chosenClass() == null ? "class.note_first" : "class.note_change");
         graphics.drawCenteredString(font, note, width / 2, top - 12, UiTheme.MUTED);
 
         for (PlayerClass playerClass : PlayerClass.values()) {
             int x = panelLeft(playerClass);
-            graphics.drawCenteredString(font, playerClass.displayName, x + PANEL_WIDTH / 2, top + 6, playerClass.color);
+            graphics.drawCenteredString(font, playerClass.displayName(), x + PANEL_WIDTH / 2, top + 6, playerClass.color);
             int y = top + 18;
             if (!compact()) {
-                graphics.drawWordWrap(font, Component.literal(playerClass.description), x + 5, y, PANEL_WIDTH - 10, UiTheme.MUTED);
+                graphics.drawWordWrap(font, playerClass.description(), x + 5, y, PANEL_WIDTH - 10, UiTheme.MUTED);
                 y += DESCRIPTION_HEIGHT;
             }
             for (Skill skill : playerClass.skills) {
                 graphics.renderItem(SkillBar.icon(skill), x + 3, y);
-                graphics.drawString(font, skill.displayName, x + 21, y + 4, UiTheme.TEXT);
+                graphics.drawString(font, skill.displayName(), x + 21, y + 4, UiTheme.TEXT);
                 y += 15;
             }
-            graphics.drawWordWrap(font, Component.literal(playerClass.bonus), x + 5, y + 2, PANEL_WIDTH - 10, playerClass.color);
+            graphics.drawWordWrap(font, playerClass.bonus(), x + 5, y + 2, PANEL_WIDTH - 10, playerClass.color);
         }
     }
 

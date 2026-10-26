@@ -4,6 +4,7 @@ import java.util.function.Supplier;
 
 import com.mojang.serialization.Codec;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 
 import io.netty.buffer.ByteBuf;
 import net.minecraft.ChatFormatting;
@@ -25,8 +26,8 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 // drops as essence instead, so the ground isn't full of junk at high levels. Saved on the player and kept on death
 public final class LootFilter {
     // What the player sees for each setting. Setting n hides the first n rarities, so 3 hides common, magic and rare
-    private static final String[] SETTINGS = {"Vis alt", "Skjul almindelige", "Skjul almindelige og magiske",
-            "Skjul alt under legendarisk"};
+    // The settings' names are in the language files, under filter.<number>
+    private static final int SETTINGS = 4;
 
     private static final DeferredRegister<AttachmentType<?>> ATTACHMENTS = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Morkeriget.MODID);
     private static final Supplier<AttachmentType<Integer>> SETTING = ATTACHMENTS.register("loot_filter",
@@ -60,10 +61,10 @@ public final class LootFilter {
 
     private static void handle(CyclePayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
-            int setting = (player.getData(SETTING) + 1) % SETTINGS.length;
+            int setting = (player.getData(SETTING) + 1) % SETTINGS;
             player.setData(SETTING, setting);
-            player.displayClientMessage(Component.literal("Loot-filter: ").withStyle(ChatFormatting.GOLD)
-                    .append(Component.literal(SETTINGS[setting]).withStyle(ChatFormatting.YELLOW)), true);
+            player.displayClientMessage(Text.tr("filter.title").withStyle(ChatFormatting.GOLD)
+                    .append(Text.tr("filter." + setting).withStyle(ChatFormatting.YELLOW)), true);
             player.playNotifySound(SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.PLAYERS, 0.5f, 1.2f);
         }
     }

@@ -2,6 +2,7 @@ package com.morkeriget.progress;
 
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.glyph.ClientGlyphs;
 import com.morkeriget.glyph.Glyph;
 import com.morkeriget.glyph.GlyphActionPayload;
@@ -32,7 +33,7 @@ public class ParagonScreen extends Screen {
     private static final int[] SLOT_LEVELS = {1, 10, 25, 50};
 
     public ParagonScreen() {
-        super(Component.literal("Paragon"));
+        super(Text.tr("paragon.title"));
     }
 
     private int left() {
@@ -93,12 +94,12 @@ public class ParagonScreen extends Screen {
         for (int slot = 0; slot < glyphs.size(); slot++) {
             if (glyphs.get(slot) != null) {
                 int index = slot;
-                addRenderableWidget(Button.builder(Component.literal("Tag ud"), pressed -> PacketDistributor.sendToServer(new GlyphActionPayload(index)))
+                addRenderableWidget(Button.builder(Text.tr("paragon.take_out"), pressed -> PacketDistributor.sendToServer(new GlyphActionPayload(index)))
                         .bounds(left() + TOTAL_WIDTH - 50, glyphRowTop(slot) - 2, 50, 12)
                         .build(ThemedButton::new));
             }
         }
-        addRenderableWidget(Button.builder(Component.literal("Tilbage"), pressed -> minecraft.setScreen(new SkillScreen()))
+        addRenderableWidget(Button.builder(Text.tr("button.back"), pressed -> minecraft.setScreen(new SkillScreen()))
                 .bounds(width / 2 - 40, bottom() + 6, 80, 18)
                 .build(ThemedButton::new));
     }
@@ -119,17 +120,17 @@ public class ParagonScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         ProgressPayload progress = ClientProgress.get();
         int center = width / 2;
-        UiTheme.title(graphics, font, "Paragon " + progress.paragonLevel(), center, top(), 0x55FFFF);
+        UiTheme.title(graphics, font, Text.tr("paragon.level", progress.paragonLevel()), center, top(), 0x55FFFF);
         int pointsColor = progress.paragonPoints() > 0 ? UiTheme.GOOD : UiTheme.MUTED;
-        graphics.drawCenteredString(font, "Paragon-points: " + progress.paragonPoints() + "  (shift-klik giver 10)", center, top() + 14, pointsColor);
+        graphics.drawCenteredString(font, Text.tr("paragon.points", progress.paragonPoints()), center, top() + 14, pointsColor);
         UiTheme.divider(graphics, left(), rowTop(0) - 6, TOTAL_WIDTH);
         for (Paragon stat : Paragon.values()) {
             int x = columnLeft(stat);
             int y = rowTop(stat);
             int rank = progress.rank(stat);
-            graphics.drawString(font, stat.displayName + "  " + rank + "/" + stat.maxRank, x, y + 4,
+            graphics.drawString(font, stat.displayName().append("  " + rank + "/" + stat.maxRank), x, y + 4,
                     rank >= stat.maxRank ? 0xFFD700 : UiTheme.TEXT);
-            graphics.drawString(font, stat.description, x, y + 16, UiTheme.MUTED);
+            graphics.drawString(font, stat.description(), x, y + 16, UiTheme.MUTED);
         }
         renderGlyphs(graphics, progress.paragonLevel());
     }
@@ -138,23 +139,22 @@ public class ParagonScreen extends Screen {
     private void renderGlyphs(GuiGraphics graphics, int paragonLevel) {
         UiTheme.divider(graphics, left(), glyphsTop() - 2, TOTAL_WIDTH);
         int slots = Glyph.slots(paragonLevel);
-        graphics.drawString(font, "Glyffer  " + slots + "/" + Glyph.MAX_SLOTS + " pladser  (stiger et level for hvert dungeon, op til 2 pr. tier)",
+        graphics.drawString(font, Text.tr("paragon.glyphs", slots, Glyph.MAX_SLOTS),
                 left(), glyphsTop() + 2, UiTheme.TEXT);
         List<Glyphs.Socketed> glyphs = ClientGlyphs.get(slots);
         for (int slot = 0; slot < Glyph.MAX_SLOTS; slot++) {
             int y = glyphRowTop(slot);
             if (slot >= slots) {
-                graphics.drawString(font, "Låst - åbner ved paragon " + SLOT_LEVELS[slot], left(), y, UiTheme.MUTED);
+                graphics.drawString(font, Text.tr("paragon.locked", SLOT_LEVELS[slot]), left(), y, UiTheme.MUTED);
                 continue;
             }
             Glyphs.Socketed socketed = glyphs.get(slot);
             if (socketed == null) {
-                graphics.drawString(font, "Ledig plads - højreklik på en glyf for at sætte den i", left(), y, UiTheme.MUTED);
+                graphics.drawString(font, Text.tr("paragon.free_slot"), left(), y, UiTheme.MUTED);
                 continue;
             }
             Glyph glyph = socketed.glyph();
-            String name = glyph.displayName + " " + socketed.level() + "/" + Glyph.MAX_LEVEL;
-            graphics.drawString(font, name, left(), y, glyph.color.getColor());
+            graphics.drawString(font, glyph.displayName().append(" " + socketed.level() + "/" + Glyph.MAX_LEVEL), left(), y, glyph.color.getColor());
             graphics.drawString(font, glyph.describe(socketed.level()), left() + 110, y, UiTheme.TEXT);
         }
     }

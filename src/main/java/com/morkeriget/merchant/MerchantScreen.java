@@ -3,6 +3,7 @@ package com.morkeriget.merchant;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.progress.SkillScreen;
 import com.morkeriget.skill.SkillKeys;
 import com.morkeriget.smithy.Smithy;
@@ -35,16 +36,15 @@ public class MerchantScreen extends AbstractContainerScreen<MerchantMenu> {
     protected void init() {
         super.init();
         wareButtons.clear();
-        addRenderableWidget(Button.builder(Component.literal("Skills"), pressed -> backToSkills())
+        addRenderableWidget(Button.builder(Text.tr("button.skills"), pressed -> backToSkills())
                 .bounds(leftPos + imageWidth - 50, topPos + 2, 46, 16)
                 .build(ThemedButton::new));
-        Tooltip odds = Tooltip.create(Component.literal("En tilfældig genstand på dit level: "
-                + percent(1 - Merchant.LEGENDARY_CHANCE - Merchant.RARE_CHANCE) + " magisk, "
-                + percent(Merchant.RARE_CHANCE) + " sjælden og " + percent(Merchant.LEGENDARY_CHANCE) + " legendarisk"));
+        Tooltip odds = Tooltip.create(Text.tr("merchant.odds", percent(1 - Merchant.LEGENDARY_CHANCE - Merchant.RARE_CHANCE),
+                percent(Merchant.RARE_CHANCE), percent(Merchant.LEGENDARY_CHANCE)));
         for (Ware ware : Ware.values()) {
             int column = ware.ordinal() % 2;
             int row = ware.ordinal() / 2;
-            Button button = addRenderableWidget(Button.builder(Component.literal(ware.displayName + " " + ware.price),
+            Button button = addRenderableWidget(Button.builder(ware.displayName().append(" " + ware.price),
                             pressed -> minecraft.gameMode.handleInventoryButtonClick(menu.containerId, ware.ordinal()))
                     .bounds(leftPos + 8 + column * 82, topPos + BUTTON_Y + row * ROW, 78, 18)
                     .tooltip(odds)

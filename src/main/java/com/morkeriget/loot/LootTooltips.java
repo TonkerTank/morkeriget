@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
+import com.morkeriget.Text;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.smithy.Durability;
 import com.morkeriget.smithy.Gems;
@@ -32,17 +34,18 @@ public final class LootTooltips {
     private record Stat(Holder<Attribute> attribute, AttributeModifier.Operation operation) {
     }
 
-    private record Special(String tag, String text) {
+    // key is the text in the language files, compare.<key>, with the number for %s
+    private record Special(String tag, String key) {
     }
 
     private static final List<Special> SPECIALS = List.of(
-            new Special(Loot.LIFESTEAL_TAG, "%s%% livsstjæl"),
-            new Special(Loot.FIRE_TAG, "%s sek. ild"),
-            new Special(Loot.CRUSHING_TAG, "%s%% knusende slag"),
-            new Special(Loot.ARROW_DAMAGE_TAG, "%s%% pileskade"),
-            new Special(Loot.THORNS_TAG, "%s%% torne"),
-            new Special(Gems.MANA_REGEN_TAG, "%s%% hurtigere mana"),
-            new Special(Loot.STAFF_MANA_TAG, "%s%% hurtigere mana (stav)"));
+            new Special(Loot.LIFESTEAL_TAG, "lifesteal"),
+            new Special(Loot.FIRE_TAG, "fire"),
+            new Special(Loot.CRUSHING_TAG, "crushing"),
+            new Special(Loot.ARROW_DAMAGE_TAG, "arrow_damage"),
+            new Special(Loot.THORNS_TAG, "thorns"),
+            new Special(Gems.MANA_REGEN_TAG, "mana"),
+            new Special(Loot.STAFF_MANA_TAG, "staff_mana"));
 
     private LootTooltips() {
     }
@@ -57,11 +60,11 @@ public final class LootTooltips {
         int top = 1;
         if (Favorites.is(stack)) {
             event.getToolTip().add(Math.min(top++, event.getToolTip().size()),
-                    Component.literal("★ Favorit - kan ikke smeltes (Alt+klik fjerner)").withStyle(ChatFormatting.GOLD));
+                    Text.tr("tooltip.favorite").withStyle(ChatFormatting.GOLD));
         }
         if (Durability.isBroken(stack)) {
             event.getToolTip().add(Math.min(top++, event.getToolTip().size()),
-                    Component.literal("⚠ Slidt op - giver ingen bonusser, før den er repareret i smedjen").withStyle(ChatFormatting.RED));
+                    Text.tr("tooltip.broken").withStyle(ChatFormatting.RED));
         }
         // The greater bonuses as they are now, so a masterwork shows. Vanilla already lists them among the others, but
         // without telling which ones are greater
@@ -71,7 +74,7 @@ public final class LootTooltips {
         }
         if (!greater.isEmpty()) {
             int at = Math.min(top, event.getToolTip().size());
-            event.getToolTip().add(at, Component.literal("Større bonus" + (greater.size() > 1 ? "ser" : "")).withColor(GREATER_COLOR));
+            event.getToolTip().add(at, Text.tr(greater.size() > 1 ? "tooltip.greater_many" : "tooltip.greater_one").withColor(GREATER_COLOR));
             event.getToolTip().addAll(at + 1, greater);
         }
         ItemStack worn;
@@ -92,14 +95,13 @@ public final class LootTooltips {
         List<Component> lines = event.getToolTip();
         lines.add(Component.empty());
         if (worn.isEmpty()) {
-            lines.add(Component.literal(ItemKind.of(stack) == ItemKind.JEWELRY ? "Du har en ledig plads til den (Udstyr)" : "Du har intet på her")
-                    .withStyle(ChatFormatting.DARK_GRAY));
+            lines.add(Text.tr(ItemKind.of(stack) == ItemKind.JEWELRY ? "tooltip.free_jewelry_slot" : "tooltip.nothing_worn").withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
-        lines.add(Component.literal("Sammenlignet med ").withStyle(ChatFormatting.GRAY).append(worn.getHoverName()));
+        lines.add(Text.tr("tooltip.compared_with", worn.getHoverName()).withStyle(ChatFormatting.GRAY));
 
         List<Component> differences = new ArrayList<>();
-        difference(differences, Loot.itemPower(stack) - Loot.itemPower(worn), Component.literal(" genstandsstyrke"), false);
+        difference(differences, Loot.itemPower(stack) - Loot.itemPower(worn), number -> Text.tr("compare.item_power", number));
         Map<Stat, double[]> stats = new LinkedHashMap<>();
         addStats(stats, worn, 0);
         addStats(stats, stack, 1);
@@ -107,15 +109,15 @@ public final class LootTooltips {
             Stat stat = entry.getKey();
             boolean percent = stat.operation != AttributeModifier.Operation.ADD_VALUE;
             double change = (entry.getValue()[1] - entry.getValue()[0]) * (percent ? 100 : 1);
-            difference(differences, change, Component.literal(percent ? "% " : " ")
-                    .append(Component.translatable(stat.attribute.value().getDescriptionId())), false);
+            difference(differences, change, number -> Component.literal(number + (percent ? "% " : " "))
+                    .append(Component.translatable(stat.attribute.value().getDescriptionId())));
         }
         for (Special special : SPECIALS) {
             int change = Loot.affix(stack, special.tag) - Loot.affix(worn, special.tag);
-            difference(differences, change, Component.literal(special.text), true);
+            difference(differences, change, number -> Text.tr("compare." + special.key, number));
         }
         if (differences.isEmpty()) {
-            lines.add(Component.literal("Ingen forskel").withStyle(ChatFormatting.DARK_GRAY));
+            lines.add(Text.tr("tooltip.no_difference").withStyle(ChatFormatting.DARK_GRAY));
         }
         lines.addAll(differences);
     }
@@ -165,14 +167,11 @@ public final class LootTooltips {
     }
 
     // A line like "+3 Attack Damage" in green or "-12% Speed" in red. In the special texts the number goes into %s
-    private static void difference(List<Component> lines, double change, Component text, boolean numberInText) {
+    private static void difference(List<Component> lines, double change, Function<String, MutableComponent> text) {
         if (Math.abs(change) < 0.005) {
             return;
         }
         String number = (change > 0 ? "+" : "") + ItemAttributeModifiers.ATTRIBUTE_MODIFIER_FORMAT.format(change);
-        MutableComponent line = numberInText
-                ? Component.literal(String.format(text.getString(), number))
-                : Component.literal(number).append(text);
-        lines.add(line.withStyle(change > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
+        lines.add(text.apply(number).withStyle(change > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
     }
 }

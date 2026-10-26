@@ -1,6 +1,7 @@
 package com.morkeriget.elite;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.gametest.TestPlayers;
 
 import net.minecraft.core.BlockPos;
@@ -42,7 +43,7 @@ public final class BossTests {
     public static void uberBossPhases(GameTestHelper helper) {
         WitherSkeleton boss = spawn(helper);
         Bosses.makeUberBoss(boss);
-        helper.assertTrue(boss.getName().getString().equals("Mørkets Herre"), "Uber-bossen hedder " + boss.getName().getString());
+        helper.assertTrue(Text.is(boss.getCustomName(), "boss.uber"), "Uber-bossen hedder " + boss.getName().getString());
         helper.assertTrue(boss.getAttributeValue(Attributes.SCALE) >= 2.0, "Uber-bossen er ikke større end en normal boss");
         boss.setHealth(boss.getMaxHealth() * 0.45f);
         helper.startSequence()

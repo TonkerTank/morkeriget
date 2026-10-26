@@ -1,5 +1,6 @@
 package com.morkeriget.merchant;
 
+import com.morkeriget.Text;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.Progression;
@@ -46,7 +47,7 @@ public class MerchantMenu extends AbstractContainerMenu {
 
     private static boolean buy(ServerPlayer player, Ware ware) {
         if (player.getInventory().countItem(Smithy.ESSENCE.get()) < ware.price) {
-            player.displayClientMessage(Component.literal("Du har brug for " + ware.price + " essens"), true);
+            player.displayClientMessage(Text.tr("smithy.need_essence", ware.price), true);
             return false;
         }
         RandomSource random = player.getRandom();
@@ -58,10 +59,10 @@ public class MerchantMenu extends AbstractContainerMenu {
             return false;
         }
         ContainerHelper.clearOrCountMatchingItems(player.getInventory(), item -> item.is(Smithy.ESSENCE.get()), ware.price, false);
-        player.displayClientMessage(Component.literal("Du købte ").append(bought.getHoverName()), true);
+        player.displayClientMessage(Text.tr("merchant.bought", bought.getHoverName()), true);
         player.getInventory().placeItemBackInInventory(bought);
         if (rarity == Rarity.LEGENDARY) {
-            player.sendSystemMessage(Component.literal("Købmanden havde en legendarisk genstand! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+            player.sendSystemMessage(Text.tr("merchant.legendary").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                     .append(bought.getHoverName()));
             player.playNotifySound(SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.8f, 1.2f);
         } else {

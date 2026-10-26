@@ -3,6 +3,7 @@ package com.morkeriget.jewelry;
 import java.util.List;
 import java.util.Locale;
 
+import com.morkeriget.Text;
 import com.morkeriget.progress.SkillScreen;
 import com.morkeriget.skill.SkillKeys;
 import com.morkeriget.ui.ThemedButton;
@@ -43,7 +44,7 @@ public class JewelryScreen extends AbstractContainerScreen<JewelryMenu> {
         super.init();
         // The two panels together are centred
         leftPos -= (STATS_WIDTH + STATS_GAP) / 2;
-        addRenderableWidget(Button.builder(Component.literal("Skills"), pressed -> backToSkills())
+        addRenderableWidget(Button.builder(Text.tr("button.skills"), pressed -> backToSkills())
                 .bounds(leftPos + imageWidth - 50, topPos + 4, 46, 16)
                 .build(ThemedButton::new));
     }
@@ -86,17 +87,17 @@ public class JewelryScreen extends AbstractContainerScreen<JewelryMenu> {
     private void renderStats(GuiGraphics graphics) {
         int x = leftPos + imageWidth + STATS_GAP;
         UiTheme.panel(graphics, x, topPos, STATS_WIDTH, imageHeight);
-        UiTheme.title(graphics, font, "Stats", x + STATS_WIDTH / 2, topPos + 6);
+        UiTheme.title(graphics, font, Text.tr("stats.title").getString(), x + STATS_WIDTH / 2, topPos + 6);
         int y = topPos + 18;
         String group = null;
         for (EquipmentStats.Line line : latest) {
             if (!line.group().equals(group)) {
                 group = line.group();
                 y += group.equals(latest.get(0).group()) ? 0 : 2;
-                graphics.drawString(font, group, x + 8, y, UiTheme.TITLE, false);
+                graphics.drawString(font, Text.tr("stats.group." + group), x + 8, y, UiTheme.TITLE, false);
                 y += LINE + 1;
             }
-            graphics.drawString(font, line.name(), x + 10, y, UiTheme.MUTED, false);
+            graphics.drawString(font, Text.tr("stats." + line.name()), x + 10, y, UiTheme.MUTED, false);
             String value = format(line.value(), line.decimals()) + line.unit();
             int valueRight = x + STATS_WIDTH - 30;
             graphics.drawString(font, value, valueRight - font.width(value), y, UiTheme.TEXT, false);
@@ -125,7 +126,7 @@ public class JewelryScreen extends AbstractContainerScreen<JewelryMenu> {
     }
 
     private static String format(float value, int decimals) {
-        return String.format(Locale.ROOT, "%." + decimals + "f", value).replace('.', ',');
+        return String.format(Locale.ROOT, "%." + decimals + "f", value);
     }
 
     // The vanilla labels are dark grey, which can't be read on the dark panel
@@ -134,8 +135,8 @@ public class JewelryScreen extends AbstractContainerScreen<JewelryMenu> {
         graphics.drawString(font, title, titleLabelX, titleLabelY, UiTheme.TITLE, false);
         UiTheme.divider(graphics, 7, inventoryLabelY - 4, imageWidth - 14);
         graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, UiTheme.MUTED, false);
-        graphics.drawString(font, "Ringe", JewelryMenu.JEWELRY_X, JewelryMenu.RINGS_Y - 10, 0xFFD27A, false);
-        graphics.drawString(font, "Amuletter", JewelryMenu.JEWELRY_X, JewelryMenu.AMULETS_Y - 10, 0xFF8A8A, false);
+        graphics.drawString(font, Text.tr("stats.rings"), JewelryMenu.JEWELRY_X, JewelryMenu.RINGS_Y - 10, 0xFFD27A, false);
+        graphics.drawString(font, Text.tr("stats.amulets"), JewelryMenu.JEWELRY_X, JewelryMenu.AMULETS_Y - 10, 0xFF8A8A, false);
     }
 
     // K closes the screen, just like the skill screen

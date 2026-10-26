@@ -7,6 +7,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.HolderLookup;
@@ -56,7 +57,7 @@ public final class Stash {
         UUID uuid = player.getUUID();
         if (!load(uuid, container, registries)) {
             // Opening it empty would save over the broken file, and everything in it would be gone
-            player.displayClientMessage(Component.literal("Kisten kunne ikke indlæses - se loggen").withStyle(ChatFormatting.RED), true);
+            player.displayClientMessage(Text.tr("stash.load_failed").withStyle(ChatFormatting.RED), true);
             return;
         }
         player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new ChestMenu(MenuType.GENERIC_9x6, id, inventory, container, ROWS) {
@@ -68,7 +69,7 @@ public final class Stash {
                 save(uuid, container, registries);
                 player.server.getPlayerList().saveAll();
             }
-        }, Component.literal("Kiste")));
+        }, Text.tr("stash.title")));
         player.playNotifySound(SoundEvents.ENDER_CHEST_OPEN, SoundSource.PLAYERS, 0.6f, 1.0f);
     }
 

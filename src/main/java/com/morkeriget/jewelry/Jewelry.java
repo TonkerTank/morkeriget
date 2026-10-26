@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.loot.LootTooltips;
 
 import net.minecraft.core.Holder;
@@ -106,7 +107,7 @@ public final class Jewelry {
     private static void open(ServerPlayer player) {
         player.openMenu(new SimpleMenuProvider(
                 (id, inventory, menuPlayer) -> new JewelryMenu(id, inventory, player.getData(EQUIPPED)),
-                Component.literal("Udstyr")));
+                Text.tr("button.equipment")));
         EquipmentStats.send(player);
     }
 

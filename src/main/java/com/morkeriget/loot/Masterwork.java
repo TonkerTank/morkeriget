@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
@@ -38,7 +40,8 @@ public final class Masterwork {
     // The bonus each big step went to, so one bonus can get more than one
     private static final String BIG_TAG = "morkeriget_masterwork_big";
     private static final String AFFIX_PREFIX = "affix_";
-    private static final String RANK_LORE = "Mesterværk ";
+    // How the rank line read on items from before the texts were translated
+    private static final String LEGACY_RANK_LORE = "Mesterværk ";
     private static final List<String> SPECIAL_TAGS = List.of(
             Loot.LIFESTEAL_TAG, Loot.FIRE_TAG, Loot.CRUSHING_TAG, Loot.ARROW_DAMAGE_TAG, Loot.THORNS_TAG);
 
@@ -164,18 +167,20 @@ public final class Masterwork {
                 int old = Loot.affix(stack, special);
                 int value = (int) Math.round(base.getDouble(special) * factor(special, rank, big, true));
                 CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(special, value));
-                String text = Loot.specialLore(special);
-                replaceLine(lore, Component.literal(String.format(text, old)), Component.literal(String.format(text, value)).withStyle(ChatFormatting.BLUE));
+                Component line = Loot.specialLine(special, value).withStyle(ChatFormatting.BLUE);
+                if (!replaceLine(lore, Loot.specialLine(special, old), line)) {
+                    replaceLine(lore, Component.literal(Loot.legacySpecialLine(special, old)), line);
+                }
             }
         }
 
         // "Mesterværk 5/12" right under the item power
-        Component rankLine = Component.literal(RANK_LORE + rank + "/" + MAX_RANK).withStyle(ChatFormatting.GOLD);
-        int existing = indexOf(lore, RANK_LORE);
+        Component rankLine = Text.tr("lore.masterwork", rank, MAX_RANK).withStyle(ChatFormatting.GOLD);
+        int existing = indexOf(lore, line -> Text.is(line, "lore.masterwork") || line.getString().startsWith(LEGACY_RANK_LORE));
         if (existing >= 0) {
             lore.set(existing, rankLine);
         } else {
-            int power = indexOf(lore, Loot.ITEM_POWER_LORE);
+            int power = indexOf(lore, Loot::isItemPowerLine);
             lore.add(power >= 0 ? power + 1 : Math.min(1, lore.size()), rankLine);
         }
         stack.set(DataComponents.LORE, new ItemLore(lore));
@@ -195,7 +200,7 @@ public final class Masterwork {
     // The bonus as the tooltip shows it, for the message about a big step and the greater bonuses in LootTooltips
     static Component line(ItemStack stack, String key) {
         if (SPECIAL_TAGS.contains(key)) {
-            return Component.literal(String.format(Loot.specialLore(key), Loot.affix(stack, key)));
+            return Loot.specialLine(key, Loot.affix(stack, key));
         }
         for (ItemAttributeModifiers.Entry entry : stack.getOrDefault(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY).modifiers()) {
             if (entry.modifier().id().getPath().equals(key)) {
@@ -206,19 +211,21 @@ public final class Masterwork {
     }
 
     // The lore line that reads like old gets new in its place
-    private static void replaceLine(List<Component> lore, Component old, Component replacement) {
+    // Returns whether the line was there
+    private static boolean replaceLine(List<Component> lore, Component old, Component replacement) {
         String text = old.getString();
         for (int i = 0; i < lore.size(); i++) {
             if (lore.get(i).getString().equals(text)) {
                 lore.set(i, replacement);
-                return;
+                return true;
             }
         }
+        return false;
     }
 
-    private static int indexOf(List<Component> lore, String prefix) {
+    private static int indexOf(List<Component> lore, Predicate<Component> isLine) {
         for (int i = 0; i < lore.size(); i++) {
-            if (lore.get(i).getString().startsWith(prefix)) {
+            if (isLine.test(lore.get(i))) {
                 return i;
             }
         }

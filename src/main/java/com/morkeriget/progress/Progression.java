@@ -9,6 +9,7 @@ import java.util.function.Supplier;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
@@ -90,7 +91,7 @@ public final class Progression {
                     int spent = progress.ranks().values().stream().mapToInt(Integer::intValue).sum();
                     player.setData(PROGRESS, progress.withLevel(level, 0, Math.max(0, PlayerProgress.pointsForLevel(level) - spent)));
                     sync(player);
-                    context.getSource().sendSuccess(() -> Component.literal("Du er nu level " + level), false);
+                    context.getSource().sendSuccess(() -> Text.tr("command.level", level), false);
                     return 1;
                 }))));
         // "/morkeriget paragon 20" gives 20 paragon levels with their points. Needs level 100
@@ -101,12 +102,12 @@ public final class Progression {
                     int levels = IntegerArgumentType.getInteger(context, "levels");
                     PlayerProgress progress = player.getData(PROGRESS);
                     if (progress.level() < MAX_LEVEL) {
-                        context.getSource().sendFailure(Component.literal("Paragon starter ved level " + MAX_LEVEL + " - brug /morkeriget level " + MAX_LEVEL));
+                        context.getSource().sendFailure(Text.tr("command.paragon_needs_level", MAX_LEVEL));
                         return 0;
                     }
                     player.setData(PROGRESS, progress.withParagonLevel(progress.paragonLevel() + levels, 0, progress.paragonPoints() + levels));
                     sync(player);
-                    context.getSource().sendSuccess(() -> Component.literal("Du er nu paragon " + (progress.paragonLevel() + levels)), false);
+                    context.getSource().sendSuccess(() -> Text.tr("command.paragon", progress.paragonLevel() + levels), false);
                     return 1;
                 }))));
     }
@@ -195,8 +196,8 @@ public final class Progression {
         }
         player.setData(PROGRESS, progress.withLevel(level, xp, points));
         if (level > progress.level()) {
-            player.sendSystemMessage(Component.literal("Level " + level + "! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                    .append(Component.literal("Du har " + points + " skill-point" + (points == 1 ? "" : "s") + " - tryk K")
+            player.sendSystemMessage(Text.tr("progress.level_up", level).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                    .append(Text.tr(points == 1 ? "progress.skill_point" : "progress.skill_points", points)
                             .withStyle(ChatFormatting.YELLOW)));
             player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 0.8f);
             player.serverLevel().sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1, player.getZ(),
@@ -221,8 +222,8 @@ public final class Progression {
         }
         player.setData(PROGRESS, progress.withParagonLevel(paragonLevel, xp, points));
         if (paragonLevel > progress.paragonLevel()) {
-            player.sendSystemMessage(Component.literal("Paragon " + paragonLevel + "! ").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
-                    .append(Component.literal("Du har " + points + " paragon-point" + (points == 1 ? "" : "s") + " - tryk K")
+            player.sendSystemMessage(Text.tr("progress.paragon_up", paragonLevel).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
+                    .append(Text.tr(points == 1 ? "progress.paragon_point" : "progress.paragon_points", points)
                             .withStyle(ChatFormatting.YELLOW)));
             player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
             player.serverLevel().sendParticles(ParticleTypes.END_ROD, player.getX(), player.getY() + 1, player.getZ(),
@@ -276,11 +277,11 @@ public final class Progression {
         player.setData(PROGRESS, player.getData(PROGRESS).withClass(playerClass));
         applyPassives(player);
         if (sameClass) {
-            player.sendSystemMessage(Component.literal("Du har fået alle dine skill-points tilbage").withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Text.tr("progress.points_back").withStyle(ChatFormatting.YELLOW));
         } else {
-            player.sendSystemMessage(Component.literal("Du er nu " + playerClass.displayName + "! ")
+            player.sendSystemMessage(Text.tr("progress.class_chosen", playerClass.displayName())
                     .withStyle(style -> style.withColor(playerClass.color).withBold(true))
-                    .append(Component.literal("Vælg din første skill i K").withStyle(ChatFormatting.YELLOW)));
+                    .append(Text.tr("progress.pick_first_skill").withStyle(ChatFormatting.YELLOW)));
         }
         player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
         sync(player);
@@ -370,15 +371,15 @@ public final class Progression {
             if (player.getData(PROGRESS).isFromBeforeSkillTree()) {
                 player.setData(PROGRESS, player.getData(PROGRESS).respec());
                 if (playerClass(player) != null) {
-                    player.sendSystemMessage(Component.literal("Skills har fået et skill tree! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                            .append(Component.literal("Du har fået alle dine skill-points tilbage - tryk K").withStyle(ChatFormatting.YELLOW)));
+                    player.sendSystemMessage(Text.tr("progress.skill_tree_new").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                            .append(Text.tr("progress.points_back_press_k").withStyle(ChatFormatting.YELLOW)));
                 }
             }
             applyPassives(player);
             restoreHealth(player);
             sync(player);
             if (playerClass(player) == null) {
-                player.sendSystemMessage(Component.literal("Vælg en klasse: tryk K").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+                player.sendSystemMessage(Text.tr("progress.pick_class").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
             }
         }
     }

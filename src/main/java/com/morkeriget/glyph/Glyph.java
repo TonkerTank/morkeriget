@@ -2,28 +2,28 @@ package com.morkeriget.glyph;
 
 import java.util.Locale;
 
+import com.morkeriget.Text;
+
 import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.MutableComponent;
 
 // The kinds of glyph, like in Diablo 4. Each one gives its bonus for every level, up to MAX_LEVEL. See Glyphs
 public enum Glyph {
-    WRATH("Vrede", "mere skade", 0.75, ChatFormatting.RED),
-    FLAME("Flamme", "mere skade på brændende fjender", 2.0, ChatFormatting.GOLD),
-    DOMINION("Herredømme", "mere skade på elites og bosser", 1.5, ChatFormatting.DARK_PURPLE),
-    LEGION("Legion", "mere skade fra dine skeletter og ulve", 2.0, ChatFormatting.DARK_GREEN),
-    FROST("Kulde", "mere skade på langsomme fjender", 2.0, ChatFormatting.AQUA),
-    BULWARK("Bolværk", "skade taget", 0.75, ChatFormatting.GRAY);
+    WRATH(0.75, ChatFormatting.RED),
+    FLAME(2.0, ChatFormatting.GOLD),
+    DOMINION(1.5, ChatFormatting.DARK_PURPLE),
+    LEGION(2.0, ChatFormatting.DARK_GREEN),
+    FROST(2.0, ChatFormatting.AQUA),
+    BULWARK(0.75, ChatFormatting.GRAY);
 
     public static final int MAX_LEVEL = 20;
 
-    public final String displayName;
-    private final String effect;
     // Percent per level
     private final double perLevel;
     public final ChatFormatting color;
 
-    Glyph(String displayName, String effect, double perLevel, ChatFormatting color) {
-        this.displayName = displayName;
-        this.effect = effect;
+    // Names and effects are in the language files, under glyph.<name>
+    Glyph(double perLevel, ChatFormatting color) {
         this.perLevel = perLevel;
         this.color = color;
     }
@@ -33,10 +33,14 @@ public enum Glyph {
         return perLevel * Math.min(level, MAX_LEVEL) / 100;
     }
 
-    // E.g. "+30% mere skade på elites og bosser"
-    public String describe(int level) {
-        String percent = String.format(Locale.ROOT, "%.1f", bonus(level) * 100).replace(".0", "").replace('.', ',');
-        return (this == BULWARK ? "-" : "+") + percent + "% " + effect;
+    public MutableComponent displayName() {
+        return Text.tr("glyph." + name().toLowerCase(Locale.ROOT) + ".name");
+    }
+
+    // E.g. "+30% more damage to elites and bosses"
+    public MutableComponent describe(int level) {
+        String percent = String.format(Locale.ROOT, "%.1f", bonus(level) * 100).replace(".0", "");
+        return Text.tr("glyph." + name().toLowerCase(Locale.ROOT) + ".effect", percent);
     }
 
     public static Glyph byName(String name) {

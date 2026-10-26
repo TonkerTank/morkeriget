@@ -3,6 +3,7 @@ package com.morkeriget.smithy;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.jewelry.JewelryMenu;
 
 import net.minecraft.ChatFormatting;
@@ -43,14 +44,12 @@ public final class Durability {
                 stack.setDamageValue(Math.min(max - 1, stack.getDamageValue() + (int) Math.ceil(max * DEATH_LOSS)));
                 lost = true;
                 if (!wasBroken && isBroken(stack)) {
-                    player.sendSystemMessage(Component.empty().append(stack.getHoverName())
-                            .append(Component.literal(" er slidt helt op og giver ingen bonusser, før du reparerer den i smedjen")
-                                    .withStyle(ChatFormatting.RED)));
+                    player.sendSystemMessage(Text.tr("durability.broken", stack.getHoverName()).withStyle(ChatFormatting.RED));
                 }
             }
         }
         if (lost) {
-            player.sendSystemMessage(Component.literal("Dit udstyr mistede " + Math.round(DEATH_LOSS * 100) + "% holdbarhed - reparér det i smedjen")
+            player.sendSystemMessage(Text.tr("durability.lost", Math.round(DEATH_LOSS * 100))
                     .withStyle(ChatFormatting.GRAY));
         }
     }

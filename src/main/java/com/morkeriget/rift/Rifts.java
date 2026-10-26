@@ -15,6 +15,7 @@ import com.mojang.serialization.Codec;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.bounty.Bounties;
 import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.elite.Bosses;
@@ -36,6 +37,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
@@ -166,7 +168,7 @@ public final class Rifts {
                     // The name before the stack goes into the inventory, which empties it
                     Component name = stone.getHoverName();
                     player.getInventory().placeItemBackInInventory(stone);
-                    context.getSource().sendSuccess(() -> Component.literal("Du fik ").append(name), false);
+                    context.getSource().sendSuccess(() -> Text.tr("command.got", name), false);
                     return 1;
                 }))));
     }
@@ -226,17 +228,17 @@ public final class Rifts {
     // Returns false if the rift couldn't open, so the stone isn't used up
     static boolean start(ServerPlayer player, int tier, List<RiftAffix> affixes) {
         if (RIFTS.containsKey(player.getUUID())) {
-            player.displayClientMessage(Component.literal("Du er allerede i en rift"), true);
+            player.displayClientMessage(Text.tr("rift.already_in"), true);
             return false;
         }
         // Monsters are taken away right away on Peaceful
         if (player.serverLevel().getDifficulty() == Difficulty.PEACEFUL) {
-            player.displayClientMessage(Component.literal("Rifts virker ikke på Peaceful"), true);
+            player.displayClientMessage(Text.tr("rift.peaceful"), true);
             return false;
         }
         // The same the other way round, see Dungeons.open
         if (Dungeons.isInDungeon(player)) {
-            player.displayClientMessage(Component.literal("Rifts virker ikke i et dungeon"), true);
+            player.displayClientMessage(Text.tr("rift.in_dungeon"), true);
             return false;
         }
         Rift rift = new Rift(player, tier, affixes);
@@ -244,14 +246,13 @@ public final class Rifts {
         ServerLevel level = player.serverLevel();
         level.playSound(null, player.blockPosition(), SoundEvents.END_PORTAL_SPAWN, SoundSource.PLAYERS, 1.0f, 1.2f);
         level.sendParticles(ParticleTypes.REVERSE_PORTAL, player.getX(), player.getY() + 1, player.getZ(), 150, 2, 1, 2, 0.1);
-        player.sendSystemMessage(Component.literal("Rift " + roman(tier) + " åbner sig! ").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
-                .append(Component.literal("Overlev " + WAVES + " bølger og dræb riftens vogter.").withStyle(ChatFormatting.LIGHT_PURPLE)));
+        player.sendSystemMessage(Text.tr("rift.opens", roman(tier)).withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
+                .append(Text.tr("rift.opens.info", WAVES).withStyle(style -> style.withBold(false))));
         int record = record(player, tier);
-        String recordText = record > 0 ? "Din rekord: " + time(record) + ". " : "";
-        player.sendSystemMessage(Component.literal(recordText + "Under " + time(FAST_TIME) + " giver 50% mere essens.").withStyle(ChatFormatting.GRAY));
+        MutableComponent recordText = record > 0 ? Text.tr("rift.record", time(record)) : Component.empty();
+        player.sendSystemMessage(recordText.append(Text.tr("rift.fast_bonus", time(FAST_TIME))).withStyle(ChatFormatting.GRAY));
         for (RiftAffix affix : affixes) {
-            player.sendSystemMessage(Component.literal("⚠ " + affix.displayName + ": ").withStyle(ChatFormatting.RED)
-                    .append(Component.literal(affix.description).withStyle(ChatFormatting.GRAY)));
+            player.sendSystemMessage(affix.warning());
         }
         return true;
     }
@@ -379,13 +380,13 @@ public final class Rifts {
         private final Set<UUID> alive = new HashSet<>();
         // The ones that really died, as opposed to just being gone
         private final Set<UUID> died = new HashSet<>();
-        private final ServerBossEvent bar = new ServerBossEvent(Component.literal("Rift"),
+        private final ServerBossEvent bar = new ServerBossEvent(Text.tr("rift.bar"),
                 BossEvent.BossBarColor.PURPLE, BossEvent.BossBarOverlay.PROGRESS);
         // 0 before the first wave, then 1 to WAVES, and WAVES + 1 is the guardian
         private int wave;
         private int waveSize;
-        // "Rift II - bølge 1/3", shown on the bar with how many are left
-        private String waveName = "";
+        // "Rift II - wave 1/3", shown on the bar with how many are left
+        private Component waveName = Component.empty();
         private int pause = WAVE_PAUSE;
         private int ticks;
         private final List<RiftAffix> affixes;
@@ -403,7 +404,7 @@ public final class Rifts {
             // Tier I is the player's own level, since rifts are already hard because of how many monsters come at once.
             // Every tier above that adds a level. Paragon raises it too, see Progression.monsterLevel
             monsterLevel = Progression.monsterLevel(player) + tier - 1;
-            bar.setName(Component.literal("Riften åbner sig...").withStyle(ChatFormatting.LIGHT_PURPLE));
+            bar.setName(Text.tr("rift.bar.opening").withStyle(ChatFormatting.LIGHT_PURPLE));
             bar.addPlayer(player);
         }
 
@@ -426,13 +427,13 @@ public final class Rifts {
         boolean tick() {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerId);
             if (player == null || !player.isAlive()) {
-                return fail(player, "Du faldt - riften lukkede");
+                return fail(player, "rift.failed.died");
             }
             if (player.level() != level || player.position().distanceTo(center) > MAX_DISTANCE) {
-                return fail(player, "Du gik for langt væk - riften lukkede");
+                return fail(player, "rift.failed.too_far");
             }
             if (++ticks > TIME_LIMIT) {
-                return fail(player, "Tiden løb ud - riften lukkede");
+                return fail(player, "rift.failed.time");
             }
             // No hunger in a rift: the food bar stays full, so you can always sprint. Saturation is kept at 0,
             // otherwise the fast regeneration from a full food bar would never use anything up
@@ -463,12 +464,12 @@ public final class Rifts {
                 }
             }
             if (vanished) {
-                return fail(player, "Riftens monstre forsvandt - riften lukkede");
+                return fail(player, "rift.failed.vanished");
             }
             bar.setProgress(waveSize > 0 ? (float) alive.size() / waveSize : 0);
             if (!alive.isEmpty()) {
                 // The time left in yellow, red in the last minute
-                bar.setName(Component.literal(waveName + " - " + alive.size() + " tilbage  ").withStyle(ChatFormatting.LIGHT_PURPLE)
+                bar.setName(Text.tr("rift.bar.left", waveName, alive.size()).withStyle(ChatFormatting.LIGHT_PURPLE)
                         .append(Component.literal(time(TIME_LIMIT - ticks))
                                 .withStyle(TIME_LIMIT - ticks < 60 * 20 ? ChatFormatting.RED : ChatFormatting.YELLOW)));
                 if (ticks % RECALL_INTERVAL == 0) {
@@ -480,8 +481,8 @@ public final class Rifts {
                 complete(player);
                 return true;
             }
-            player.displayClientMessage(Component.literal("Bølge " + wave + " klaret!").withStyle(ChatFormatting.LIGHT_PURPLE), true);
-            bar.setName(Component.literal(waveName + " - klaret").withStyle(ChatFormatting.LIGHT_PURPLE));
+            player.displayClientMessage(Text.tr("rift.wave_cleared", wave).withStyle(ChatFormatting.LIGHT_PURPLE), true);
+            bar.setName(Text.tr("rift.bar.cleared", waveName).withStyle(ChatFormatting.LIGHT_PURPLE));
             pause = WAVE_PAUSE;
             return false;
         }
@@ -491,7 +492,7 @@ public final class Rifts {
             RandomSource random = level.getRandom();
             if (wave > WAVES) {
                 spawn(player, GUARDIANS.get(random.nextInt(GUARDIANS.size())), true, false);
-                waveName = "Rift " + roman(tier) + " - riftens vogter";
+                waveName = Text.tr("rift.bar.guardian", roman(tier));
                 level.playSound(null, player.blockPosition(), SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 0.6f, 1.2f);
             } else {
                 // One more monster per tier, and 3% more elites per tier
@@ -503,7 +504,7 @@ public final class Rifts {
                 for (int i = 0; i < count; i++) {
                     spawn(player, MONSTERS.get(random.nextInt(MONSTERS.size())), false, random.nextDouble() < eliteChance);
                 }
-                waveName = "Rift " + roman(tier) + " - bølge " + wave + "/" + WAVES;
+                waveName = Text.tr("rift.bar.wave", roman(tier), wave, WAVES);
                 level.playSound(null, player.blockPosition(), SoundEvents.EVOKER_PREPARE_SUMMON, SoundSource.HOSTILE, 1.0f, 0.8f);
             }
             waveSize = alive.size();
@@ -684,10 +685,8 @@ public final class Rifts {
             Bounties.riftClosed(player);
             Journey.riftClosed(player, tier);
 
-            player.sendSystemMessage(Component.literal("Rift " + roman(tier) + " er lukket! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                    .append(Component.literal("Du fik en sæt-genstand, ekstra loot, ædelsten, essens, XP, en portalrulle og en riftsten "
-                            + roman(nextTier) + ".")
-                            .withStyle(ChatFormatting.YELLOW)));
+            player.sendSystemMessage(Text.tr("rift.closed", roman(tier)).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                    .append(Text.tr("rift.closed.rewards", roman(nextTier)).withStyle(style -> style.withBold(false).withColor(ChatFormatting.YELLOW))));
             announceTime(player, fast);
             level.playSound(null, player.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
             level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, player.getX(), player.getY() + 1, player.getZ(), 80, 0.5, 1, 0.5, 0.4);
@@ -699,14 +698,17 @@ public final class Rifts {
             Component line;
             if (record == 0 || ticks < record) {
                 setRecord(player, tier, ticks);
-                String before = record > 0 ? " (før " + time(record) + ")" : "";
-                line = Component.literal("Tid: " + time(ticks) + " - ny rekord!" + before).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+                MutableComponent recordLine = Text.tr("rift.time.record", time(ticks));
+                if (record > 0) {
+                    recordLine.append(Text.tr("rift.time.before", time(record)));
+                }
+                line = recordLine.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
                 player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.6f);
             } else {
-                line = Component.literal("Tid: " + time(ticks) + " (rekord " + time(record) + ")").withStyle(ChatFormatting.GRAY);
+                line = Text.tr("rift.time", time(ticks), time(record)).withStyle(ChatFormatting.GRAY);
             }
             if (fast) {
-                line = line.copy().append(Component.literal("  Hurtig-bonus: +50% essens").withStyle(ChatFormatting.AQUA));
+                line = line.copy().append(Text.tr("rift.time.fast").withStyle(ChatFormatting.AQUA));
             }
             player.sendSystemMessage(line);
         }
@@ -722,7 +724,7 @@ public final class Rifts {
             }
             alive.clear();
             if (player != null) {
-                player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.RED));
+                player.sendSystemMessage(Text.tr(message).withStyle(ChatFormatting.RED));
             }
             return true;
         }

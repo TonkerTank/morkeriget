@@ -7,6 +7,7 @@ import java.util.List;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.progress.Progression;
@@ -143,7 +144,7 @@ public final class Dungeons {
                     // The name before the stack goes into the inventory, which empties it
                     Component name = key.getHoverName();
                     player.getInventory().placeItemBackInInventory(key);
-                    context.getSource().sendSuccess(() -> Component.literal("Du fik ").append(name), false);
+                    context.getSource().sendSuccess(() -> Text.tr("command.got", name), false);
                     return 1;
                 }))));
     }
@@ -192,20 +193,20 @@ public final class Dungeons {
     private static boolean open(ServerPlayer player, int tier, List<RiftAffix> affixes, boolean uber) {
         ServerLevel dungeonLevel = player.server.getLevel(LEVEL);
         if (dungeonLevel == null) {
-            player.displayClientMessage(Component.literal("Dungeon-dimensionen mangler i denne verden"), true);
+            player.displayClientMessage(Text.tr("dungeon.no_dimension"), true);
             return false;
         }
         if (isInDungeon(player)) {
-            player.displayClientMessage(Component.literal("Du er allerede i et dungeon"), true);
+            player.displayClientMessage(Text.tr("dungeon.already_in"), true);
             return false;
         }
         if (Rifts.isInRift(player)) {
-            player.displayClientMessage(Component.literal("Luk riften først"), true);
+            player.displayClientMessage(Text.tr("dungeon.close_rift"), true);
             return false;
         }
         // Monsters are taken away right away on Peaceful
         if (player.serverLevel().getDifficulty() == Difficulty.PEACEFUL) {
-            player.displayClientMessage(Component.literal("Dungeons virker ikke på Peaceful"), true);
+            player.displayClientMessage(Text.tr("dungeon.peaceful"), true);
             return false;
         }
         List<ServerPlayer> party = new ArrayList<>();
@@ -230,20 +231,16 @@ public final class Dungeons {
             saveReturn(member);
             dungeon.toEntrance(member);
             if (uber) {
-                member.sendSystemMessage(Component.literal("Mørkets Herre venter i arenaen! ").withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD)
-                        .append(Component.literal("Han har tre faser og bruger alle evner. I har " + Dungeon.LIVES + " liv tilsammen.")
-                                .withStyle(ChatFormatting.LIGHT_PURPLE)));
-                member.sendSystemMessage(Component.literal("Lodestenen ved indgangen fører dig ud igen.").withStyle(ChatFormatting.GRAY));
+                member.sendSystemMessage(Text.tr("dungeon.uber.start").withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD)
+                        .append(Text.tr("dungeon.uber.start.info", Dungeon.LIVES).withStyle(style -> style.withBold(false).withColor(ChatFormatting.LIGHT_PURPLE))));
+                member.sendSystemMessage(Text.tr("dungeon.exit_hint").withStyle(ChatFormatting.GRAY));
                 continue;
             }
-            member.sendSystemMessage(Component.literal(theme.displayName + " (" + Rifts.roman(tier) + ")! ").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
-                    .append(Component.literal("Ryd rummene, bryd seglet og dræb bossen i det sidste rum. I har " + Dungeon.LIVES
-                            + " liv tilsammen.").withStyle(ChatFormatting.RED)));
-            member.sendSystemMessage(Component.literal("Lodestenen ved indgangen fører dig ud igen. Skatkamre har en kiste, men den er bevogtet.")
-                    .withStyle(ChatFormatting.GRAY));
+            member.sendSystemMessage(Text.tr("dungeon.start", theme.displayName(), Rifts.roman(tier)).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                    .append(Text.tr("dungeon.start.info", Dungeon.LIVES).withStyle(style -> style.withBold(false).withColor(ChatFormatting.RED))));
+            member.sendSystemMessage(Text.tr("dungeon.exit_hint.treasure").withStyle(ChatFormatting.GRAY));
             for (RiftAffix affix : affixes) {
-                member.sendSystemMessage(Component.literal("⚠ " + affix.displayName + ": ").withStyle(ChatFormatting.RED)
-                        .append(Component.literal(affix.description).withStyle(ChatFormatting.GRAY)));
+                member.sendSystemMessage(affix.warning());
             }
         }
         return true;
@@ -489,7 +486,7 @@ public final class Dungeons {
     private static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player && isInDungeon(player) && dungeonOf(player) == null) {
             sendBack(player);
-            player.displayClientMessage(Component.literal("Dungeonet var lukket, så du er tilbage, hvor du kom fra").withStyle(ChatFormatting.GRAY), false);
+            player.displayClientMessage(Text.tr("dungeon.was_closed").withStyle(ChatFormatting.GRAY), false);
         }
     }
 
@@ -503,7 +500,7 @@ public final class Dungeons {
         if (dungeon != null && dungeon.isLockedChest(pos)) {
             event.setCanceled(true);
             if (event.getHand() == InteractionHand.MAIN_HAND) {
-                player.displayClientMessage(Component.literal("Kisten er låst - dræb dens vogtere først").withStyle(ChatFormatting.RED), true);
+                player.displayClientMessage(Text.tr("dungeon.chest_locked").withStyle(ChatFormatting.RED), true);
             }
             return;
         }

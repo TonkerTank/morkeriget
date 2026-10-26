@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -129,7 +130,7 @@ public final class BalanceTests {
         List<Scenario> scenarios = new ArrayList<>();
         for (PlayerClass playerClass : PlayerClass.values()) {
             for (Skill skill : DAMAGE_SKILLS.get(playerClass)) {
-                scenarios.add(new Scenario(playerClass, skill.displayName, skill.name(), List.of(skill), false));
+                scenarios.add(new Scenario(playerClass, skill.displayName().getString(), skill.name(), List.of(skill), false));
             }
             scenarios.add(new Scenario(playerClass, BASIC, "basic", List.of(), true));
             scenarios.add(new Scenario(playerClass, BUILD, "build", BUILDS.get(playerClass), true));
@@ -139,7 +140,7 @@ public final class BalanceTests {
                 List.of(Skill.WOLVES, Skill.ARROW_HURRICANE, Skill.EXPLOSIVE_ARROW, Skill.MULTISHOT), true));
         List<TestFunction> tests = new ArrayList<>();
         for (Scenario scenario : scenarios) {
-            String name = "balance_" + scenario.playerClass.name().toLowerCase() + "_" + scenario.id.toLowerCase();
+            String name = "balance_" + scenario.playerClass.name().toLowerCase(Locale.ROOT) + "_" + scenario.id.toLowerCase(Locale.ROOT);
             tests.add(new TestFunction(BATCH, name, Morkeriget.MODID + ":arena", SECONDS * 20 + 100, 0, true, helper -> run(helper, scenario)));
         }
         return tests;
@@ -192,9 +193,9 @@ public final class BalanceTests {
                     // and the ranger with wolves 70-80 against one but less against five
                     if (scenario.id.startsWith("build")) {
                         helper.assertTrue(single >= BUILD_SINGLE[0] && single <= BUILD_SINGLE[1], String.format("%s mod én fjende: %.1f, uden for %d-%d",
-                                scenario.playerClass.displayName, single, BUILD_SINGLE[0], BUILD_SINGLE[1]));
+                                scenario.playerClass.name(), single, BUILD_SINGLE[0], BUILD_SINGLE[1]));
                         helper.assertTrue(group >= BUILD_GROUP[0] && group <= BUILD_GROUP[1], String.format("%s mod en flok: %.1f, uden for %d-%d",
-                                scenario.playerClass.displayName, group, BUILD_GROUP[0], BUILD_GROUP[1]));
+                                scenario.playerClass.name(), group, BUILD_GROUP[0], BUILD_GROUP[1]));
                     }
                 })
                 .thenSucceed();
@@ -209,7 +210,7 @@ public final class BalanceTests {
         float reserve = 0;
         boolean used = false;
         for (Skill skill : skills) {
-            String readyTag = "morkeriget_" + skill.name().toLowerCase() + "_ready";
+            String readyTag = "morkeriget_" + skill.name().toLowerCase(Locale.ROOT) + "_ready";
             if (Mana.get(player) - skill.manaCost() >= reserve) {
                 Skills.use(player, skill);
                 used |= player.getPersistentData().getLong(readyTag) > now;
@@ -283,7 +284,7 @@ public final class BalanceTests {
     }
 
     private static String line(Result result) {
-        return String.format("%-12s %-16s %8.1f %8.1f", result.playerClass.displayName, result.name, result.single, result.group);
+        return String.format("%-12s %-16s %8.1f %8.1f", result.playerClass.name(), result.name, result.single, result.group);
     }
 
     // The whole table, by class and then the most damage against the group first

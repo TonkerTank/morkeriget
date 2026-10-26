@@ -1,6 +1,7 @@
 package com.morkeriget.portal;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.rift.Rifts;
 
@@ -52,11 +53,11 @@ public final class TownPortal {
     // Called when the player has finished reading the scroll. Returns true if a scroll was used up
     static boolean use(ServerPlayer player) {
         if (Rifts.isInRift(player)) {
-            player.displayClientMessage(Component.literal("Du kan ikke bruge en portal i en rift"), true);
+            player.displayClientMessage(Text.tr("portal.not_in_rift"), true);
             return false;
         }
         if (Dungeons.isInDungeon(player)) {
-            player.displayClientMessage(Component.literal("Brug lodestenen ved indgangen for at forlade dungeonet"), true);
+            player.displayClientMessage(Text.tr("portal.not_in_dungeon"), true);
             return false;
         }
         ServerLevel homeLevel = homeLevel(player);
@@ -70,7 +71,7 @@ public final class TownPortal {
             if (level != null) {
                 data.remove(RETURN_TAG);
                 teleport(player, level, new Vec3(back.getDouble("x"), back.getDouble("y"), back.getDouble("z")));
-                player.displayClientMessage(Component.literal("Portalen fører dig tilbage").withStyle(ChatFormatting.AQUA), true);
+                player.displayClientMessage(Text.tr("portal.back").withStyle(ChatFormatting.AQUA), true);
                 return false;
             }
         }
@@ -82,7 +83,7 @@ public final class TownPortal {
         back.putDouble("z", player.getZ());
         data.put(RETURN_TAG, back);
         teleport(player, homeLevel, home);
-        player.displayClientMessage(Component.literal("Portalen fører dig hjem. Læs en rulle igen for at vende tilbage")
+        player.displayClientMessage(Text.tr("portal.home")
                 .withStyle(ChatFormatting.AQUA), true);
         return true;
     }

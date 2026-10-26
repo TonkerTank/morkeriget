@@ -7,6 +7,7 @@ import java.util.Map;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.LootFilter;
 import com.morkeriget.loot.Rarity;
@@ -242,7 +243,7 @@ public final class ElitePacks {
         MutableComponent name = Component.empty();
         for (EliteModifier modifier : modifiers) {
             modifier.apply(member);
-            name.append(Component.literal(modifier.displayName + " ").withStyle(modifier.color));
+            name.append(modifier.displayName().append(" ").withStyle(modifier.color));
         }
         name.append(member.getType().getDescription().copy().withStyle(ChatFormatting.BLUE));
         member.setHealth(member.getMaxHealth());
@@ -300,7 +301,7 @@ public final class ElitePacks {
         }
         level.playSound(null, leader.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 1.0f, 1.3f);
         for (ServerPlayer player : level.getEntitiesOfClass(ServerPlayer.class, leader.getBoundingBox().inflate(PACK_RANGE * 2))) {
-            player.displayClientMessage(Component.literal("Lederen er faldet - flokken raser!").withStyle(ChatFormatting.RED), true);
+            player.displayClientMessage(Text.tr("pack.leader_fallen").withStyle(ChatFormatting.RED), true);
         }
     }
 
@@ -330,7 +331,7 @@ public final class ElitePacks {
         for (ItemStack stack : bonus) {
             event.getDrops().add(new ItemEntity(level, monster.getX(), monster.getY(), monster.getZ(), stack));
         }
-        player.displayClientMessage(Component.literal("Flokken er besejret! Bonus-loot").withStyle(ChatFormatting.GOLD), true);
+        player.displayClientMessage(Text.tr("pack.defeated").withStyle(ChatFormatting.GOLD), true);
         level.playSound(null, monster.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.4f);
         level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, monster.getX(), monster.getY() + 1, monster.getZ(), 30, 0.4, 0.6, 0.4, 0.3);
     }

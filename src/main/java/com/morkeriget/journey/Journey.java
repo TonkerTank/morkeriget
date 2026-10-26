@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 
 import com.mojang.serialization.Codec;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.loot.Loot;
@@ -212,20 +213,20 @@ public final class Journey {
         player.setData(REWARDED, List.copyOf(rewarded));
         for (Achievement achievement : reached) {
             give(player, reward(player, achievement.chapter));
-            player.sendSystemMessage(Component.literal("✔ Sæsonrejse: " + achievement.text + "! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                    .append(Component.literal("Belønningen er lagt i dit inventar").withStyle(ChatFormatting.YELLOW)));
+            player.sendSystemMessage(Text.tr("journey.reached", achievement.text()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                    .append(Text.tr("journey.reward_given").withStyle(ChatFormatting.YELLOW)));
             player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.8f, 1.2f);
         }
         if (all) {
             ItemStack mythic = Loot.createMythic(player.getRandom(), Progression.level(player), Progression.playerClass(player));
             give(player, List.of(mythic));
-            player.sendSystemMessage(Component.literal("Du har klaret hele sæsonrejsen!").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
+            player.sendSystemMessage(Text.tr("journey.all_done").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD));
             Loot.announceMythic(player, mythic);
         }
         sync(player, false);
     }
 
-    // See Achievement.CHAPTER_REWARDS
+    // See Achievement.chapterReward
     private static List<ItemStack> reward(ServerPlayer player, int chapter) {
         RandomSource random = player.getRandom();
         int level = Progression.level(player);

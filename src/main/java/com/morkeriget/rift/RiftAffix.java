@@ -3,8 +3,14 @@ package com.morkeriget.rift;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
+import com.morkeriget.Text;
+
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -12,25 +18,37 @@ import net.minecraft.world.item.component.CustomData;
 // Affixes on rift stones, like the affixes on nightmare dungeon sigils in Diablo 4. Each one makes the rift harder,
 // and each one also gives better rewards, see Rifts. Dungeon keys have them too, see Dungeon and Dungeons
 public enum RiftAffix {
-    EXPLOSIVE("Eksploderende", "Monstre eksploderer kort efter, de dør"),
-    ARMORED("Pansrede", "Monstre har 40% mere liv"),
-    FURIOUS("Rasende", "Monstre gør 25% mere skade"),
-    SWIFT("Hurtige", "Monstre bevæger sig 25% hurtigere"),
-    CURSED_GROUND("Forbandet jord", "Du heler 50% mindre"),
-    METEORS("Meteorer", "Meteorer falder ned, hvor du står. Flyt dig!"),
-    VAMPIRIC("Vampyriske", "Monstre heler, når de rammer dig"),
-    ELITE_ARMY("Elitehær", "Dobbelt så mange elites");
+    // Names and descriptions are in the language files, under affix.<name>
+    EXPLOSIVE,
+    ARMORED,
+    FURIOUS,
+    SWIFT,
+    CURSED_GROUND,
+    METEORS,
+    VAMPIRIC,
+    ELITE_ARMY;
 
     private static final String AFFIXES_TAG = "morkeriget_rift_affixes";
     // Each affix gives one more item and 25% more essence, XP and chance of a mythic
     public static final double REWARD_PER_AFFIX = 0.25;
 
-    public final String displayName;
-    public final String description;
+    public MutableComponent displayName() {
+        return Text.tr("affix." + name().toLowerCase(Locale.ROOT) + ".name");
+    }
 
-    RiftAffix(String displayName, String description) {
-        this.displayName = displayName;
-        this.description = description;
+    public MutableComponent description() {
+        return Text.tr("affix." + name().toLowerCase(Locale.ROOT) + ".desc");
+    }
+
+    // "⚠ Meteors: Meteors fall where you stand. Move!", for tooltips and chat
+    public Component warning() {
+        return Component.literal("⚠ ").append(displayName()).append(": ").withStyle(ChatFormatting.RED)
+                .append(description().withStyle(ChatFormatting.GRAY));
+    }
+
+    // What the affixes give, e.g. "+2 extra items and +50% essence, XP and chance of a mythic"
+    public static Component rewardLine(int affixes) {
+        return Text.tr("affix.reward", affixes, Math.round(affixes * REWARD_PER_AFFIX * 100)).withStyle(ChatFormatting.GOLD);
     }
 
     // How many affixes a stone of this tier gets: none at I, one at II-IV, two at V-VII and three at VIII-X

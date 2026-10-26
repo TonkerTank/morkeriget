@@ -3,6 +3,7 @@ package com.morkeriget.merchant;
 import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -37,7 +38,7 @@ public final class Merchant {
         event.registrar("1").playToServer(OpenMerchantPayload.TYPE, OpenMerchantPayload.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new MerchantMenu(id, inventory),
-                        Component.literal("Købmand")));
+                        Text.tr("merchant.title")));
             }
         });
     }

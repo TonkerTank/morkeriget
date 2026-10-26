@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
@@ -137,7 +138,7 @@ final class Dungeon {
     // count for clearing rooms, but they go away with the dungeon, see Dungeons.onJoinLevel
     private final Set<UUID> extras = new HashSet<>();
     private final List<Hazard> hazards = new ArrayList<>();
-    private final ServerBossEvent bar = new ServerBossEvent(Component.literal("Dungeon"), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
+    private final ServerBossEvent bar = new ServerBossEvent(Text.tr("dungeon.bar"), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10);
     private UUID bossId;
     private int lives = LIVES;
     private boolean failed;
@@ -536,7 +537,7 @@ final class Dungeon {
                 for (int i = 0; i < 3 + tier / 3 + extra; i++) {
                     spawn(room, theme.monster(random), random.nextDouble() < eliteChance / 2 ? 1 : 0, inside);
                 }
-                tell(inside, Component.literal("Seglets vogter! Dræb alt i rummet for at bryde seglet").withStyle(ChatFormatting.RED));
+                tell(inside, Text.tr("dungeon.seal_guard").withStyle(ChatFormatting.RED));
             }
             // One elite with one modifier and a single guard, more for a bigger group. It is a side room, so it shouldn't
             // be harder than the way to the boss
@@ -545,7 +546,7 @@ final class Dungeon {
                 for (int i = 0; i < 1 + extra / 2; i++) {
                     spawn(room, theme.monster(random), 0, inside);
                 }
-                tell(inside, Component.literal("Et skatkammer! Dets vogtere vil ikke give slip på det").withStyle(ChatFormatting.GOLD));
+                tell(inside, Text.tr("dungeon.treasure_room").withStyle(ChatFormatting.GOLD));
             }
             case BOSS -> {
                 // Mørkets Herre is a wither skeleton, with more helpers around it
@@ -554,7 +555,7 @@ final class Dungeon {
                     spawn(room, theme.monster(random), 0, inside);
                 }
                 if (boss != null) {
-                    tell(inside, Component.literal("☠ ").append(boss.getDisplayName()).append(" venter på jer!")
+                    tell(inside, Component.literal("☠ ").append(Text.tr("dungeon.boss_waits", boss.getDisplayName()))
                             .withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
                 }
                 level.playSound(null, originX(room) + span(room) / 2, FLOOR_Y + 1, originZ(room) + span(room) / 2, SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE,
@@ -666,13 +667,13 @@ final class Dungeon {
         room.cleared = true;
         if (room.kind == Kind.SEAL) {
             setDoor(room, rooms.get(rooms.size() - 1), false);
-            tell(inside, Component.literal("Seglet er brudt! Bossen venter i næste rum").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+            tell(inside, Text.tr("dungeon.seal_broken").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
             level.playSound(null, originX(room) + 8, FLOOR_Y + 1, originZ(room) + 8, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.5f, 0.6f);
             level.playSound(null, originX(room) + 8, FLOOR_Y + 1, originZ(room) + 8, SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 1.0f, 0.6f);
         } else {
-            String text = room.kind == Kind.TREASURE ? "Skatten er jeres - åbn kisten" : "Rummet er ryddet";
+            String text = room.kind == Kind.TREASURE ? "dungeon.treasure_yours" : "dungeon.room_cleared";
             for (ServerPlayer player : inside) {
-                player.displayClientMessage(Component.literal(text).withStyle(room.kind == Kind.TREASURE ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
+                player.displayClientMessage(Text.tr(text).withStyle(room.kind == Kind.TREASURE ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
             }
         }
     }
@@ -729,7 +730,7 @@ final class Dungeon {
         List<ServerPlayer> everyone = online();
         if (lives <= 0) {
             failed = true;
-            tell(everyone, Component.literal("I har ikke flere liv - dungeonet er tabt").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+            tell(everyone, Text.tr("dungeon.lost").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
         } else {
             tell(everyone, Component.literal(player.getGameProfile().getName() + " faldt - " + lives + " liv tilbage")
                     .withStyle(ChatFormatting.RED));
@@ -741,7 +742,7 @@ final class Dungeon {
         members.remove(player.getUUID());
         bar.removePlayer(player);
         Dungeons.sendBack(player);
-        player.displayClientMessage(Component.literal("Du forlod dungeonet").withStyle(ChatFormatting.GRAY), true);
+        player.displayClientMessage(Text.tr("dungeon.left").withStyle(ChatFormatting.GRAY), true);
     }
 
     private List<ServerPlayer> online() {
@@ -813,9 +814,8 @@ final class Dungeon {
             }
             Progression.addXp(player, (int) ((150 + 25 * monsterLevel) * (1 + 0.25 * (tier - 1)) * affixBonus));
             Glyphs.dungeonCleared(player, tier);
-            player.sendSystemMessage(Component.literal(theme.displayName + " (" + Rifts.roman(tier) + ") er klaret! ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                    .append(Component.literal("Saml jeres loot - I sendes hjem om " + HOME_DELAY / 20 + " sekunder. Du fik også en nøgle "
-                            + Rifts.roman(nextTier) + ".").withStyle(ChatFormatting.YELLOW)));
+            player.sendSystemMessage(Text.tr("dungeon.cleared", theme.displayName(), Rifts.roman(tier)).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                    .append(Text.tr("dungeon.cleared.loot", HOME_DELAY / 20, Rifts.roman(nextTier)).withStyle(style -> style.withBold(false).withColor(ChatFormatting.YELLOW))));
             player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
         }
         level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, at.x, at.y + 1, at.z, 80, 0.5, 1, 0.5, 0.4);
@@ -849,9 +849,8 @@ final class Dungeon {
             Progression.addXp(player, 3000 + 100 * monsterLevel);
             Glyphs.dungeonCleared(player, Dungeons.MAX_TIER);
             player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
-            player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal("Saml jeres loot - I sendes hjem om " + HOME_DELAY / 20 + " sekunder")
-                    .withStyle(ChatFormatting.YELLOW)));
-            player.connection.send(new ClientboundSetTitleTextPacket(Component.literal("Mørkets Herre er faldet!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
+            player.connection.send(new ClientboundSetSubtitleTextPacket(Text.tr("dungeon.uber.loot", HOME_DELAY / 20).withStyle(ChatFormatting.YELLOW)));
+            player.connection.send(new ClientboundSetTitleTextPacket(Text.tr("dungeon.uber.fallen").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
             player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 0.8f);
         }
         level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, at.x, at.y + 1, at.z, 200, 1, 2, 1, 0.5);
@@ -860,11 +859,11 @@ final class Dungeon {
     // "Den Frosne Krypt III - rum 3/6 - 2 liv" for the members who are here. Treasure rooms don't count
     private void updateBar(List<ServerPlayer> inside) {
         long cleared = rooms.stream().filter(room -> room.cleared).count();
-        String name = uber ? "Mørkets Herre" : theme.displayName + " " + Rifts.roman(tier);
-        String text = homeIn >= 0 ? name + " klaret - hjem om " + (homeIn + 19) / 20 + " sek."
-                : uber ? name + " - " + lives + " liv"
-                : name + " - rum " + Math.min(rooms.size(), cleared + 1) + "/" + rooms.size() + " - " + lives + " liv";
-        bar.setName(Component.literal(text).withStyle(ChatFormatting.RED));
+        Component name = uber ? Text.tr("boss.uber") : Text.tr("dungeon.name", theme.displayName(), Rifts.roman(tier));
+        Component text = homeIn >= 0 ? Text.tr("dungeon.bar.home", name, (homeIn + 19) / 20)
+                : uber ? Text.tr("dungeon.bar.uber", name, lives)
+                : Text.tr("dungeon.bar.rooms", name, Math.min(rooms.size(), cleared + 1), rooms.size(), lives);
+        bar.setName(text.copy().withStyle(ChatFormatting.RED));
         bar.setProgress(homeIn >= 0 ? homeIn / (float) HOME_DELAY : cleared / (float) rooms.size());
         for (ServerPlayer player : new ArrayList<>(bar.getPlayers())) {
             if (!inside.contains(player)) {

@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
@@ -16,6 +17,7 @@ import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
@@ -89,7 +91,7 @@ public final class Bosses {
     private static final int MAX_BOSS_SLOWNESS = 1;
     private static final int MAX_BOSS_WEAKNESS = 0;
     // The uber boss, see makeUberBoss
-    private static final String UBER_NAME = "Mørkets Herre";
+
     private static final String UBER_TAG = "morkeriget_uber_boss";
     private static final String FINAL_PHASE_TAG = "morkeriget_boss_final_phase";
     private static final ResourceLocation UBER_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "uber_boost");
@@ -97,9 +99,10 @@ public final class Bosses {
     private static final List<BossAbility> UBER_ROTATION = List.of(BossAbility.FIRE_RAIN, BossAbility.DOOM_CIRCLES, BossAbility.CHARGE,
             BossAbility.BLOOD_DRAIN, BossAbility.DOOM_CIRCLES, BossAbility.RAISE_DEAD, BossAbility.DARKNESS, BossAbility.CROWS);
 
-    private static final List<String> NAMES = List.of(
-            "Slagteren", "Gravkongen", "Blodmoderen", "Den Hule Ridder", "Askeherren",
-            "Kragedronningen", "Rådne Ragnar", "Mørkets Hyrde", "Knogleknuseren", "Sjæleæderen");
+    // The bosses' names, as keys in the language files (boss.name.<key>). See BossAbility.forBoss for what each one does
+    static final List<String> NAMES = List.of(
+            "butcher", "grave_king", "blood_mother", "hollow_knight", "ash_lord",
+            "crow_queen", "rotten_ragnar", "dark_shepherd", "bone_crusher", "soul_eater");
 
     // Boss bars only live in memory. If the world is reloaded, the bar is made again the next time the boss ticks
     private static final Map<UUID, ServerBossEvent> BARS = new HashMap<>();
@@ -162,28 +165,48 @@ public final class Bosses {
         // Bosses must not despawn when the player walks away
         monster.setPersistenceRequired();
 
-        String name = NAMES.get(monster.getRandom().nextInt(NAMES.size()));
-        monster.setCustomName(Component.literal(name).withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
-        BossAbility ability = BossAbility.forBoss(name);
+        String key = NAMES.get(monster.getRandom().nextInt(NAMES.size()));
+        MutableComponent name = Text.tr("boss.name." + key);
+        monster.setCustomName(name.copy().withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+        BossAbility ability = BossAbility.forBoss(key);
         monster.getPersistentData().putString(ABILITY_TAG, ability.name());
-        List<String> modifierNames = new ArrayList<>();
+        MutableComponent modifierNames = Component.empty();
         for (EliteModifier modifier : modifiers) {
-            modifierNames.add(modifier.displayName);
+            modifierNames.append(modifierNames.getSiblings().isEmpty() ? Component.empty() : Component.literal(", ")).append(modifier.displayName());
         }
-        monster.getPersistentData().putString(TITLE_TAG, name + " (" + ability.displayName + ") - " + String.join(", ", modifierNames));
+        setTitle(monster, Text.tr("boss.title", name, ability.displayName(), modifierNames));
+    }
+
+    // The boss bar's text, saved on the boss as a component so it shows in each player's language
+    private static void setTitle(Monster boss, Component title) {
+        boss.getPersistentData().putString(TITLE_TAG, Component.Serializer.toJson(title, boss.registryAccess()));
+    }
+
+    // Bosses from before the texts were translated have the title saved as plain text
+    private static Component title(Monster boss) {
+        String saved = boss.getPersistentData().getString(TITLE_TAG);
+        try {
+            Component title = Component.Serializer.fromJson(saved, boss.registryAccess());
+            if (title != null) {
+                return title;
+            }
+        } catch (RuntimeException ignored) {
+            // Plain text
+        }
+        return Component.literal(saved);
     }
 
     // A world boss is a boss with its own name, even more health, a bigger body and a random ability, see WorldBoss
-    static void makeWorldBoss(Monster monster, String name, double healthMultiplier, double extraScale) {
+    static void makeWorldBoss(Monster monster, Component name, double healthMultiplier, double extraScale) {
         makeBoss(monster);
         boost(monster, WORLD_BOSS_BOOST, Attributes.MAX_HEALTH, healthMultiplier - 1, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
         boost(monster, WORLD_BOSS_BOOST, Attributes.SCALE, extraScale, AttributeModifier.Operation.ADD_VALUE);
         boost(monster, WORLD_BOSS_BOOST, Attributes.KNOCKBACK_RESISTANCE, 0.5, AttributeModifier.Operation.ADD_VALUE);
         monster.setHealth(monster.getMaxHealth());
-        monster.setCustomName(Component.literal(name).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+        monster.setCustomName(name.copy().withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
         BossAbility ability = BossAbility.values()[monster.getRandom().nextInt(BossAbility.values().length)];
         monster.getPersistentData().putString(ABILITY_TAG, ability.name());
-        monster.getPersistentData().putString(TITLE_TAG, name + " - Verdensboss (" + ability.displayName + ")");
+        setTitle(monster, Text.tr("boss.title.world", name, ability.displayName()));
     }
 
     private static void onEntityTick(EntityTickEvent.Post event) {
@@ -240,9 +263,9 @@ public final class Bosses {
         makeBoss(monster);
         boost(monster, UBER_BOOST, Attributes.SCALE, 0.5, AttributeModifier.Operation.ADD_VALUE);
         boost(monster, UBER_BOOST, Attributes.KNOCKBACK_RESISTANCE, 0.5, AttributeModifier.Operation.ADD_VALUE);
-        monster.setCustomName(Component.literal(UBER_NAME).withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD));
+        monster.setCustomName(Text.tr("boss.uber").withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD));
         monster.getPersistentData().putBoolean(UBER_TAG, true);
-        monster.getPersistentData().putString(TITLE_TAG, UBER_NAME + " - Uber-boss");
+        setTitle(monster, Text.tr("boss.title.uber", Text.tr("boss.uber")));
     }
 
     // Faster and harder hitting, and the abilities come one after the other
@@ -250,8 +273,8 @@ public final class Bosses {
         boss.getPersistentData().putBoolean(FINAL_PHASE_TAG, true);
         boost(boss, FINAL_PHASE_BOOST, Attributes.MOVEMENT_SPEED, 0.2, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
         boost(boss, FINAL_PHASE_BOOST, Attributes.ATTACK_DAMAGE, 0.3, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-        title(level, boss, Component.literal("Fase 3").withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD),
-                Component.empty().append(boss.getDisplayName()).append(Component.literal(" kalder mørket ned!").withStyle(ChatFormatting.LIGHT_PURPLE)));
+        title(level, boss, Text.tr("boss.phase", 3).withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD),
+                Text.tr("boss.phase3", boss.getDisplayName()).withStyle(ChatFormatting.LIGHT_PURPLE));
         level.playSound(null, boss.blockPosition(), SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 2.0f, 0.5f);
         level.sendParticles(ParticleTypes.SCULK_SOUL, boss.getX(), boss.getY() + 1, boss.getZ(), 80, 2, 1, 2, 0.05);
     }
@@ -282,8 +305,8 @@ public final class Bosses {
         LivingEntity target = boss.getTarget() != null ? boss.getTarget() : level.getNearestPlayer(boss, BAR_RANGE);
         String id = boss.getStringUUID();
         summon(level, boss, target, boss.getType(), SHIELD_MINIONS, minion -> minion.getPersistentData().putString(SHIELD_MINION_TAG, id));
-        title(level, boss, Component.literal("Fase 2").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD),
-                Component.empty().append(boss.getDisplayName()).append(Component.literal(" skjolder sig - dræb dens tjenere!").withStyle(ChatFormatting.GOLD)));
+        title(level, boss, Text.tr("boss.phase", 2).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD),
+                Text.tr("boss.phase2", boss.getDisplayName()).withStyle(ChatFormatting.GOLD));
         level.playSound(null, boss.blockPosition(), SoundEvents.ELDER_GUARDIAN_CURSE, SoundSource.HOSTILE, 1.5f, 0.8f);
     }
 
@@ -300,7 +323,7 @@ public final class Bosses {
                 monster -> monster.isAlive() && id.equals(monster.getPersistentData().getString(SHIELD_MINION_TAG))).isEmpty();
         if (!helpersLeft) {
             boss.getPersistentData().remove(SHIELD_TAG);
-            title(level, boss, Component.empty(), Component.literal("Skjoldet er brudt!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+            title(level, boss, Component.empty(), Text.tr("boss.shield_broken").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
             level.playSound(null, boss.blockPosition(), SoundEvents.SHIELD_BREAK, SoundSource.HOSTILE, 1.5f, 0.6f);
         }
     }
@@ -345,7 +368,7 @@ public final class Bosses {
 
     private static void updateBar(ServerLevel level, Monster boss) {
         ServerBossEvent bar = BARS.computeIfAbsent(boss.getUUID(), uuid -> new ServerBossEvent(
-                Component.literal(boss.getPersistentData().getString(TITLE_TAG)).withStyle(ChatFormatting.RED),
+                title(boss).copy().withStyle(ChatFormatting.RED),
                 BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.NOTCHED_10));
         bar.setProgress(boss.getHealth() / boss.getMaxHealth());
         for (ServerPlayer player : List.copyOf(bar.getPlayers())) {
@@ -418,8 +441,7 @@ public final class Bosses {
         if (!(event.getEntity() instanceof Monster boss) || !(boss.level() instanceof ServerLevel level) || !isBoss(boss)) {
             return;
         }
-        Component message = Component.empty().append(boss.getDisplayName())
-                .append(Component.literal(" er besejret!").withStyle(ChatFormatting.GOLD));
+        Component message = Text.tr("boss.defeated", boss.getDisplayName()).withStyle(ChatFormatting.GOLD);
         for (ServerPlayer player : level.players()) {
             if (player.distanceTo(boss) <= BAR_RANGE) {
                 player.sendSystemMessage(message);

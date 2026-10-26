@@ -2,6 +2,8 @@ package com.morkeriget.dummy;
 
 import java.util.List;
 
+import com.morkeriget.Text;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -38,8 +40,8 @@ public class TrainingDummyItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
-        lines.add(Component.literal("Højreklik på jorden for at stille den op").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("Slå på den for at se din skade pr. sekund").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("Sneak og højreklik med tom hånd for at tage den ned").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(Text.tr("tooltip.dummy.1").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("tooltip.dummy.2").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("tooltip.dummy.3").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

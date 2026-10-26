@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.PlayerBars;
+import com.morkeriget.Text;
 import com.morkeriget.journey.Achievement;
 import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
@@ -21,6 +22,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -60,13 +62,17 @@ public final class WorldBoss {
     private static final float MAX_HIT = 0.35f;
 
     // What the world boss can be. extraScale is added on top of what all bosses get
-    private record Kind(EntityType<? extends Monster> type, String name, double extraScale) {
+    // key is its name in the language files, under worldboss.name.<key>
+    private record Kind(EntityType<? extends Monster> type, String key, double extraScale) {
+        MutableComponent name() {
+            return Text.tr("worldboss.name." + key);
+        }
     }
 
     private static final List<Kind> KINDS = List.of(
-            new Kind(EntityType.RAVAGER, "Ødelæggeren", 0.5),
-            new Kind(EntityType.VINDICATOR, "Bøddelen fra Dybet", 1.0),
-            new Kind(EntityType.WITHER_SKELETON, "Askekongen", 1.0));
+            new Kind(EntityType.RAVAGER, "destroyer", 0.5),
+            new Kind(EntityType.VINDICATOR, "executioner", 1.0),
+            new Kind(EntityType.WITHER_SKELETON, "ash_king", 1.0));
 
     // Seconds until the next world boss is announced. Only in memory, so it starts over when the server starts
     private static int untilNext = -1;
@@ -181,9 +187,8 @@ public final class WorldBoss {
             z = (int) (near.getZ() + Math.sin(angle) * distance);
             this.warning = warning;
             untilWake = warning;
-            broadcast(Component.literal("☠ Verdensboss: ").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
-                    .append(Component.literal(kind.name + " vågner om " + time(warning) + "! Følg den røde bjælke, og saml jeres styrker")
-                            .withStyle(ChatFormatting.RED)));
+            broadcast(Text.tr("worldboss.announce").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                    .append(Text.tr("worldboss.announce.info", kind.name(), time(warning)).withStyle(style -> style.withBold(false).withColor(ChatFormatting.RED))));
             for (ServerPlayer player : level.players()) {
                 player.playNotifySound(SoundEvents.ELDER_GUARDIAN_CURSE, SoundSource.HOSTILE, 0.6f, 0.6f);
             }
@@ -195,10 +200,10 @@ public final class WorldBoss {
                 if (untilWake > 0) {
                     untilWake--;
                     if (untilWake == 60 || untilWake == 10) {
-                        broadcast(Component.literal(kind.name + " vågner om " + untilWake + " sekunder!").withStyle(ChatFormatting.RED));
+                        broadcast(Text.tr("worldboss.wakes_in", kind.name(), untilWake).withStyle(ChatFormatting.RED));
                     }
                 } else if (++awake > LIFETIME) {
-                    end(kind.name + " faldt i søvn igen. Ingen kom");
+                    end(Text.tr("worldboss.slept", kind.name()));
                     return true;
                 } else {
                     ServerPlayer near = nearest();
@@ -215,12 +220,12 @@ public final class WorldBoss {
                 } else if (level.areEntitiesLoaded(ChunkPos.asLong(x >> 4, z >> 4))) {
                     // The monsters in its chunk are loaded but it isn't there, so something took it away without killing it.
                     // The chunk itself loads a moment before its monsters, so that isn't enough to tell
-                    end(kind.name + " forsvandt");
+                    end(Text.tr("worldboss.vanished", kind.name()));
                     return true;
                 }
                 if (++awake > LIFETIME) {
                     removeBoss();
-                    end(kind.name + " forsvandt tilbage i mørket");
+                    end(Text.tr("worldboss.left", kind.name()));
                     return true;
                 }
             }
@@ -232,12 +237,12 @@ public final class WorldBoss {
             float progress = bossId == null && untilWake > 0
                     ? Mth.clamp((float) untilWake / warning, 0, 1)
                     : Mth.clamp(1 - (float) awake / LIFETIME, 0, 1);
-            String state = bossId != null ? " er vågen!" : untilWake > 0 ? " vågner om " + time(untilWake) : " venter på jer";
+            Component state = bossId != null ? Text.tr("worldboss.bar.awake", kind.name())
+                    : untilWake > 0 ? Text.tr("worldboss.bar.waking", kind.name(), time(untilWake)) : Text.tr("worldboss.bar.waiting", kind.name());
             for (ServerPlayer player : level.players()) {
                 // Close to the boss its own boss bar shows instead
                 if (bossId == null || distance(player) >= NEAR) {
-                    bars.show(player, Component.literal(kind.name + state + " - " + (int) distance(player) + " blokke mod " + direction(player)),
-                            progress);
+                    bars.show(player, Text.tr("worldboss.bar", state, (int) distance(player), direction(player)), progress);
                 }
             }
             bars.finish();
@@ -261,7 +266,7 @@ public final class WorldBoss {
                 }
                 MonsterLevels.apply(boss, monsterLevel + 3);
             }
-            Bosses.makeWorldBoss(boss, kind.name, Config.WORLD_BOSS_HEALTH.get(), kind.extraScale);
+            Bosses.makeWorldBoss(boss, kind.name(), Config.WORLD_BOSS_HEALTH.get(), kind.extraScale);
             Bosses.setMaxHit(boss, MAX_HIT);
             boss.getPersistentData().putBoolean(WORLD_BOSS_TAG, true);
             ServerPlayer near = nearest();
@@ -276,7 +281,7 @@ public final class WorldBoss {
             for (ServerPlayer player : level.players()) {
                 player.playNotifySound(SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 0.8f, 0.7f);
             }
-            broadcast(Component.literal("☠ " + kind.name + " er vågnet!").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+            broadcast(Component.literal("☠ ").append(Text.tr("worldboss.woke", kind.name())).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
         }
 
         // Everyone close by gets their own rewards, right into their inventory, so nobody has to fight over the loot
@@ -305,13 +310,12 @@ public final class WorldBoss {
                 }
                 Progression.addXp(player, 500 + 50 * itemLevel);
                 Journey.add(player, Achievement.Stat.WORLD_BOSSES);
-                player.sendSystemMessage(Component.literal("Din belønning for " + kind.name + " er lagt i dit inventar")
-                        .withStyle(ChatFormatting.GOLD));
+                player.sendSystemMessage(Text.tr("worldboss.reward", kind.name()).withStyle(ChatFormatting.GOLD));
             }
             List<String> names = winners.stream().map(player -> player.getGameProfile().getName()).toList();
             end(null);
-            broadcast(Component.literal("☠ " + kind.name + " er besejret").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-                    .append(Component.literal(names.isEmpty() ? "!" : " af " + String.join(", ", names) + "!").withStyle(ChatFormatting.YELLOW)));
+            broadcast(Component.literal("☠ ").append(names.isEmpty() ? Text.tr("worldboss.defeated", kind.name())
+                    : Text.tr("worldboss.defeated_by", kind.name(), String.join(", ", names))).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
         }
 
         // Takes the boss out of the world, if it is awake and there
@@ -324,10 +328,10 @@ public final class WorldBoss {
         }
 
         // message is null when nobody needs to be told
-        void end(String message) {
+        void end(MutableComponent message) {
             bars.clear();
             if (message != null) {
-                broadcast(Component.literal(message).withStyle(ChatFormatting.GRAY));
+                broadcast(message.withStyle(ChatFormatting.GRAY));
             }
         }
 
@@ -351,11 +355,8 @@ public final class WorldBoss {
         }
 
         // E.g. "nord-øst", from the player towards the boss
-        private String direction(ServerPlayer player) {
-            double angle = Math.toDegrees(Math.atan2(z - player.getZ(), x - player.getX()));
-            // 0 degrees is east and 90 is south, since z goes south in Minecraft
-            String[] names = {"øst", "syd-øst", "syd", "syd-vest", "vest", "nord-vest", "nord", "nord-øst"};
-            return names[Math.floorMod((int) Math.round(angle / 45), 8)];
+        private Component direction(ServerPlayer player) {
+            return Text.direction(x - player.getX(), z - player.getZ());
         }
 
         private void broadcast(Component message) {

@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleOptions;
@@ -104,9 +105,9 @@ public final class Elites {
             EliteModifier modifier = available.remove(monster.getRandom().nextInt(available.size()));
             modifier.apply(monster);
             chosen.add(modifier);
-            name.append(Component.literal(modifier.displayName + " ").withStyle(modifier.color));
+            name.append(modifier.displayName().append(" ").withStyle(modifier.color));
         }
-        name.append(Component.literal("Elite ").append(monster.getType().getDescription()).withStyle(ChatFormatting.GOLD));
+        name.append(Text.tr("elite.name", monster.getType().getDescription()).withStyle(ChatFormatting.GOLD));
 
         monster.setHealth(monster.getMaxHealth());
         monster.setCustomName(name);

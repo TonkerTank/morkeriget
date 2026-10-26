@@ -2,6 +2,8 @@ package com.morkeriget.glyph;
 
 import java.util.List;
 
+import com.morkeriget.Text;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,7 +27,7 @@ public class GlyphItem extends Item {
         if (glyph == null) {
             return super.getName(stack);
         }
-        return Component.literal("Glyf: " + glyph.glyph().displayName + " (" + glyph.level() + ")").withStyle(glyph.glyph().color);
+        return Text.tr("glyph.item_name", glyph.glyph().displayName(), glyph.level()).withStyle(glyph.glyph().color);
     }
 
     @Override
@@ -46,8 +48,8 @@ public class GlyphItem extends Item {
         if (glyph == null) {
             return;
         }
-        lines.add(Component.literal(glyph.glyph().describe(glyph.level())).withStyle(ChatFormatting.BLUE));
-        lines.add(Component.literal("Højreklik for at sætte den på paragon-tavlen").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("Stiger et level for hvert dungeon, du klarer, op til 2 pr. tier").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(glyph.glyph().describe(glyph.level()).withStyle(ChatFormatting.BLUE));
+        lines.add(Text.tr("glyph.how_to_socket").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("glyph.how_it_grows").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

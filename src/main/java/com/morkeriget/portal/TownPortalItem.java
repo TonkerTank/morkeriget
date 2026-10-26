@@ -2,6 +2,8 @@ package com.morkeriget.portal;
 
 import java.util.List;
 
+import com.morkeriget.Text;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -59,7 +61,7 @@ public class TownPortalItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
-        lines.add(Component.literal("Hold højreklik for at åbne en portal hjem").withStyle(ChatFormatting.AQUA));
-        lines.add(Component.literal("Læs en igen derhjemme for at vende tilbage (gratis)").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("tooltip.portal.1").withStyle(ChatFormatting.AQUA));
+        lines.add(Text.tr("tooltip.portal.2").withStyle(ChatFormatting.GRAY));
     }
 }

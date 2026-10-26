@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.journey.Achievement;
 import com.morkeriget.journey.Journey;
 import com.morkeriget.elite.Bosses;
@@ -106,8 +107,8 @@ public final class Bounties {
             Bounty updated = bounty.withProgress(1);
             board = board.with(i, updated);
             if (updated.done()) {
-                player.sendSystemMessage(Component.literal("Opgave klaret: " + type.text(updated.goal()) + "! ").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
-                        .append(Component.literal("Hent belønningen i Opgaver (K)").withStyle(ChatFormatting.YELLOW)));
+                player.sendSystemMessage(Text.tr("bounties.done", type.text(updated.goal())).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
+                        .append(Text.tr("bounties.done.claim").withStyle(ChatFormatting.YELLOW)));
                 player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.4f);
             }
         }
@@ -125,7 +126,7 @@ public final class Bounties {
             if (board.allClaimed() && !board.bonusClaimed()) {
                 player.setData(BOARD, board.withBonusClaimed());
                 give(player, bonusReward(player));
-                player.sendSystemMessage(Component.literal("Alle dagens opgaver er klaret! Du fik en legendarisk genstand, essens og en ædelsten.")
+                player.sendSystemMessage(Text.tr("bounties.all_done")
                         .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
                 player.playNotifySound(SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0f, 1.0f);
                 Journey.add(player, Achievement.Stat.BOUNTY_DAYS);

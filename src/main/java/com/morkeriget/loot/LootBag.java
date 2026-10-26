@@ -3,6 +3,7 @@ package com.morkeriget.loot;
 import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.journey.Journey;
 
 import net.minecraft.ChatFormatting;
@@ -76,7 +77,7 @@ public final class LootBag {
         }
         Container bag = get(player);
         player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new LootBagMenu(id, inventory, bag),
-                Component.literal("Loot-taske")));
+                Text.tr("loot_bag.title")));
         player.playNotifySound(SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.PLAYERS, 0.6f, 1.0f);
     }
 
@@ -100,7 +101,7 @@ public final class LootBag {
         }
         if (free < 0) {
             if (player.tickCount % FULL_MESSAGE_INTERVAL == 0) {
-                player.displayClientMessage(Component.literal("Loot-tasken er fuld (I)").withStyle(ChatFormatting.RED), true);
+                player.displayClientMessage(Text.tr("loot_bag.full").withStyle(ChatFormatting.RED), true);
             }
             return;
         }

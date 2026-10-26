@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.smithy.Smithy;
 
 import net.minecraft.ChatFormatting;
@@ -75,11 +76,11 @@ public class LootBagMenu extends ChestMenu {
         int[] result = new int[2];
         Smithy.salvage(bag, 0, bag.getContainerSize(), best, result);
         if (result[0] == 0) {
-            player.displayClientMessage(Component.literal("Ingen genstande at smelte om i loot-tasken"), true);
+            player.displayClientMessage(Text.tr("bag.nothing_to_salvage"), true);
             return false;
         }
         player.getInventory().placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), result[1]));
-        player.displayClientMessage(Component.literal("Smeltede " + result[0] + " genstande om til " + result[1] + " essens")
+        player.displayClientMessage(Text.tr("smithy.salvaged", result[0], result[1])
                 .withStyle(ChatFormatting.LIGHT_PURPLE), true);
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;

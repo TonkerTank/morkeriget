@@ -9,6 +9,7 @@ import java.util.function.Supplier;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.ElitePacks;
 import com.morkeriget.elite.Elites;
@@ -31,6 +32,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -70,8 +72,10 @@ public final class Loot {
     public static final String RARITY_TAG = "morkeriget_rarity";
     private static final String ITEM_LEVEL_TAG = "morkeriget_item_level";
     private static final String ITEM_POWER_TAG = "morkeriget_item_power";
-    private static final String ITEM_LEVEL_LORE = "Genstandslevel ";
-    static final String ITEM_POWER_LORE = "Genstandsstyrke ";
+    // How the level and power lines read on items made before the texts were translated. Those items only have them in
+    // the lore, see storedNumber
+    private static final String LEGACY_ITEM_LEVEL_LORE = "Genstandslevel ";
+    private static final String LEGACY_ITEM_POWER_LORE = "Genstandsstyrke ";
     // Special affixes. The value is stored on the item and used in PlayerHits
     public static final String LIFESTEAL_TAG = "morkeriget_lifesteal";
     public static final String FIRE_TAG = "morkeriget_fire";
@@ -154,16 +158,17 @@ public final class Loot {
     }
 
     // A bonus that can roll on the given kinds of item. min and max are scaled by how good the roll is.
-    // Stat affixes change an attribute. Special affixes are stored under tag, with lore as the text
+    // Stat affixes change an attribute. Special affixes are stored under tag, with lore as the key of their text in the
+    // language files (lore.affix.<lore>) and legacy as the text items had before the texts were translated
     private record Affix(Set<ItemKind> kinds, Holder<Attribute> attribute, AttributeModifier.Operation operation,
-                         double min, double max, String tag, String lore, Scaling scaling) {
+                         double min, double max, String tag, String lore, String legacy, Scaling scaling) {
         static Affix stat(Set<ItemKind> kinds, Holder<Attribute> attribute, AttributeModifier.Operation operation, double min, double max,
                           Scaling scaling) {
-            return new Affix(kinds, attribute, operation, min, max, null, null, scaling);
+            return new Affix(kinds, attribute, operation, min, max, null, null, null, scaling);
         }
 
-        static Affix special(Set<ItemKind> kinds, String tag, int min, int max, String lore) {
-            return new Affix(kinds, null, null, min, max, tag, lore, Scaling.NONE);
+        static Affix special(Set<ItemKind> kinds, String tag, int min, int max, String lore, String legacy) {
+            return new Affix(kinds, null, null, min, max, tag, lore, legacy, Scaling.NONE);
         }
     }
 
@@ -177,14 +182,15 @@ public final class Loot {
             Affix.stat(EnumSet.of(ItemKind.ARMOR, ItemKind.SHIELD), Attributes.ARMOR_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE, 1, 3, Scaling.FULL),
             Affix.stat(ALL, Attributes.LUCK, AttributeModifier.Operation.ADD_VALUE, 1, 3, Scaling.NONE),
             Affix.stat(EnumSet.of(ItemKind.MELEE), Attributes.ATTACK_KNOCKBACK, AttributeModifier.Operation.ADD_VALUE, 0.5, 1.5, Scaling.NONE),
-            Affix.special(HITTING, LIFESTEAL_TAG, 3, 10, "+%d%% livsstjæl"),
-            Affix.special(EnumSet.of(ItemKind.MELEE, ItemKind.RANGED), FIRE_TAG, 2, 5, "Sætter ild i fjender i %d sek."),
-            Affix.special(HITTING, CRUSHING_TAG, 5, 15, "%d%% chance for knusende slag (dobbelt skade)"),
-            Affix.special(EnumSet.of(ItemKind.RANGED, ItemKind.JEWELRY), ARROW_DAMAGE_TAG, 10, 30, "+%d%% pileskade"),
-            Affix.special(DEFENSIVE, THORNS_TAG, 10, 30, "Torne: sender %d%% af skaden tilbage"));
+            Affix.special(HITTING, LIFESTEAL_TAG, 3, 10, "lifesteal", "+%d%% livsstjæl"),
+            Affix.special(EnumSet.of(ItemKind.MELEE, ItemKind.RANGED), FIRE_TAG, 2, 5, "fire", "Sætter ild i fjender i %d sek."),
+            Affix.special(HITTING, CRUSHING_TAG, 5, 15, "crushing", "%d%% chance for knusende slag (dobbelt skade)"),
+            Affix.special(EnumSet.of(ItemKind.RANGED, ItemKind.JEWELRY), ARROW_DAMAGE_TAG, 10, 30, "arrow_damage", "+%d%% pileskade"),
+            Affix.special(DEFENSIVE, THORNS_TAG, 10, 30, "thorns", "Torne: sender %d%% af skaden tilbage"));
 
+    // The words a legendary's name can start with, as keys in the language files (lore.legendary_name.<key>)
     private static final List<String> LEGENDARY_NAMES = List.of(
-            "Dommedagens", "Lilith's", "Blodets", "Skyggernes", "Helvedes", "Ravnens", "Mørkets", "Sjælerøverens");
+            "doom", "lilith", "blood", "shadows", "hell", "raven", "darkness", "soul_thief");
 
     private Loot() {
     }
@@ -382,9 +388,8 @@ public final class Loot {
     // it is picked up, see Journey, since someone else could get there first
     public static void announceMythic(ServerPlayer finder, ItemStack stack) {
         Component message = Component.literal("✦ ").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD)
-                .append(finder.getDisplayName().copy().withStyle(ChatFormatting.WHITE))
-                .append(Component.literal(" fandt en mytisk genstand: ").withStyle(ChatFormatting.LIGHT_PURPLE))
-                .append(stack.getHoverName());
+                .append(Text.tr("chat.mythic_found", finder.getDisplayName().copy().withStyle(ChatFormatting.WHITE), stack.getHoverName())
+                        .withStyle(ChatFormatting.LIGHT_PURPLE));
         finder.server.getPlayerList().broadcastSystemMessage(message, false);
     }
 
@@ -606,10 +611,13 @@ public final class Loot {
         power.markOn(stack);
     }
 
+    // The "★ " is what setPower finds the line by, whatever language it shows in
     private static List<Component> powerLore(LegendaryPower power) {
-        String classText = power.playerClass != null ? " (" + power.playerClass.displayName + ")" : "";
-        return List.of(Component.literal("★ " + power.displayName + classText).withStyle(ChatFormatting.GOLD),
-                Component.literal(power.description).withStyle(ChatFormatting.YELLOW));
+        MutableComponent name = Component.literal("★ ").append(power.displayName());
+        if (power.playerClass != null) {
+            name.append(" (").append(power.playerClass.displayName()).append(")");
+        }
+        return List.of(name.withStyle(ChatFormatting.GOLD), power.description().withStyle(ChatFormatting.YELLOW));
     }
 
     // Gives a fresh item its affixes, name and lore. set and piece are null for items that aren't part of a set,
@@ -637,7 +645,7 @@ public final class Loot {
         if (Staffs.isStaff(stack)) {
             int mana = STAFF_MANA_MIN + random.nextInt(STAFF_MANA_MAX - STAFF_MANA_MIN + 1);
             CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(STAFF_MANA_TAG, mana));
-            affixLore.add(Component.literal("+" + mana + "% hurtigere mana").withStyle(ChatFormatting.AQUA));
+            affixLore.add(Text.tr("lore.staff_mana", mana).withStyle(ChatFormatting.AQUA));
         }
         double totalQuality = 0;
         // Which of the bonuses are sure to be greater ones
@@ -674,7 +682,7 @@ public final class Loot {
             if (affix.tag != null) {
                 int value = (int) Math.round(amount);
                 CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(affix.tag, value));
-                affixLore.add(Component.literal(String.format(affix.lore, value)).withStyle(ChatFormatting.BLUE));
+                affixLore.add(specialLine(affix.tag, value).withStyle(ChatFormatting.BLUE));
             } else {
                 ResourceLocation id = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "affix_" + i);
                 modifiers = modifiers.withModifierAdded(affix.attribute, new AttributeModifier(id, amount, affix.operation), slot);
@@ -694,20 +702,20 @@ public final class Loot {
         Component baseName = stack.getItem().getDescription();
         Component name;
         if (mythic != null) {
-            name = Component.literal(mythic.displayName);
+            name = mythic.displayName();
         } else if (set != null) {
-            name = Component.literal(set.displayName + " ").append(baseName);
+            name = Text.tr("item.set_name", set.displayName(), baseName);
         } else if (rarity == Rarity.LEGENDARY) {
-            name = Component.literal(LEGENDARY_NAMES.get(random.nextInt(LEGENDARY_NAMES.size())) + " ").append(baseName);
+            name = Text.tr("lore.legendary_name." + LEGENDARY_NAMES.get(random.nextInt(LEGENDARY_NAMES.size())), baseName);
         } else {
             name = baseName.copy();
         }
         stack.set(DataComponents.ITEM_NAME, name.copy().withStyle(rarity.color));
-        String kindLine = set != null ? "Sæt-genstand: " + set.displayName + " sæt" : rarity.displayName + " genstand";
+        MutableComponent kindLine = set != null ? Text.tr("lore.set_item", set.displayName()) : Text.tr("lore.rarity_item", rarity.displayName());
         List<Component> lore = new ArrayList<>(List.of(
-                Component.literal(kindLine).withStyle(rarity.color),
-                Component.literal(ITEM_LEVEL_LORE + itemLevel).withStyle(ChatFormatting.GRAY),
-                Component.literal(ITEM_POWER_LORE + itemPower).withStyle(ChatFormatting.GRAY)));
+                kindLine.withStyle(rarity.color),
+                Text.tr("lore.item_level", itemLevel).withStyle(ChatFormatting.GRAY),
+                Text.tr("lore.item_power", itemPower).withStyle(ChatFormatting.GRAY)));
         lore.addAll(affixLore);
         if (power != null) {
             lore.add(Component.empty());
@@ -716,20 +724,23 @@ public final class Loot {
         }
         if (mythic != null) {
             lore.add(Component.empty());
-            lore.add(Component.literal("✦ " + mythic.displayName).withStyle(ChatFormatting.LIGHT_PURPLE));
-            lore.add(Component.literal(mythic.description).withStyle(ChatFormatting.DARK_PURPLE));
+            lore.add(Component.literal("✦ ").append(mythic.displayName()).withStyle(ChatFormatting.LIGHT_PURPLE));
+            lore.add(mythic.description().withStyle(ChatFormatting.DARK_PURPLE));
             mythic.markOn(stack);
         }
         if (set != null) {
-            List<String> pieceNames = set.pieces.stream().map(p -> p.displayName).toList();
+            MutableComponent pieceNames = Component.empty();
+            for (ItemSet.Piece setPiece : set.pieces) {
+                pieceNames.append(pieceNames.getSiblings().isEmpty() ? Component.empty() : Component.literal(", ")).append(setPiece.displayName());
+            }
             lore.add(Component.empty());
-            lore.add(Component.literal(set.displayName + " sæt: " + String.join(", ", pieceNames)).withStyle(ChatFormatting.DARK_GREEN));
-            lore.add(Component.literal("(2) " + set.twoPieceBonus).withStyle(ChatFormatting.GRAY));
-            lore.add(Component.literal("(4) " + set.fourPieceBonus).withStyle(ChatFormatting.GRAY));
+            lore.add(Text.tr("lore.set_pieces", set.displayName(), pieceNames).withStyle(ChatFormatting.DARK_GREEN));
+            lore.add(Component.literal("(2) ").append(set.twoPieceBonus()).withStyle(ChatFormatting.GRAY));
+            lore.add(Component.literal("(4) ").append(set.fourPieceBonus()).withStyle(ChatFormatting.GRAY));
             set.markOn(stack, piece);
         }
         if (kind == ItemKind.JEWELRY) {
-            lore.add(Component.literal("Tag på i Smykker (K)").withStyle(ChatFormatting.DARK_GRAY));
+            lore.add(Text.tr("lore.wear_jewelry").withStyle(ChatFormatting.DARK_GRAY));
         }
         stack.set(DataComponents.LORE, new ItemLore(lore));
         if (rarity == Rarity.LEGENDARY || rarity == Rarity.SET || rarity == Rarity.MYTHIC) {
@@ -768,11 +779,16 @@ public final class Loot {
     }
 
     public static int itemLevel(ItemStack stack) {
-        return Math.max(1, storedNumber(stack, ITEM_LEVEL_TAG, ITEM_LEVEL_LORE));
+        return Math.max(1, storedNumber(stack, ITEM_LEVEL_TAG, LEGACY_ITEM_LEVEL_LORE));
     }
 
     public static int itemPower(ItemStack stack) {
-        return storedNumber(stack, ITEM_POWER_TAG, ITEM_POWER_LORE);
+        return storedNumber(stack, ITEM_POWER_TAG, LEGACY_ITEM_POWER_LORE);
+    }
+
+    // The "Item power" line in the lore, also on items from before the texts were translated
+    static boolean isItemPowerLine(Component line) {
+        return Text.is(line, "lore.item_power") || line.getString().startsWith(LEGACY_ITEM_POWER_LORE);
     }
 
     // Raises the item power, both the number and the line in the lore. Used by Masterwork
@@ -781,8 +797,8 @@ public final class Loot {
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(ITEM_POWER_TAG, power));
         List<Component> lore = new ArrayList<>(stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY).lines());
         for (int i = 0; i < lore.size(); i++) {
-            if (lore.get(i).getString().startsWith(ITEM_POWER_LORE)) {
-                lore.set(i, Component.literal(ITEM_POWER_LORE + power).withStyle(ChatFormatting.GRAY));
+            if (isItemPowerLine(lore.get(i))) {
+                lore.set(i, Text.tr("lore.item_power", power).withStyle(ChatFormatting.GRAY));
             }
         }
         stack.set(DataComponents.LORE, new ItemLore(lore));
@@ -829,9 +845,16 @@ public final class Loot {
         return AFFIXES.stream().anyMatch(affix -> affix.attribute == attribute && affix.scaling == Scaling.NONE);
     }
 
-    // The text a special affix has in the lore, with %d for the value
-    static String specialLore(String tag) {
-        return AFFIXES.stream().filter(affix -> tag.equals(affix.tag)).map(Affix::lore).findFirst().orElse("%d");
+    // The line a special affix has in the lore, e.g. "+12% life steal"
+    static MutableComponent specialLine(String tag, int value) {
+        String key = AFFIXES.stream().filter(affix -> tag.equals(affix.tag)).map(Affix::lore).findFirst().orElse("lifesteal");
+        return Text.tr("lore.affix." + key, value);
+    }
+
+    // The same line as it read on items from before the texts were translated, so Masterwork can still find it there
+    static String legacySpecialLine(String tag, int value) {
+        String text = AFFIXES.stream().filter(affix -> tag.equals(affix.tag)).map(Affix::legacy).findFirst().orElse("%d");
+        return String.format(text, value);
     }
 
     // How many bonuses the item has, not counting a staff's mana or gems

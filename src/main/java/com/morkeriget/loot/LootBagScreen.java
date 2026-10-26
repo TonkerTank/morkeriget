@@ -1,5 +1,6 @@
 package com.morkeriget.loot;
 
+import com.morkeriget.Text;
 import com.morkeriget.ui.ThemedButton;
 
 import net.minecraft.client.gui.components.Button;
@@ -23,8 +24,8 @@ public class LootBagScreen extends ContainerScreen {
     protected void init() {
         super.init();
         int x = leftPos + imageWidth + 4;
-        addRenderableWidget(Button.builder(Component.literal("Sortér"), pressed -> click(LootBagMenu.SORT))
-                .tooltip(Tooltip.create(Component.literal("Favoritter først, så efter sjældenhed og genstandsstyrke")))
+        addRenderableWidget(Button.builder(Text.tr("bag.sort"), pressed -> click(LootBagMenu.SORT))
+                .tooltip(Tooltip.create(Text.tr("bag.sort.tooltip")))
                 .bounds(x, topPos + 4, BUTTON_WIDTH, 18)
                 .build(ThemedButton::new));
         // Clicking it picks how good the items "Smelt" takes can be, up to set items (never mythic)
@@ -34,16 +35,15 @@ public class LootBagScreen extends ContainerScreen {
                 })
                 .bounds(x, topPos + 30, BUTTON_WIDTH, 18)
                 .build(ThemedButton::new));
-        addRenderableWidget(Button.builder(Component.literal("Smelt"), pressed -> click(LootBagMenu.SALVAGE + salvageUpTo.ordinal()))
-                .tooltip(Tooltip.create(Component.literal("Smelter alt i tasken op til den valgte sjældenhed om til essens. "
-                        + "Favoritter (Alt+klik), mytiske og genstande med ædelsten bliver aldrig rørt")))
+        addRenderableWidget(Button.builder(Text.tr("bag.salvage"), pressed -> click(LootBagMenu.SALVAGE + salvageUpTo.ordinal()))
+                .tooltip(Tooltip.create(Text.tr("bag.salvage.tooltip")))
                 .bounds(x, topPos + 50, BUTTON_WIDTH, 18)
                 .build(ThemedButton::new));
     }
 
-    // E.g. "Til: Sjælden" in the rarity's colour
+    // E.g. "Up to: Rare" in the rarity's colour
     private static Component limitText() {
-        return Component.literal("Til: ").append(Component.literal(salvageUpTo.displayName).withStyle(salvageUpTo.color));
+        return Text.tr("bag.up_to", salvageUpTo.displayName().withStyle(salvageUpTo.color));
     }
 
     private void click(int button) {

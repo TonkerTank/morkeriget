@@ -94,135 +94,135 @@ public final class Config {
 
     static {
         BUILDER.push("loot");
-        DROP_CHANCE = BUILDER.comment("Chance for at et almindeligt monster dropper en genstand (0.25 = 25 %)")
+        DROP_CHANCE = BUILDER.comment("Chance that a normal monster drops an item (0.25 = 25%)")
                 .defineInRange("dropChance", 0.25, 0, 1);
-        AFFIX_PER_LEVEL = BUILDER.comment("Hvor meget stærkere bonusser bliver pr. genstandslevel (0.05 = +5 %, så level 21 er dobbelt så stærkt).",
-                        "Det gælder skade, rustning og hårdhed. Liv vokser halvt så hurtigt. Procent-bonusser som fart,",
-                        "angrebshastighed, livsstjæl og torne vokser kun lidt: op til 50 % mere ved level 100")
+        AFFIX_PER_LEVEL = BUILDER.comment("How much stronger bonuses get per item level (0.05 = +5%, so level 21 is twice as strong).",
+                        "This counts for damage, armor and toughness. Health grows half as fast. Percent bonuses like speed,",
+                        "attack speed, life steal and thorns only grow a little: up to 50% more at level 100")
                 .defineInRange("affixScalingPerLevel", 0.05, 0, 1);
-        SET_CHANCE_BOSS = BUILDER.comment("Chance for at en boss' legendariske genstand i stedet er en sæt-genstand (0.3 = 30 %)")
+        SET_CHANCE_BOSS = BUILDER.comment("Chance that a boss's legendary item is a set item instead (0.3 = 30%)")
                 .defineInRange("setChanceBoss", 0.3, 0, 1);
-        SET_CHANCE_ELITE = BUILDER.comment("Chance for at en elite dropper en sæt-genstand i stedet for sin normale genstand (0.02 = 2 %)")
+        SET_CHANCE_ELITE = BUILDER.comment("Chance that an elite drops a set item instead of its normal item (0.02 = 2%)")
                 .defineInRange("setChanceElite", 0.02, 0, 1);
-        MYTHIC_CHANCE_BOSS = BUILDER.comment("Chance for at en boss dropper en mytisk genstand i stedet for sin legendariske (0.03 = 3 %)")
+        MYTHIC_CHANCE_BOSS = BUILDER.comment("Chance that a boss drops a mythic item instead of its legendary one (0.03 = 3%)")
                 .defineInRange("mythicChanceBoss", 0.03, 0, 1);
-        MYTHIC_CHANCE_RIFT = BUILDER.comment("Chance pr. rift-niveau for en mytisk genstand, når en rift lukkes (0.01 = 1 %, så rift X giver 10 %)")
+        MYTHIC_CHANCE_RIFT = BUILDER.comment("Chance per rift tier for a mythic item when a rift is closed (0.01 = 1%, so rift X gives 10%)")
                 .defineInRange("mythicChancePerRiftTier", 0.01, 0, 1);
         BUILDER.pop();
 
         BUILDER.push("elites");
-        ELITE_CHANCE = BUILDER.comment("Chance for at et monster spawner som elite (0.05 = 5 %)")
+        ELITE_CHANCE = BUILDER.comment("Chance that a monster spawns as an elite (0.05 = 5%)")
                 .defineInRange("eliteChance", 0.05, 0, 1);
-        SECOND_MODIFIER_CHANCE = BUILDER.comment("Chance for at en elite får to modifiers i stedet for én")
+        SECOND_MODIFIER_CHANCE = BUILDER.comment("Chance that an elite gets two modifiers instead of one")
                 .defineInRange("secondModifierChance", 0.3, 0, 1);
-        ELITE_HEALTH = BUILDER.comment("Hvor mange gange mere liv en elite har end et almindeligt monster")
+        ELITE_HEALTH = BUILDER.comment("How many times more health an elite has than a normal monster")
                 .defineInRange("healthMultiplier", 3.0, 1, 100);
-        ELITE_DAMAGE = BUILDER.comment("Hvor mange gange mere skade en elite gør end et almindeligt monster")
+        ELITE_DAMAGE = BUILDER.comment("How many times more damage an elite does than a normal monster")
                 .defineInRange("damageMultiplier", 1.35, 1, 100);
-        PACK_MIN_SIZE = BUILDER.comment("Hvor mange monstre der mindst følger med en elite ude i verden. Sæt begge til 0 for ingen flokke")
+        PACK_MIN_SIZE = BUILDER.comment("The fewest monsters that come with an elite out in the world. Set both to 0 for no packs")
                 .defineInRange("packMinSize", 2, 0, 10);
-        PACK_MAX_SIZE = BUILDER.comment("Hvor mange monstre der højst følger med en elite ude i verden")
+        PACK_MAX_SIZE = BUILDER.comment("The most monsters that come with an elite out in the world")
                 .defineInRange("packMaxSize", 4, 0, 10);
         BUILDER.pop();
 
         BUILDER.push("bosses");
-        BOSS_CHANCE = BUILDER.comment("Chance for at et monster spawner som boss (0.005 = 0,5 %). Sæt til 1 for at teste")
+        BOSS_CHANCE = BUILDER.comment("Chance that a monster spawns as a boss (0.005 = 0.5%). Set to 1 to test")
                 .defineInRange("bossChance", 0.005, 0, 1);
-        BOSS_HEALTH = BUILDER.comment("Hvor mange gange mere liv en boss har end et almindeligt monster")
+        BOSS_HEALTH = BUILDER.comment("How many times more health a boss has than a normal monster")
                 .defineInRange("healthMultiplier", 4.0, 1, 100);
-        BOSS_DAMAGE = BUILDER.comment("Hvor mange gange mere skade en boss gør end et almindeligt monster")
+        BOSS_DAMAGE = BUILDER.comment("How many times more damage a boss does than a normal monster")
                 .defineInRange("damageMultiplier", 2.0, 1, 100);
         BUILDER.pop();
 
         BUILDER.push("worldBoss");
-        WORLD_BOSS_INTERVAL = BUILDER.comment("Minutter mellem verdensbosser. Spillerne får besked 5 minutter før den vågner")
+        WORLD_BOSS_INTERVAL = BUILDER.comment("Minutes between world bosses. Players are told 5 minutes before it wakes up")
                 .defineInRange("intervalMinutes", 40, 6, 1440);
-        WORLD_BOSS_HEALTH = BUILDER.comment("Hvor mange gange mere liv en verdensboss har end en almindelig boss")
+        WORLD_BOSS_HEALTH = BUILDER.comment("How many times more health a world boss has than a normal boss")
                 .defineInRange("healthMultiplier", 8.0, 1, 1000);
-        WORLD_BOSS_MYTHIC_CHANCE = BUILDER.comment("Chance for at hver spiller, der var med, får en mytisk genstand (0.15 = 15 %)")
+        WORLD_BOSS_MYTHIC_CHANCE = BUILDER.comment("Chance that each player who took part gets a mythic item (0.15 = 15%)")
                 .defineInRange("mythicChance", 0.15, 0, 1);
         BUILDER.pop();
 
         BUILDER.push("skills");
-        MANA_REGEN = BUILDER.comment("Hvor meget mana du får igen pr. sekund (max er 100)")
+        MANA_REGEN = BUILDER.comment("How much mana you get back per second (max is 100)")
                 .defineInRange("manaRegenPerSecond", 5.0, 0, 100);
-        WHIRLWIND_MANA = BUILDER.comment("Hvirvelvind: mana det koster").defineInRange("whirlwindMana", 30.0, 0, 100);
-        WHIRLWIND_COOLDOWN = BUILDER.comment("Hvirvelvind: cooldown i sekunder").defineInRange("whirlwindCooldown", 2.0, 0, 600);
-        FROST_NOVA_MANA = BUILDER.comment("Frostnova: mana det koster").defineInRange("frostNovaMana", 40.0, 0, 100);
-        FROST_NOVA_COOLDOWN = BUILDER.comment("Frostnova: cooldown i sekunder").defineInRange("frostNovaCooldown", 8.0, 0, 600);
-        BLINK_MANA = BUILDER.comment("Blink: mana det koster").defineInRange("blinkMana", 20.0, 0, 100);
-        BLINK_COOLDOWN = BUILDER.comment("Blink: cooldown i sekunder").defineInRange("blinkCooldown", 3.0, 0, 600);
-        CHAIN_LIGHTNING_MANA = BUILDER.comment("Kædelyn: mana det koster").defineInRange("chainLightningMana", 35.0, 0, 100);
-        CHAIN_LIGHTNING_COOLDOWN = BUILDER.comment("Kædelyn: cooldown i sekunder").defineInRange("chainLightningCooldown", 4.0, 0, 600);
-        BATTLE_CRY_MANA = BUILDER.comment("Krigsråb: mana det koster").defineInRange("battleCryMana", 50.0, 0, 100);
-        BATTLE_CRY_COOLDOWN = BUILDER.comment("Krigsråb: cooldown i sekunder").defineInRange("battleCryCooldown", 20.0, 0, 600);
-        LEAP_MANA = BUILDER.comment("Spring (barbar): mana det koster").defineInRange("leapMana", 25.0, 0, 100);
-        LEAP_COOLDOWN = BUILDER.comment("Spring (barbar): cooldown i sekunder").defineInRange("leapCooldown", 6.0, 0, 600);
-        FRENZY_MANA = BUILDER.comment("Raseri (barbar): mana det koster").defineInRange("frenzyMana", 40.0, 0, 100);
-        FRENZY_COOLDOWN = BUILDER.comment("Raseri (barbar): cooldown i sekunder").defineInRange("frenzyCooldown", 15.0, 0, 600);
-        FIREBALL_MANA = BUILDER.comment("Ildkugle (troldmand): mana det koster").defineInRange("fireballMana", 30.0, 0, 100);
-        FIREBALL_COOLDOWN = BUILDER.comment("Ildkugle (troldmand): cooldown i sekunder").defineInRange("fireballCooldown", 3.0, 0, 600);
-        MULTISHOT_MANA = BUILDER.comment("Multiskud (jæger): mana det koster").defineInRange("multishotMana", 25.0, 0, 100);
-        MULTISHOT_COOLDOWN = BUILDER.comment("Multiskud (jæger): cooldown i sekunder").defineInRange("multishotCooldown", 3.0, 0, 600);
-        ARROW_RAIN_MANA = BUILDER.comment("Pileregn (jæger): mana det koster").defineInRange("arrowRainMana", 45.0, 0, 100);
-        ARROW_RAIN_COOLDOWN = BUILDER.comment("Pileregn (jæger): cooldown i sekunder").defineInRange("arrowRainCooldown", 10.0, 0, 600);
-        SMOKE_BOMB_MANA = BUILDER.comment("Røgbombe (jæger): mana det koster").defineInRange("smokeBombMana", 30.0, 0, 100);
-        SMOKE_BOMB_COOLDOWN = BUILDER.comment("Røgbombe (jæger): cooldown i sekunder").defineInRange("smokeBombCooldown", 15.0, 0, 600);
-        WOLVES_MANA = BUILDER.comment("Ulveflok (jæger): mana det koster").defineInRange("wolvesMana", 60.0, 0, 100);
-        WOLVES_COOLDOWN = BUILDER.comment("Ulveflok (jæger): cooldown i sekunder").defineInRange("wolvesCooldown", 30.0, 0, 600);
-        BONE_SPEAR_MANA = BUILDER.comment("Knoglespyd (nekromantiker): mana det koster").defineInRange("boneSpearMana", 20.0, 0, 100);
-        BONE_SPEAR_COOLDOWN = BUILDER.comment("Knoglespyd (nekromantiker): cooldown i sekunder").defineInRange("boneSpearCooldown", 1.5, 0, 600);
-        RAISE_SKELETONS_MANA = BUILDER.comment("Rejs skeletter (nekromantiker): mana det koster").defineInRange("raiseSkeletonsMana", 50.0, 0, 100);
-        RAISE_SKELETONS_COOLDOWN = BUILDER.comment("Rejs skeletter (nekromantiker): cooldown i sekunder").defineInRange("raiseSkeletonsCooldown", 8.0, 0, 600);
-        BONE_ARMOR_MANA = BUILDER.comment("Knoglerustning (nekromantiker): mana det koster").defineInRange("boneArmorMana", 35.0, 0, 100);
-        BONE_ARMOR_COOLDOWN = BUILDER.comment("Knoglerustning (nekromantiker): cooldown i sekunder").defineInRange("boneArmorCooldown", 18.0, 0, 600);
-        CURSE_MANA = BUILDER.comment("Forbandelse (nekromantiker): mana det koster").defineInRange("curseMana", 30.0, 0, 100);
-        CURSE_COOLDOWN = BUILDER.comment("Forbandelse (nekromantiker): cooldown i sekunder").defineInRange("curseCooldown", 12.0, 0, 600);
-        EARTHQUAKE_MANA = BUILDER.comment("Jordskælv (barbar): mana det koster").defineInRange("earthquakeMana", 45.0, 0, 100);
-        EARTHQUAKE_COOLDOWN = BUILDER.comment("Jordskælv (barbar): cooldown i sekunder").defineInRange("earthquakeCooldown", 12.0, 0, 600);
-        RUSH_MANA = BUILDER.comment("Stormløb (barbar): mana det koster").defineInRange("rushMana", 25.0, 0, 100);
-        RUSH_COOLDOWN = BUILDER.comment("Stormløb (barbar): cooldown i sekunder").defineInRange("rushCooldown", 5.0, 0, 600);
-        METEOR_MANA = BUILDER.comment("Meteor (troldmand): mana det koster").defineInRange("meteorMana", 50.0, 0, 100);
-        METEOR_COOLDOWN = BUILDER.comment("Meteor (troldmand): cooldown i sekunder").defineInRange("meteorCooldown", 8.0, 0, 600);
-        ICE_ARMOR_MANA = BUILDER.comment("Isrustning (troldmand): mana det koster").defineInRange("iceArmorMana", 35.0, 0, 100);
-        ICE_ARMOR_COOLDOWN = BUILDER.comment("Isrustning (troldmand): cooldown i sekunder").defineInRange("iceArmorCooldown", 20.0, 0, 600);
-        EXPLOSIVE_ARROW_MANA = BUILDER.comment("Eksplosiv pil (jæger): mana det koster").defineInRange("explosiveArrowMana", 25.0, 0, 100);
-        EXPLOSIVE_ARROW_COOLDOWN = BUILDER.comment("Eksplosiv pil (jæger): cooldown i sekunder").defineInRange("explosiveArrowCooldown", 4.0, 0, 600);
-        BEAR_TRAP_MANA = BUILDER.comment("Bjørnefælde (jæger): mana det koster").defineInRange("bearTrapMana", 30.0, 0, 100);
-        BEAR_TRAP_COOLDOWN = BUILDER.comment("Bjørnefælde (jæger): cooldown i sekunder").defineInRange("bearTrapCooldown", 8.0, 0, 600);
-        BLOOD_NOVA_MANA = BUILDER.comment("Blodnova (nekromantiker): mana det koster").defineInRange("bloodNovaMana", 35.0, 0, 100);
-        BLOOD_NOVA_COOLDOWN = BUILDER.comment("Blodnova (nekromantiker): cooldown i sekunder").defineInRange("bloodNovaCooldown", 6.0, 0, 600);
-        BONE_PRISON_MANA = BUILDER.comment("Knoglefængsel (nekromantiker): mana det koster").defineInRange("bonePrisonMana", 40.0, 0, 100);
-        BONE_PRISON_COOLDOWN = BUILDER.comment("Knoglefængsel (nekromantiker): cooldown i sekunder").defineInRange("bonePrisonCooldown", 14.0, 0, 600);
-        THUNDERSTORM_MANA = BUILDER.comment("Tordenvejr (troldmand): mana det koster").defineInRange("thunderstormMana", 60.0, 0, 100);
-        THUNDERSTORM_COOLDOWN = BUILDER.comment("Tordenvejr (troldmand): cooldown i sekunder").defineInRange("thunderstormCooldown", 16.0, 0, 600);
-        DOOM_SLAM_MANA = BUILDER.comment("Dommedagsslag (barbar): mana det koster").defineInRange("doomSlamMana", 60.0, 0, 100);
-        DOOM_SLAM_COOLDOWN = BUILDER.comment("Dommedagsslag (barbar): cooldown i sekunder").defineInRange("doomSlamCooldown", 16.0, 0, 600);
-        ARROW_HURRICANE_MANA = BUILDER.comment("Pileorkan (jæger): mana det koster").defineInRange("arrowHurricaneMana", 60.0, 0, 100);
-        ARROW_HURRICANE_COOLDOWN = BUILDER.comment("Pileorkan (jæger): cooldown i sekunder").defineInRange("arrowHurricaneCooldown", 18.0, 0, 600);
-        ARMY_OF_THE_DEAD_MANA = BUILDER.comment("De Dødes Hær (nekromantiker): mana det koster").defineInRange("armyOfTheDeadMana", 60.0, 0, 100);
-        ARMY_OF_THE_DEAD_COOLDOWN = BUILDER.comment("De Dødes Hær (nekromantiker): cooldown i sekunder").defineInRange("armyOfTheDeadCooldown", 16.0, 0, 600);
-        HEALTH_POTION_HEAL = BUILDER.comment("Livsdrik: hvor meget af dit max liv den giver tilbage (0.4 = 40 %)")
+        WHIRLWIND_MANA = BUILDER.comment("Whirlwind: mana cost").defineInRange("whirlwindMana", 30.0, 0, 100);
+        WHIRLWIND_COOLDOWN = BUILDER.comment("Whirlwind: cooldown in seconds").defineInRange("whirlwindCooldown", 2.0, 0, 600);
+        FROST_NOVA_MANA = BUILDER.comment("Frost Nova: mana cost").defineInRange("frostNovaMana", 40.0, 0, 100);
+        FROST_NOVA_COOLDOWN = BUILDER.comment("Frost Nova: cooldown in seconds").defineInRange("frostNovaCooldown", 8.0, 0, 600);
+        BLINK_MANA = BUILDER.comment("Blink: mana cost").defineInRange("blinkMana", 20.0, 0, 100);
+        BLINK_COOLDOWN = BUILDER.comment("Blink: cooldown in seconds").defineInRange("blinkCooldown", 3.0, 0, 600);
+        CHAIN_LIGHTNING_MANA = BUILDER.comment("Chain Lightning: mana cost").defineInRange("chainLightningMana", 35.0, 0, 100);
+        CHAIN_LIGHTNING_COOLDOWN = BUILDER.comment("Chain Lightning: cooldown in seconds").defineInRange("chainLightningCooldown", 4.0, 0, 600);
+        BATTLE_CRY_MANA = BUILDER.comment("Battle Cry: mana cost").defineInRange("battleCryMana", 50.0, 0, 100);
+        BATTLE_CRY_COOLDOWN = BUILDER.comment("Battle Cry: cooldown in seconds").defineInRange("battleCryCooldown", 20.0, 0, 600);
+        LEAP_MANA = BUILDER.comment("Leap (barbarian): mana cost").defineInRange("leapMana", 25.0, 0, 100);
+        LEAP_COOLDOWN = BUILDER.comment("Leap (barbarian): cooldown in seconds").defineInRange("leapCooldown", 6.0, 0, 600);
+        FRENZY_MANA = BUILDER.comment("Frenzy (barbarian): mana cost").defineInRange("frenzyMana", 40.0, 0, 100);
+        FRENZY_COOLDOWN = BUILDER.comment("Frenzy (barbarian): cooldown in seconds").defineInRange("frenzyCooldown", 15.0, 0, 600);
+        FIREBALL_MANA = BUILDER.comment("Fireball (sorcerer): mana cost").defineInRange("fireballMana", 30.0, 0, 100);
+        FIREBALL_COOLDOWN = BUILDER.comment("Fireball (sorcerer): cooldown in seconds").defineInRange("fireballCooldown", 3.0, 0, 600);
+        MULTISHOT_MANA = BUILDER.comment("Multishot (ranger): mana cost").defineInRange("multishotMana", 25.0, 0, 100);
+        MULTISHOT_COOLDOWN = BUILDER.comment("Multishot (ranger): cooldown in seconds").defineInRange("multishotCooldown", 3.0, 0, 600);
+        ARROW_RAIN_MANA = BUILDER.comment("Arrow Rain (ranger): mana cost").defineInRange("arrowRainMana", 45.0, 0, 100);
+        ARROW_RAIN_COOLDOWN = BUILDER.comment("Arrow Rain (ranger): cooldown in seconds").defineInRange("arrowRainCooldown", 10.0, 0, 600);
+        SMOKE_BOMB_MANA = BUILDER.comment("Smoke Bomb (ranger): mana cost").defineInRange("smokeBombMana", 30.0, 0, 100);
+        SMOKE_BOMB_COOLDOWN = BUILDER.comment("Smoke Bomb (ranger): cooldown in seconds").defineInRange("smokeBombCooldown", 15.0, 0, 600);
+        WOLVES_MANA = BUILDER.comment("Wolf Pack (ranger): mana cost").defineInRange("wolvesMana", 60.0, 0, 100);
+        WOLVES_COOLDOWN = BUILDER.comment("Wolf Pack (ranger): cooldown in seconds").defineInRange("wolvesCooldown", 30.0, 0, 600);
+        BONE_SPEAR_MANA = BUILDER.comment("Bone Spear (necromancer): mana cost").defineInRange("boneSpearMana", 20.0, 0, 100);
+        BONE_SPEAR_COOLDOWN = BUILDER.comment("Bone Spear (necromancer): cooldown in seconds").defineInRange("boneSpearCooldown", 1.5, 0, 600);
+        RAISE_SKELETONS_MANA = BUILDER.comment("Raise Skeletons (necromancer): mana cost").defineInRange("raiseSkeletonsMana", 50.0, 0, 100);
+        RAISE_SKELETONS_COOLDOWN = BUILDER.comment("Raise Skeletons (necromancer): cooldown in seconds").defineInRange("raiseSkeletonsCooldown", 8.0, 0, 600);
+        BONE_ARMOR_MANA = BUILDER.comment("Bone Armor (necromancer): mana cost").defineInRange("boneArmorMana", 35.0, 0, 100);
+        BONE_ARMOR_COOLDOWN = BUILDER.comment("Bone Armor (necromancer): cooldown in seconds").defineInRange("boneArmorCooldown", 18.0, 0, 600);
+        CURSE_MANA = BUILDER.comment("Curse (necromancer): mana cost").defineInRange("curseMana", 30.0, 0, 100);
+        CURSE_COOLDOWN = BUILDER.comment("Curse (necromancer): cooldown in seconds").defineInRange("curseCooldown", 12.0, 0, 600);
+        EARTHQUAKE_MANA = BUILDER.comment("Earthquake (barbarian): mana cost").defineInRange("earthquakeMana", 45.0, 0, 100);
+        EARTHQUAKE_COOLDOWN = BUILDER.comment("Earthquake (barbarian): cooldown in seconds").defineInRange("earthquakeCooldown", 12.0, 0, 600);
+        RUSH_MANA = BUILDER.comment("Rush (barbarian): mana cost").defineInRange("rushMana", 25.0, 0, 100);
+        RUSH_COOLDOWN = BUILDER.comment("Rush (barbarian): cooldown in seconds").defineInRange("rushCooldown", 5.0, 0, 600);
+        METEOR_MANA = BUILDER.comment("Meteor (sorcerer): mana cost").defineInRange("meteorMana", 50.0, 0, 100);
+        METEOR_COOLDOWN = BUILDER.comment("Meteor (sorcerer): cooldown in seconds").defineInRange("meteorCooldown", 8.0, 0, 600);
+        ICE_ARMOR_MANA = BUILDER.comment("Ice Armor (sorcerer): mana cost").defineInRange("iceArmorMana", 35.0, 0, 100);
+        ICE_ARMOR_COOLDOWN = BUILDER.comment("Ice Armor (sorcerer): cooldown in seconds").defineInRange("iceArmorCooldown", 20.0, 0, 600);
+        EXPLOSIVE_ARROW_MANA = BUILDER.comment("Explosive Arrow (ranger): mana cost").defineInRange("explosiveArrowMana", 25.0, 0, 100);
+        EXPLOSIVE_ARROW_COOLDOWN = BUILDER.comment("Explosive Arrow (ranger): cooldown in seconds").defineInRange("explosiveArrowCooldown", 4.0, 0, 600);
+        BEAR_TRAP_MANA = BUILDER.comment("Bear Trap (ranger): mana cost").defineInRange("bearTrapMana", 30.0, 0, 100);
+        BEAR_TRAP_COOLDOWN = BUILDER.comment("Bear Trap (ranger): cooldown in seconds").defineInRange("bearTrapCooldown", 8.0, 0, 600);
+        BLOOD_NOVA_MANA = BUILDER.comment("Blood Nova (necromancer): mana cost").defineInRange("bloodNovaMana", 35.0, 0, 100);
+        BLOOD_NOVA_COOLDOWN = BUILDER.comment("Blood Nova (necromancer): cooldown in seconds").defineInRange("bloodNovaCooldown", 6.0, 0, 600);
+        BONE_PRISON_MANA = BUILDER.comment("Bone Prison (necromancer): mana cost").defineInRange("bonePrisonMana", 40.0, 0, 100);
+        BONE_PRISON_COOLDOWN = BUILDER.comment("Bone Prison (necromancer): cooldown in seconds").defineInRange("bonePrisonCooldown", 14.0, 0, 600);
+        THUNDERSTORM_MANA = BUILDER.comment("Thunderstorm (sorcerer): mana cost").defineInRange("thunderstormMana", 60.0, 0, 100);
+        THUNDERSTORM_COOLDOWN = BUILDER.comment("Thunderstorm (sorcerer): cooldown in seconds").defineInRange("thunderstormCooldown", 16.0, 0, 600);
+        DOOM_SLAM_MANA = BUILDER.comment("Doom Slam (barbarian): mana cost").defineInRange("doomSlamMana", 60.0, 0, 100);
+        DOOM_SLAM_COOLDOWN = BUILDER.comment("Doom Slam (barbarian): cooldown in seconds").defineInRange("doomSlamCooldown", 16.0, 0, 600);
+        ARROW_HURRICANE_MANA = BUILDER.comment("Arrow Hurricane (ranger): mana cost").defineInRange("arrowHurricaneMana", 60.0, 0, 100);
+        ARROW_HURRICANE_COOLDOWN = BUILDER.comment("Arrow Hurricane (ranger): cooldown in seconds").defineInRange("arrowHurricaneCooldown", 18.0, 0, 600);
+        ARMY_OF_THE_DEAD_MANA = BUILDER.comment("Army of the Dead (necromancer): mana cost").defineInRange("armyOfTheDeadMana", 60.0, 0, 100);
+        ARMY_OF_THE_DEAD_COOLDOWN = BUILDER.comment("Army of the Dead (necromancer): cooldown in seconds").defineInRange("armyOfTheDeadCooldown", 16.0, 0, 600);
+        HEALTH_POTION_HEAL = BUILDER.comment("Health Potion: how much of your max health it gives back (0.4 = 40%)")
                 .defineInRange("healthPotionHeal", 0.4, 0, 1);
-        HEALTH_POTION_COOLDOWN = BUILDER.comment("Livsdrik: cooldown i sekunder").defineInRange("healthPotionCooldown", 20.0, 0, 600);
-        MANA_POTION_MANA = BUILDER.comment("Manadrik: hvor meget mana den giver (max er 100)")
+        HEALTH_POTION_COOLDOWN = BUILDER.comment("Health Potion: cooldown in seconds").defineInRange("healthPotionCooldown", 20.0, 0, 600);
+        MANA_POTION_MANA = BUILDER.comment("Mana Potion: how much mana it gives (max is 100)")
                 .defineInRange("manaPotionMana", 50.0, 0, 100);
-        MANA_POTION_COOLDOWN = BUILDER.comment("Manadrik: cooldown i sekunder").defineInRange("manaPotionCooldown", 20.0, 0, 600);
+        MANA_POTION_COOLDOWN = BUILDER.comment("Mana Potion: cooldown in seconds").defineInRange("manaPotionCooldown", 20.0, 0, 600);
         BUILDER.pop();
 
         BUILDER.push("levels");
-        XP_MULTIPLIER = BUILDER.comment("Ganger al XP fra monstre med dette tal. 2 = dobbelt så hurtigt op i level")
+        XP_MULTIPLIER = BUILDER.comment("Multiplies all XP from monsters by this number. 2 = levels up twice as fast")
                 .defineInRange("xpMultiplier", 1.0, 0, 100);
         BUILDER.pop();
 
         BUILDER.push("monsterLevels");
-        MONSTER_LEVELS = BUILDER.comment("Om monstre får et level efter den nærmeste spillers level")
+        MONSTER_LEVELS = BUILDER.comment("Whether monsters get a level based on the nearest player's level")
                 .define("enabled", true);
-        MONSTER_LEVEL_SPREAD = BUILDER.comment("Hvor mange levels et monster kan være over eller under spilleren")
+        MONSTER_LEVEL_SPREAD = BUILDER.comment("How many levels a monster can be above or below the player")
                 .defineInRange("levelSpread", 1, 0, 10);
-        HEALTH_PER_LEVEL = BUILDER.comment("Ekstra liv pr. level over 1 (0.08 = +8 %, så level 11 har 80 % mere liv)")
+        HEALTH_PER_LEVEL = BUILDER.comment("Extra health per level above 1 (0.08 = +8%, so level 11 has 80% more health)")
                 .defineInRange("healthPerLevel", 0.08, 0, 10);
-        DAMAGE_PER_LEVEL = BUILDER.comment("Ekstra skade pr. level over 1 (0.07 = +7 %)")
+        DAMAGE_PER_LEVEL = BUILDER.comment("Extra damage per level above 1 (0.07 = +7%)")
                 .defineInRange("damagePerLevel", 0.07, 0, 10);
         BUILDER.pop();
     }

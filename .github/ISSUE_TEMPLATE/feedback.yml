@@ -1,0 +1,16 @@
+name: Feedback or idea
+description: Balance, ideas, or anything you liked or didn't like
+labels: [feedback]
+body:
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+      description: Too easy, too hard, boring, fun, a missing feature? Anything helps
+    validations:
+      required: true
+  - type: input
+    id: class
+    attributes:
+      label: Class and level
+      placeholder: Barbarian, level 70

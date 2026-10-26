@@ -5,6 +5,7 @@ import java.util.List;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.morkeriget.Text;
 import com.morkeriget.loot.LootFilter;
 import com.morkeriget.loot.OpenLootBagPayload;
 import com.morkeriget.progress.ClassScreen;
@@ -102,9 +103,9 @@ public final class SkillKeys {
             while (SKILL_SLOTS.get(i).consumeClick()) {
                 Skill skill = ClientProgress.get().slot(i);
                 if (playerClass == null) {
-                    player.displayClientMessage(Component.literal("Vælg en klasse først - tryk K"), true);
+                    player.displayClientMessage(Text.tr("skill.pick_class"), true);
                 } else if (skill == null) {
-                    player.displayClientMessage(Component.literal("Ingen skill på denne tast - vælg en i K"), true);
+                    player.displayClientMessage(Text.tr("skill.empty_key"), true);
                 } else {
                     PacketDistributor.sendToServer(new SkillPayload(skill));
                 }

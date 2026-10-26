@@ -3,12 +3,14 @@ package com.morkeriget.loot;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.smithy.Durability;
@@ -53,13 +55,13 @@ public final class SetBonuses {
     private static void registerCommands(RegisterCommandsEvent event) {
         LiteralArgumentBuilder<CommandSourceStack> set = Commands.literal("set").requires(source -> source.hasPermission(2));
         for (ItemSet itemSet : ItemSet.values()) {
-            set.then(Commands.literal(itemSet.name().toLowerCase()).executes(context -> {
+            set.then(Commands.literal(itemSet.name().toLowerCase(Locale.ROOT)).executes(context -> {
                 ServerPlayer player = context.getSource().getPlayerOrException();
                 int level = Progression.level(player);
                 for (ItemSet.Piece piece : itemSet.pieces) {
                     player.getInventory().placeItemBackInInventory(Loot.createSet(player.getRandom(), level, itemSet, piece));
                 }
-                context.getSource().sendSuccess(() -> Component.literal("Du fik hele " + itemSet.displayName + " sæt"), false);
+                context.getSource().sendSuccess(() -> Text.tr("command.got_set", itemSet.displayName()), false);
                 return 1;
             }));
         }
@@ -69,7 +71,7 @@ public final class SetBonuses {
         // Without the item it is a random one, like a monster would drop
         LiteralArgumentBuilder<CommandSourceStack> loot = Commands.literal("loot").requires(source -> source.hasPermission(2));
         for (Rarity rarity : List.of(Rarity.COMMON, Rarity.MAGIC, Rarity.RARE, Rarity.LEGENDARY)) {
-            loot.then(Commands.literal(rarity.name().toLowerCase())
+            loot.then(Commands.literal(rarity.name().toLowerCase(Locale.ROOT))
                     .then(Commands.argument("level", IntegerArgumentType.integer(1, Progression.MAX_LEVEL + 2))
                             .executes(context -> giveLoot(context.getSource(), rarity, IntegerArgumentType.getInteger(context, "level"), null))
                             .then(Commands.argument("item", ItemArgument.item(event.getBuildContext()))
@@ -82,19 +84,19 @@ public final class SetBonuses {
         // Without a power it lists them, since the command uses the English names
         LiteralArgumentBuilder<CommandSourceStack> legendary = Commands.literal("legendary").requires(source -> source.hasPermission(2))
                 .executes(context -> {
-                    context.getSource().sendSuccess(() -> Component.literal("Skriv /morkeriget legendary og en af disse:").withStyle(ChatFormatting.GOLD), false);
+                    context.getSource().sendSuccess(() -> Text.tr("command.legendary_list").withStyle(ChatFormatting.GOLD), false);
                     for (LegendaryPower power : LegendaryPower.values()) {
-                        context.getSource().sendSuccess(() -> Component.literal(power.name().toLowerCase()).withStyle(ChatFormatting.YELLOW)
-                                .append(Component.literal(" - " + power.displayName + ": " + power.description).withStyle(ChatFormatting.GRAY)), false);
+                        context.getSource().sendSuccess(() -> Component.literal(power.name().toLowerCase(Locale.ROOT)).withStyle(ChatFormatting.YELLOW)
+                                .append(Component.literal(" - ").append(power.displayName()).append(": ").append(power.description()).withStyle(ChatFormatting.GRAY)), false);
                     }
                     return 1;
                 });
         for (LegendaryPower power : LegendaryPower.values()) {
-            legendary.then(Commands.literal(power.name().toLowerCase()).executes(context -> {
+            legendary.then(Commands.literal(power.name().toLowerCase(Locale.ROOT)).executes(context -> {
                 ServerPlayer player = context.getSource().getPlayerOrException();
                 ItemStack stack = Loot.createLegendary(player.getRandom(), Progression.level(player), power);
                 player.getInventory().placeItemBackInInventory(stack);
-                context.getSource().sendSuccess(() -> Component.literal("Du fik ").append(stack.getHoverName()), false);
+                context.getSource().sendSuccess(() -> Text.tr("command.got", stack.getHoverName()), false);
                 return 1;
             }));
         }
@@ -103,19 +105,19 @@ public final class SetBonuses {
         // "/morkeriget mythic doombringer" gives that mythic item at your level. Without a name it lists them
         LiteralArgumentBuilder<CommandSourceStack> mythic = Commands.literal("mythic").requires(source -> source.hasPermission(2))
                 .executes(context -> {
-                    context.getSource().sendSuccess(() -> Component.literal("Skriv /morkeriget mythic og en af disse:").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+                    context.getSource().sendSuccess(() -> Text.tr("command.mythic_list").withStyle(ChatFormatting.LIGHT_PURPLE), false);
                     for (MythicItem item : MythicItem.values()) {
-                        context.getSource().sendSuccess(() -> Component.literal(item.name().toLowerCase()).withStyle(ChatFormatting.LIGHT_PURPLE)
-                                .append(Component.literal(" - " + item.displayName + ": " + item.description).withStyle(ChatFormatting.GRAY)), false);
+                        context.getSource().sendSuccess(() -> Component.literal(item.name().toLowerCase(Locale.ROOT)).withStyle(ChatFormatting.LIGHT_PURPLE)
+                                .append(Component.literal(" - ").append(item.displayName()).append(": ").append(item.description()).withStyle(ChatFormatting.GRAY)), false);
                     }
                     return 1;
                 });
         for (MythicItem item : MythicItem.values()) {
-            mythic.then(Commands.literal(item.name().toLowerCase()).executes(context -> {
+            mythic.then(Commands.literal(item.name().toLowerCase(Locale.ROOT)).executes(context -> {
                 ServerPlayer player = context.getSource().getPlayerOrException();
                 ItemStack stack = Loot.createMythic(player.getRandom(), Progression.level(player), item);
                 player.getInventory().placeItemBackInInventory(stack);
-                context.getSource().sendSuccess(() -> Component.literal("Du fik ").append(stack.getHoverName()), false);
+                context.getSource().sendSuccess(() -> Text.tr("command.got", stack.getHoverName()), false);
                 return 1;
             }));
         }
@@ -126,7 +128,7 @@ public final class SetBonuses {
         ServerPlayer player = source.getPlayerOrException();
         ItemStack stack = item != null ? Loot.create(player.getRandom(), rarity, level, item) : Loot.create(player.getRandom(), rarity, level);
         player.getInventory().placeItemBackInInventory(stack);
-        source.sendSuccess(() -> Component.literal("Du fik ").append(stack.getHoverName()), false);
+        source.sendSuccess(() -> Text.tr("command.got", stack.getHoverName()), false);
         return 1;
     }
 
@@ -203,13 +205,12 @@ public final class SetBonuses {
         int bonusesBefore = bonuses(before);
         int bonusesNow = bonuses(pieces);
         if (bonusesNow > bonusesBefore) {
-            String bonus = bonusesNow == 2 ? set.fourPieceBonus : set.twoPieceBonus;
-            player.sendSystemMessage(Component.literal(set.displayName + " sæt (" + pieces + " dele): ").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
-                    .append(Component.literal(bonus).withStyle(ChatFormatting.GREEN)));
+            Component bonus = bonusesNow == 2 ? set.fourPieceBonus() : set.twoPieceBonus();
+            player.sendSystemMessage(Text.tr("set.bonus_on", set.displayName(), pieces).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)
+                    .append(bonus.copy().withStyle(style -> style.withBold(false))));
             player.playNotifySound(SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 1.2f);
         } else if (bonusesNow < bonusesBefore) {
-            player.displayClientMessage(Component.literal(set.displayName + " sæt: bonus slået fra (" + pieces + " dele)")
-                    .withStyle(ChatFormatting.DARK_GREEN), true);
+            player.displayClientMessage(Text.tr("set.bonus_off", set.displayName(), pieces).withStyle(ChatFormatting.DARK_GREEN), true);
         }
     }
 
@@ -225,7 +226,7 @@ public final class SetBonuses {
             return;
         }
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID,
-                "set_" + set.name().toLowerCase() + "_" + pieces + "_" + attribute.unwrapKey().map(key -> key.location().getPath()).orElse("stat"));
+                "set_" + set.name().toLowerCase(Locale.ROOT) + "_" + pieces + "_" + attribute.unwrapKey().map(key -> key.location().getPath()).orElse("stat"));
         if (active) {
             instance.addOrUpdateTransientModifier(new AttributeModifier(id, amount, operation));
         } else {

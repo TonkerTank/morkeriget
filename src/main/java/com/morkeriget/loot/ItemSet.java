@@ -1,10 +1,13 @@
 package com.morkeriget.loot;
 
 import java.util.List;
+import java.util.Locale;
 
+import com.morkeriget.Text;
 import com.morkeriget.jewelry.Jewelry;
 
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -13,25 +16,21 @@ import net.minecraft.world.item.component.CustomData;
 // Set items: each set has four pieces, and wearing two or four of them gives extra bonuses (see SetBonuses).
 // A set item is a normal piece of loot with the SET rarity and the set and piece saved on it
 public enum ItemSet {
-    GUARDIAN("Vogterens", List.of(Piece.HELMET, Piece.CHEST, Piece.LEGS, Piece.BOOTS),
-            "+4 rustning og +2 hjerter", "20% mindre skade og 25% torne"),
+    // Names and bonuses are in the language files, under set.<name>
+    GUARDIAN(List.of(Piece.HELMET, Piece.CHEST, Piece.LEGS, Piece.BOOTS)),
     // A caster's set, so its weapon is a staff. Swords from before that still count as the fourth piece
-    STORMCALLER("Stormkalderens", List.of(Piece.HELMET, Piece.STAFF, Piece.RING, Piece.AMULET),
-            "+50% hurtigere mana", "30% kortere cooldowns"),
-    BLOODHUNTER("Blodjægerens", List.of(Piece.WEAPON, Piece.CHEST, Piece.BOOTS, Piece.RING),
-            "+6% livsstjæl", "+25% skade og +15% angrebshastighed");
+    STORMCALLER(List.of(Piece.HELMET, Piece.STAFF, Piece.RING, Piece.AMULET)),
+    BLOODHUNTER(List.of(Piece.WEAPON, Piece.CHEST, Piece.BOOTS, Piece.RING));
 
     private static final String SET_TAG = "morkeriget_set";
     private static final String PIECE_TAG = "morkeriget_set_piece";
 
     // A place a set piece is worn. The base item gets better with the item level, like normal loot
     public enum Piece {
-        HELMET("Hjelm"), CHEST("Brystplade"), LEGS("Bukser"), BOOTS("Støvler"), WEAPON("Våben"), STAFF("Stav"), RING("Ring"), AMULET("Amulet");
+        HELMET, CHEST, LEGS, BOOTS, WEAPON, STAFF, RING, AMULET;
 
-        public final String displayName;
-
-        Piece(String displayName) {
-            this.displayName = displayName;
+        public MutableComponent displayName() {
+            return Text.tr("piece." + name().toLowerCase(Locale.ROOT));
         }
 
         Item baseItem(int itemLevel) {
@@ -53,16 +52,23 @@ public enum ItemSet {
         }
     }
 
-    public final String displayName;
     public final List<Piece> pieces;
-    public final String twoPieceBonus;
-    public final String fourPieceBonus;
 
-    ItemSet(String displayName, List<Piece> pieces, String twoPieceBonus, String fourPieceBonus) {
-        this.displayName = displayName;
+    ItemSet(List<Piece> pieces) {
         this.pieces = pieces;
-        this.twoPieceBonus = twoPieceBonus;
-        this.fourPieceBonus = fourPieceBonus;
+    }
+
+    // E.g. "Guardian's", which goes in front of the piece's name
+    public MutableComponent displayName() {
+        return Text.tr("set." + name().toLowerCase(Locale.ROOT) + ".name");
+    }
+
+    public MutableComponent twoPieceBonus() {
+        return Text.tr("set." + name().toLowerCase(Locale.ROOT) + ".two");
+    }
+
+    public MutableComponent fourPieceBonus() {
+        return Text.tr("set." + name().toLowerCase(Locale.ROOT) + ".four");
     }
 
     // The set the item belongs to, or null

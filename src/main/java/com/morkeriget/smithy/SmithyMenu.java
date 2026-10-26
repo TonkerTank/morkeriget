@@ -2,6 +2,7 @@ package com.morkeriget.smithy;
 
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.loot.Favorites;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
@@ -44,7 +45,7 @@ public class SmithyMenu extends AbstractContainerMenu {
     private static final int CODEX_SLOTS = (LegendaryPower.values().length + 7) / 8;
     // What it costs to take the gems out of an item
     public static final int UNSOCKET_COST = 3;
-    private static final String FAVORITE_MESSAGE = "Favoritter kan ikke smeltes - fjern stjernen med Alt+klik";
+    private static final String FAVORITE_MESSAGE = "smithy.favorite_kept";
     // Where the slots are drawn, used by SmithyScreen too
     static final int ITEM_X = 62;
     static final int GEM_X = 98;
@@ -151,22 +152,22 @@ public class SmithyMenu extends AbstractContainerMenu {
     // Takes the power out of the item and into the codex. The item is used up, but its gems are given back
     private boolean extract(ServerPlayer player, ItemStack stack) {
         if (Favorites.is(stack)) {
-            player.displayClientMessage(Component.literal(FAVORITE_MESSAGE), true);
+            player.displayClientMessage(Text.tr(FAVORITE_MESSAGE), true);
             return false;
         }
         LegendaryPower power = LegendaryPower.of(stack);
         if (power == null) {
-            player.displayClientMessage(Component.literal("Genstanden har ingen legendarisk kraft"), true);
+            player.displayClientMessage(Text.tr("smithy.no_power"), true);
             return false;
         }
         if (Codex.has(player, power)) {
-            player.displayClientMessage(Component.literal(power.displayName + " er allerede i din kraftbog"), true);
+            player.displayClientMessage(Text.tr("smithy.power_known", power.displayName()), true);
             return false;
         }
         giveBack(player, Gems.removeAll(stack));
         input.setItem(0, ItemStack.EMPTY);
         Codex.add(player, power);
-        player.displayClientMessage(Component.literal(power.displayName + " er nu i din kraftbog").withStyle(ChatFormatting.GOLD), true);
+        player.displayClientMessage(Text.tr("smithy.power_saved", power.displayName()).withStyle(ChatFormatting.GOLD), true);
         player.playNotifySound(SoundEvents.BOOK_PAGE_TURN, SoundSource.PLAYERS, 1.0f, 0.8f);
         player.playNotifySound(SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;
@@ -175,7 +176,7 @@ public class SmithyMenu extends AbstractContainerMenu {
     // Puts a power from the codex on a legendary, in place of the one it had
     private boolean imprint(ServerPlayer player, ItemStack stack, Rarity rarity, LegendaryPower power) {
         if (rarity != Rarity.LEGENDARY) {
-            player.displayClientMessage(Component.literal("Kun legendariske genstande kan få en kraft"), true);
+            player.displayClientMessage(Text.tr("smithy.only_legendary"), true);
             return false;
         }
         if (!Codex.has(player, power) || LegendaryPower.of(stack) == power || !pay(player, Codex.IMPRINT_COST)) {
@@ -190,7 +191,7 @@ public class SmithyMenu extends AbstractContainerMenu {
     // Gems in the item are given back
     private boolean salvage(ServerPlayer player, ItemStack stack, Rarity rarity) {
         if (Favorites.is(stack)) {
-            player.displayClientMessage(Component.literal(FAVORITE_MESSAGE), true);
+            player.displayClientMessage(Text.tr(FAVORITE_MESSAGE), true);
             return false;
         }
         giveBack(player, Gems.removeAll(stack));
@@ -204,7 +205,7 @@ public class SmithyMenu extends AbstractContainerMenu {
     private boolean repair(ServerPlayer player, ItemStack stack) {
         int cost = Durability.repairCost(stack);
         if (cost == 0) {
-            player.displayClientMessage(Component.literal("Genstanden er ikke slidt"), true);
+            player.displayClientMessage(Text.tr("smithy.not_worn"), true);
             return false;
         }
         if (!pay(player, cost)) {
@@ -219,8 +220,8 @@ public class SmithyMenu extends AbstractContainerMenu {
     // Makes all the item's bonuses stronger, see Masterwork
     private boolean masterwork(ServerPlayer player, ItemStack stack) {
         if (!Masterwork.canUpgrade(stack)) {
-            player.displayClientMessage(Component.literal(Masterwork.rank(stack) >= Masterwork.MAX_RANK
-                    ? "Genstanden er allerede fuldt mesterværk" : "Genstanden har ingen bonusser at forbedre"), true);
+            player.displayClientMessage(Text.tr(Masterwork.rank(stack) >= Masterwork.MAX_RANK
+                    ? "smithy.masterwork.done" : "smithy.masterwork.nothing"), true);
             return false;
         }
         if (!pay(player, Masterwork.cost(stack))) {
@@ -228,12 +229,12 @@ public class SmithyMenu extends AbstractContainerMenu {
         }
         Component bigStep = Masterwork.upgrade(stack, player.getRandom());
         input.setChanged();
-        String rank = "Mesterværk " + Masterwork.rank(stack) + "/" + Masterwork.MAX_RANK;
+        Component rank = Text.tr("lore.masterwork", Masterwork.rank(stack), Masterwork.MAX_RANK);
         if (bigStep != null) {
-            player.displayClientMessage(Component.literal(rank + " - stort spring: ").append(bigStep.copy()).withStyle(ChatFormatting.GOLD), true);
+            player.displayClientMessage(Text.tr("smithy.masterwork.big_step", rank, bigStep.copy()).withStyle(ChatFormatting.GOLD), true);
             player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
         } else {
-            player.displayClientMessage(Component.literal(rank).withStyle(ChatFormatting.GOLD), true);
+            player.displayClientMessage(rank.copy().withStyle(ChatFormatting.GOLD), true);
         }
         player.playNotifySound(SoundEvents.ANVIL_USE, SoundSource.PLAYERS, 0.8f, 1.0f + Masterwork.rank(stack) * 0.04f);
         return true;
@@ -242,7 +243,7 @@ public class SmithyMenu extends AbstractContainerMenu {
     private boolean reroll(ServerPlayer player, ItemStack stack, Rarity rarity) {
         int cost = Smithy.rerollCost(rarity);
         if (cost == 0) {
-            player.displayClientMessage(Component.literal("Almindelige genstande har ingen bonusser at re-rolle"), true);
+            player.displayClientMessage(Text.tr("smithy.reroll.common"), true);
             return false;
         }
         if (!pay(player, cost)) {
@@ -256,11 +257,11 @@ public class SmithyMenu extends AbstractContainerMenu {
     private boolean socket(ServerPlayer player, ItemStack stack) {
         Gem gem = Gem.of(input.getItem(1));
         if (gem == null) {
-            player.displayClientMessage(Component.literal("Læg en ædelsten i det højre felt"), true);
+            player.displayClientMessage(Text.tr("smithy.socket.no_gem"), true);
             return false;
         }
         if (!Gems.insert(stack, gem, Gems.tier(input.getItem(1)))) {
-            player.displayClientMessage(Component.literal("Genstanden har ingen ledige sokler"), true);
+            player.displayClientMessage(Text.tr("smithy.socket.full"), true);
             return false;
         }
         input.getItem(1).shrink(1);
@@ -271,7 +272,7 @@ public class SmithyMenu extends AbstractContainerMenu {
 
     private boolean unsocket(ServerPlayer player, ItemStack stack) {
         if (!Gems.hasGems(stack)) {
-            player.displayClientMessage(Component.literal("Der er ingen ædelsten i genstanden"), true);
+            player.displayClientMessage(Text.tr("smithy.unsocket.none"), true);
             return false;
         }
         if (!pay(player, UNSOCKET_COST)) {
@@ -294,18 +295,18 @@ public class SmithyMenu extends AbstractContainerMenu {
         int count = result[0];
         int essence = result[1];
         if (count == 0) {
-            player.displayClientMessage(Component.literal("Ingen genstande at smelte om i loot-tasken (I) eller inventaret"), true);
+            player.displayClientMessage(Text.tr("smithy.nothing_to_salvage"), true);
             return false;
         }
         player.getInventory().placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), essence));
-        player.displayClientMessage(Component.literal("Smeltede " + count + " genstande om til " + essence + " essens"), true);
+        player.displayClientMessage(Text.tr("smithy.salvaged", count, essence), true);
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;
     }
 
     private static boolean pay(ServerPlayer player, int cost) {
         if (player.getInventory().countItem(Smithy.ESSENCE.get()) < cost) {
-            player.displayClientMessage(Component.literal("Du har brug for " + cost + " essens"), true);
+            player.displayClientMessage(Text.tr("smithy.need_essence", cost), true);
             return false;
         }
         ContainerHelper.clearOrCountMatchingItems(player.getInventory(), item -> item.is(Smithy.ESSENCE.get()), cost, false);
@@ -323,12 +324,12 @@ public class SmithyMenu extends AbstractContainerMenu {
         ItemStack gems = input.getItem(1);
         Gem gem = Gem.of(gems);
         if (gem == null || gems.getCount() < 3) {
-            player.displayClientMessage(Component.literal("Læg mindst 3 ens ædelsten i det højre felt"), true);
+            player.displayClientMessage(Text.tr("smithy.combine.need_three"), true);
             return false;
         }
         int tier = Gems.tier(gems);
         if (tier >= Gem.MAX_TIER) {
-            player.displayClientMessage(Component.literal("Den er allerede perfekt"), true);
+            player.displayClientMessage(Text.tr("smithy.combine.perfect"), true);
             return false;
         }
         if (!pay(player, Smithy.combineCost(tier))) {

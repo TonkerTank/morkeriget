@@ -3,6 +3,7 @@ package com.morkeriget.smithy;
 import java.util.Arrays;
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.loot.Favorites;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
@@ -58,14 +59,14 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     @Override
     protected void init() {
         super.init();
-        addRenderableWidget(Button.builder(Component.literal("Skills"), pressed -> backToSkills())
+        addRenderableWidget(Button.builder(Text.tr("button.skills"), pressed -> backToSkills())
                 .bounds(leftPos + MAIN_WIDTH - 50, topPos + 4, 46, 16)
                 .build(ThemedButton::new));
         int codexLeft = leftPos + CODEX_X + 6;
         int codexInner = CODEX_WIDTH - 12;
-        extract = addRenderableWidget(Button.builder(Component.literal("Udtræk kraft"), pressed -> click(SmithyMenu.EXTRACT))
+        extract = addRenderableWidget(Button.builder(Text.tr("smithy.extract"), pressed -> click(SmithyMenu.EXTRACT))
                 .bounds(codexLeft, topPos + 18, codexInner, 18)
-                .tooltip(Tooltip.create(Component.literal("Kraften gemmes i kraftbogen, men genstanden bliver brugt. Ædelsten får du tilbage")))
+                .tooltip(Tooltip.create(Text.tr("smithy.extract.tooltip")))
                 .build(ThemedButton::new));
         previousPower = addRenderableWidget(Button.builder(Component.literal("<"), pressed -> step(-1))
                 .bounds(codexLeft, topPos + 40, 16, 18)
@@ -73,24 +74,23 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         nextPower = addRenderableWidget(Button.builder(Component.literal(">"), pressed -> step(1))
                 .bounds(codexLeft + codexInner - 16, topPos + 40, 16, 18)
                 .build(ThemedButton::new));
-        imprint = addRenderableWidget(Button.builder(Component.literal("Påfør (" + Codex.IMPRINT_COST + ")"),
+        imprint = addRenderableWidget(Button.builder(Text.tr("smithy.imprint", Codex.IMPRINT_COST),
                         pressed -> click(SmithyMenu.IMPRINT + selected.ordinal()))
                 .bounds(codexLeft, topPos + 118, codexInner, 18)
                 .build(ThemedButton::new));
         // Under the codex panel, in a little panel of its own
-        repair = addRenderableWidget(Button.builder(Component.literal("Reparér"), pressed -> click(SmithyMenu.REPAIR))
-                .tooltip(Tooltip.create(Component.literal("Udstyr slides kun, når du dør, og helt slidt giver det ingen bonusser. Reparér det her for essens")))
+        repair = addRenderableWidget(Button.builder(Text.tr("smithy.repair"), pressed -> click(SmithyMenu.REPAIR))
+                .tooltip(Tooltip.create(Text.tr("smithy.repair.tooltip")))
                 .bounds(codexLeft, topPos + REPAIR_Y + 5, codexInner, 18)
                 .build(ThemedButton::new));
-        salvage = button(SmithyMenu.SALVAGE, "Smelt om", 0, 0);
-        reroll = button(SmithyMenu.REROLL, "Re-roll", 1, 0);
-        masterwork = addRenderableWidget(Button.builder(Component.literal("Mesterværk"), pressed -> click(SmithyMenu.MASTERWORK))
-                .tooltip(Tooltip.create(Component.literal("Gør alle bonusser 5% stærkere pr. rang (procent-bonusser 2,5%), op til " + Masterwork.MAX_RANK
-                        + ". Rang 4, 8 og 12 giver også én tilfældig bonus 25% ekstra")))
+        salvage = button(SmithyMenu.SALVAGE, Text.tr("smithy.salvage"), 0, 0);
+        reroll = button(SmithyMenu.REROLL, Text.tr("smithy.reroll"), 1, 0);
+        masterwork = addRenderableWidget(Button.builder(Text.tr("smithy.masterwork"), pressed -> click(SmithyMenu.MASTERWORK))
+                .tooltip(Tooltip.create(Text.tr("smithy.masterwork.tooltip", Masterwork.MAX_RANK)))
                 .bounds(leftPos + 8, topPos + BUTTON_Y + ROW, 160, 18)
                 .build(ThemedButton::new));
-        socket = button(SmithyMenu.SOCKET, "Sæt i", 0, 2);
-        unsocket = button(SmithyMenu.UNSOCKET, "Fjern sten (" + SmithyMenu.UNSOCKET_COST + ")", 1, 2);
+        socket = button(SmithyMenu.SOCKET, Text.tr("smithy.socket"), 0, 2);
+        unsocket = button(SmithyMenu.UNSOCKET, Text.tr("smithy.unsocket", SmithyMenu.UNSOCKET_COST), 1, 2);
         // Clicking the first one picks how good the items "Smelt alle" takes can be, up to set items (never mythic)
         addRenderableWidget(Button.builder(limitText(), pressed -> {
                     salvageUpTo = Rarity.values()[(salvageUpTo.ordinal() + 1) % (Rarity.SET.ordinal() + 1)];
@@ -98,26 +98,26 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
                 })
                 .bounds(leftPos + 8, topPos + BUTTON_Y + 3 * ROW, 78, 18)
                 .build(ThemedButton::new));
-        addRenderableWidget(Button.builder(Component.literal("Smelt alle"), pressed -> click(SmithyMenu.SALVAGE_ALL + salvageUpTo.ordinal()))
-                .tooltip(Tooltip.create(Component.literal("Smelter loot-tasken (I) og inventaret. Hotbaren, det udstyr du har på, og favoritter (Alt+klik) bliver aldrig rørt")))
+        addRenderableWidget(Button.builder(Text.tr("smithy.salvage_all"), pressed -> click(SmithyMenu.SALVAGE_ALL + salvageUpTo.ordinal()))
+                .tooltip(Tooltip.create(Text.tr("smithy.salvage_all.tooltip")))
                 .bounds(leftPos + 90, topPos + BUTTON_Y + 3 * ROW, 78, 18)
                 .build(ThemedButton::new));
-        combine = addRenderableWidget(Button.builder(Component.literal("Kombinér 3 sten"), pressed -> click(SmithyMenu.COMBINE))
+        combine = addRenderableWidget(Button.builder(Text.tr("smithy.combine"), pressed -> click(SmithyMenu.COMBINE))
                 .bounds(leftPos + 8, topPos + BUTTON_Y + 4 * ROW, 160, 18)
                 .build(ThemedButton::new));
         updateButtons();
     }
 
     // Two columns of buttons under the slots
-    private Button button(int id, String text, int column, int row) {
-        return addRenderableWidget(Button.builder(Component.literal(text), pressed -> click(id))
+    private Button button(int id, Component text, int column, int row) {
+        return addRenderableWidget(Button.builder(text, pressed -> click(id))
                 .bounds(leftPos + 8 + column * 82, topPos + BUTTON_Y + row * ROW, 78, 18)
                 .build(ThemedButton::new));
     }
 
-    // E.g. "Til: Sjælden" in the rarity's colour
+    // E.g. "Up to: Rare" in the rarity's colour
     private static Component limitText() {
-        return Component.literal("Til: ").append(Component.literal(salvageUpTo.displayName).withStyle(salvageUpTo.color));
+        return Text.tr("bag.up_to", salvageUpTo.displayName().withStyle(salvageUpTo.color));
     }
 
     // The powers in the codex, in the same order as LegendaryPower.values()
@@ -153,24 +153,24 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         Rarity rarity = Smithy.salvageRarity(menu.item());
         boolean favorite = Favorites.is(menu.item());
         salvage.active = rarity != null && !favorite;
-        salvage.setMessage(Component.literal(favorite ? "★ Favorit" : rarity != null ? "Smelt om (+" + Smithy.salvageValue(rarity) + ")" : "Smelt om"));
+        salvage.setMessage(favorite ? Text.tr("smithy.favorite") : rarity != null ? Text.tr("smithy.salvage.gives", Smithy.salvageValue(rarity)) : Text.tr("smithy.salvage"));
         int rank = Masterwork.rank(menu.item());
         boolean canMasterwork = Masterwork.canUpgrade(menu.item());
         masterwork.active = canMasterwork && essence() >= Masterwork.cost(menu.item());
-        masterwork.setMessage(Component.literal(canMasterwork
-                ? "Mesterværk " + rank + " → " + (rank + 1) + " (" + Masterwork.cost(menu.item()) + ")"
-                : rank >= Masterwork.MAX_RANK ? "Mesterværk " + rank + "/" + rank + " (fuldt)" : "Mesterværk"));
+        masterwork.setMessage(canMasterwork
+                ? Text.tr("smithy.masterwork.next", rank, rank + 1, Masterwork.cost(menu.item()))
+                : rank >= Masterwork.MAX_RANK ? Text.tr("smithy.masterwork.full", rank) : Text.tr("smithy.masterwork"));
         int cost = rarity != null ? Smithy.rerollCost(rarity) : 0;
         reroll.active = cost > 0 && essence() >= cost;
-        reroll.setMessage(Component.literal(cost > 0 ? "Re-roll (" + cost + ")" : "Re-roll"));
+        reroll.setMessage(cost > 0 ? Text.tr("smithy.reroll.cost", cost) : Text.tr("smithy.reroll"));
         socket.active = rarity != null && Gems.hasFreeSocket(menu.item()) && Gem.of(menu.gem()) != null;
         unsocket.active = rarity != null && Gems.hasGems(menu.item()) && essence() >= SmithyMenu.UNSOCKET_COST;
         int tier = Gems.tier(menu.gem());
         boolean canCombine = Gem.of(menu.gem()) != null && menu.gem().getCount() >= 3 && tier < Gem.MAX_TIER;
         combine.active = canCombine && essence() >= Smithy.combineCost(tier);
-        combine.setMessage(Component.literal(canCombine
-                ? "Kombinér 3 → " + Gem.of(menu.gem()).name(tier + 1) + " (" + Smithy.combineCost(tier) + ")"
-                : "Kombinér 3 ens sten"));
+        combine.setMessage(canCombine
+                ? Text.tr("smithy.combine.into", Gem.of(menu.gem()).name(tier + 1), Smithy.combineCost(tier))
+                : Text.tr("smithy.combine"));
 
         // The codex comes from the server a moment after the screen opens, so the picked power is checked every tick
         List<LegendaryPower> known = known();
@@ -181,7 +181,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         extract.active = onItem != null && !menu.knows(onItem) && !favorite;
         int repairCost = Durability.repairCost(menu.item());
         repair.active = repairCost > 0 && essence() >= repairCost;
-        repair.setMessage(Component.literal(repairCost > 0 ? "Reparér (" + repairCost + ")" : "Reparér"));
+        repair.setMessage(repairCost > 0 ? Text.tr("smithy.repair.cost", repairCost) : Text.tr("smithy.repair"));
         previousPower.active = known.size() > 1;
         nextPower.active = known.size() > 1;
         imprint.active = selected != null && rarity == Rarity.LEGENDARY && onItem != selected && essence() >= Codex.IMPRINT_COST;
@@ -218,14 +218,16 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
         UiTheme.divider(graphics, 7, inventoryLabelY - 4, MAIN_WIDTH - 14);
         graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, UiTheme.MUTED, false);
         // On the same line as the "Inventory" label, but at the right edge
-        String essence = "Essens: " + essence();
+        String essence = Text.tr("smithy.essence", essence()).getString();
         graphics.drawString(font, essence, MAIN_WIDTH - 8 - font.width(essence), inventoryLabelY, 0xC080FF, false);
         renderCodex(graphics);
-        graphics.drawString(font, "Loot", SmithyMenu.ITEM_X - 4 - font.width("Loot"), SmithyMenu.SLOT_Y + 4, UiTheme.MUTED, false);
-        graphics.drawString(font, "Sten", SmithyMenu.GEM_X - 4 - font.width("Sten"), SmithyMenu.SLOT_Y + 4, UiTheme.MUTED, false);
+        Component itemLabel = Text.tr("smithy.slot.item");
+        Component gemLabel = Text.tr("smithy.slot.gem");
+        graphics.drawString(font, itemLabel, SmithyMenu.ITEM_X - 4 - font.width(itemLabel), SmithyMenu.SLOT_Y + 4, UiTheme.MUTED, false);
+        graphics.drawString(font, gemLabel, SmithyMenu.GEM_X - 4 - font.width(gemLabel), SmithyMenu.SLOT_Y + 4, UiTheme.MUTED, false);
         if (!menu.item().isEmpty()) {
             int sockets = Gems.sockets(menu.item());
-            String text = sockets == 0 ? "Ingen" : Gems.gems(menu.item()).size() + "/" + sockets + " sokler";
+            String text = (sockets == 0 ? Text.tr("smithy.no_sockets") : Text.tr("smithy.sockets", Gems.gems(menu.item()).size(), sockets)).getString();
             graphics.drawString(font, text, SmithyMenu.GEM_X + 20, SmithyMenu.SLOT_Y + 4, UiTheme.MUTED, false);
         }
     }
@@ -233,25 +235,26 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     // The title with how many powers you have, the picked power between < and >, and what it does
     private void renderCodex(GuiGraphics graphics) {
         int center = CODEX_X + CODEX_WIDTH / 2;
-        String title = "Kraftbog " + known().size() + "/" + LegendaryPower.values().length;
+        Component title = Text.tr("smithy.codex", known().size(), LegendaryPower.values().length);
         graphics.drawString(font, title, center - font.width(title) / 2, 6, UiTheme.TITLE, false);
         if (selected == null) {
-            graphics.drawString(font, "Tom", center - font.width("Tom") / 2, 45, UiTheme.MUTED, false);
+            Component empty = Text.tr("smithy.codex.empty");
+            graphics.drawString(font, empty, center - font.width(empty) / 2, 45, UiTheme.MUTED, false);
             int y = CODEX_DESCRIPTION_Y;
-            for (FormattedCharSequence line : font.split(Component.literal("Udtræk kræfter fra legendariske genstande for at gemme dem her"), CODEX_WIDTH - 12)) {
+            for (FormattedCharSequence line : font.split(Text.tr("smithy.codex.how"), CODEX_WIDTH - 12)) {
                 graphics.drawString(font, line, CODEX_X + 6, y, UiTheme.MUTED, false);
                 y += 10;
             }
             return;
         }
-        String name = font.plainSubstrByWidth(selected.displayName, CODEX_WIDTH - 12 - 2 * 18);
+        String name = font.plainSubstrByWidth(selected.displayName().getString(), CODEX_WIDTH - 12 - 2 * 18);
         graphics.drawString(font, name, center - font.width(name) / 2, 45, 0xFFAA00, false);
         int y = CODEX_DESCRIPTION_Y;
         if (selected.playerClass != null) {
-            graphics.drawString(font, selected.playerClass.displayName, CODEX_X + 6, y, selected.playerClass.color, false);
+            graphics.drawString(font, selected.playerClass.displayName(), CODEX_X + 6, y, selected.playerClass.color, false);
             y += 10;
         }
-        for (FormattedCharSequence line : font.split(Component.literal(selected.description), CODEX_WIDTH - 12)) {
+        for (FormattedCharSequence line : font.split(selected.description(), CODEX_WIDTH - 12)) {
             graphics.drawString(font, line, CODEX_X + 6, y, 0xFFFF55, false);
             y += 10;
         }

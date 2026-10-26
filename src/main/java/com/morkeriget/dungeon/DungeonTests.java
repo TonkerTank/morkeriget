@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.gametest.TestPlayers;
 import com.morkeriget.loot.Loot;
@@ -98,7 +99,7 @@ public final class DungeonTests {
                 .thenExecute(() -> {
                     Monster boss = boss(level, arena);
                     helper.assertTrue(boss.getType() == EntityType.WITHER_SKELETON, "Mørkets Herre er ikke et wither-skelet");
-                    helper.assertTrue(boss.getName().getString().equals("Mørkets Herre"), "Bossen hedder " + boss.getName().getString());
+                    helper.assertTrue(Text.is(boss.getCustomName(), "boss.uber"), "Bossen hedder " + boss.getName().getString());
                     int helpers = level.getEntitiesOfClass(Monster.class, arena, monster -> !Bosses.isBoss(monster)).size();
                     helper.assertTrue(helpers >= 4, "Mørkets Herre har kun " + helpers + " hjælpere");
                     boss.kill();

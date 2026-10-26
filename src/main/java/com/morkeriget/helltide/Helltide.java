@@ -9,6 +9,7 @@ import java.util.UUID;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.PlayerBars;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
@@ -125,7 +126,7 @@ public final class Helltide {
             ServerPlayer player = level.players().get(level.getRandom().nextInt(level.players().size()));
             active = new Active(level, player);
         } else if (active != null && (!night || active.level != level)) {
-            active.end("Det bliver lyst, og Helltide er ovre");
+            active.end(Text.tr("helltide.over"));
             active = null;
         } else if (active != null) {
             active.tick();
@@ -203,8 +204,8 @@ public final class Helltide {
             int distance = MIN_DISTANCE + random.nextInt(MAX_DISTANCE - MIN_DISTANCE + 1);
             this.center = new BlockPos((int) (player.getX() + Math.cos(angle) * distance), 64, (int) (player.getZ() + Math.sin(angle) * distance));
             for (ServerPlayer other : level.players()) {
-                other.sendSystemMessage(Component.literal("En Helltide er begyndt! ").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
-                        .append(Component.literal("Dræb monstre i den for glødende aske, og brug asken på Helltide-kisterne. Følg den røde bjælke")
+                other.sendSystemMessage(Text.tr("helltide.started").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
+                        .append(Text.tr("helltide.started.info")
                                 .withStyle(ChatFormatting.RED)));
                 other.playNotifySound(SoundEvents.WITHER_SPAWN, SoundSource.HOSTILE, 0.5f, 0.6f);
             }
@@ -228,12 +229,13 @@ public final class Helltide {
                 boolean inside = contains(player.blockPosition());
                 if (inside) {
                     int cinders = player.getInventory().countItem(CINDER.get());
-                    bars.show(player, Component.literal("Helltide - " + cinders + " glødende aske (kiste: " + CHEST_COST + ")"), progress);
+                    bars.show(player, Text.tr("helltide.bar.inside", cinders, CHEST_COST), progress);
                     if (!Rifts.isInRift(player)) {
                         spawnMonsters(player);
                     }
                 } else {
-                    bars.show(player, Component.literal("Helltide: " + (int) (distance(player) - RADIUS) + " blokke mod " + direction(player)), progress);
+                    bars.show(player, Text.tr("helltide.bar.outside", (int) (distance(player) - RADIUS),
+                            Text.direction(center.getX() - player.getX(), center.getZ() - player.getZ())), progress);
                 }
                 if (chestsPlaced < CHESTS && distance(player) < RADIUS + 48) {
                     placeChests();
@@ -249,13 +251,6 @@ public final class Helltide {
             monsters.removeIf(id -> level.getEntity(id) == null);
         }
 
-        // E.g. "nord-øst", from the player towards the middle of the helltide
-        private String direction(ServerPlayer player) {
-            double angle = Math.toDegrees(Math.atan2(center.getZ() - player.getZ(), center.getX() - player.getX()));
-            // 0 degrees is east and 90 is south, since z goes south in Minecraft
-            String[] names = {"øst", "syd-øst", "syd", "syd-vest", "vest", "nord-vest", "nord", "nord-øst"};
-            return names[Math.floorMod((int) Math.round(angle / 45), 8)];
-        }
 
         // Tried again until all are placed, since some spots can be in chunks that aren't loaded yet, or on water
         private void placeChests() {
@@ -318,7 +313,7 @@ public final class Helltide {
         void open(ServerPlayer player, BlockPos pos) {
             int cinders = player.getInventory().countItem(CINDER.get());
             if (cinders < CHEST_COST) {
-                player.displayClientMessage(Component.literal("Helltide-kisten koster " + CHEST_COST + " glødende aske (du har " + cinders + ")")
+                player.displayClientMessage(Text.tr("helltide.chest_cost", CHEST_COST, cinders)
                         .withStyle(ChatFormatting.RED), true);
                 return;
             }
@@ -331,7 +326,7 @@ public final class Helltide {
             level.playSound(null, pos, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 1.0f, 0.8f);
             level.playSound(null, pos, SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 0.8f, 1.2f);
             level.sendParticles(ParticleTypes.LAVA, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 30, 0.4, 0.4, 0.4, 0);
-            player.displayClientMessage(Component.literal("Helltide-kisten er åbnet! " + chests.size() + " tilbage").withStyle(ChatFormatting.GOLD), true);
+            player.displayClientMessage(Text.tr("helltide.chest_opened", chests.size()).withStyle(ChatFormatting.GOLD), true);
             Journey.add(player, Achievement.Stat.HELLTIDE_CHESTS);
         }
 
@@ -350,7 +345,7 @@ public final class Helltide {
         }
 
         // message is null when the server stops, since nobody would see it
-        void end(String message) {
+        void end(Component message) {
             for (BlockPos chest : chests) {
                 if (level.getBlockState(chest).is(Blocks.CHEST)) {
                     level.setBlockAndUpdate(chest, Blocks.AIR.defaultBlockState());
@@ -368,7 +363,7 @@ public final class Helltide {
             bars.clear();
             if (message != null) {
                 for (ServerPlayer player : level.players()) {
-                    player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.GRAY));
+                    player.sendSystemMessage(message.copy().withStyle(ChatFormatting.GRAY));
                 }
             }
         }

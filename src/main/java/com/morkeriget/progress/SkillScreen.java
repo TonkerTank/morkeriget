@@ -3,6 +3,7 @@ package com.morkeriget.progress;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.bounty.BountyActionPayload;
 import com.morkeriget.jewelry.OpenJewelryPayload;
 import com.morkeriget.merchant.OpenMerchantPayload;
@@ -19,6 +20,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -51,7 +53,7 @@ public class SkillScreen extends Screen {
     private Skill selected;
 
     public SkillScreen() {
-        super(Component.literal("Skills og level"));
+        super(Text.tr("skills.title"));
     }
 
     private int left() {
@@ -120,25 +122,25 @@ public class SkillScreen extends Screen {
     @Override
     protected void init() {
         // Menus are opened by the server, so ask it to open the equipment screen
-        addRenderableWidget(Button.builder(Component.literal("Udstyr"), pressed -> PacketDistributor.sendToServer(OpenJewelryPayload.INSTANCE))
+        addRenderableWidget(Button.builder(Text.tr("button.equipment"), pressed -> PacketDistributor.sendToServer(OpenJewelryPayload.INSTANCE))
                 .bounds(left() + screenWidth() - 60, top() - 4, 60, 16)
                 .build(ThemedButton::new));
-        addRenderableWidget(Button.builder(Component.literal("Smedje"), pressed -> PacketDistributor.sendToServer(OpenSmithyPayload.INSTANCE))
+        addRenderableWidget(Button.builder(Text.tr("smithy.title"), pressed -> PacketDistributor.sendToServer(OpenSmithyPayload.INSTANCE))
                 .bounds(left() + screenWidth() - 124, top() - 4, 60, 16)
                 .build(ThemedButton::new));
-        addRenderableWidget(Button.builder(Component.literal("Købmand"), pressed -> PacketDistributor.sendToServer(OpenMerchantPayload.INSTANCE))
+        addRenderableWidget(Button.builder(Text.tr("merchant.title"), pressed -> PacketDistributor.sendToServer(OpenMerchantPayload.INSTANCE))
                 // Next to "Skift klasse", since the middle is taken by the class and level
                 .bounds(left() + 74, top() - 4, 60, 16)
                 .build(ThemedButton::new));
-        addRenderableWidget(Button.builder(Component.literal("Skift klasse"), pressed -> minecraft.setScreen(new ClassScreen()))
+        addRenderableWidget(Button.builder(Text.tr("button.change_class"), pressed -> minecraft.setScreen(new ClassScreen()))
                 .bounds(left(), top() - 4, 70, 16)
                 .build(ThemedButton::new));
         // The top row is full, so the stash and bounties are in the right column above Paragon and "Nulstil point"
         int half = (SHARED_WIDTH - 4) / 2;
-        addRenderableWidget(Button.builder(Component.literal("Kiste"), pressed -> PacketDistributor.sendToServer(OpenStashPayload.INSTANCE))
+        addRenderableWidget(Button.builder(Text.tr("stash.title"), pressed -> PacketDistributor.sendToServer(OpenStashPayload.INSTANCE))
                 .bounds(sharedX(), keysY() - 44, half, 18)
                 .build(ThemedButton::new));
-        addRenderableWidget(Button.builder(Component.literal("Opgaver"), pressed -> PacketDistributor.sendToServer(new BountyActionPayload(BountyActionPayload.OPEN)))
+        addRenderableWidget(Button.builder(Text.tr("bounties.title"), pressed -> PacketDistributor.sendToServer(new BountyActionPayload(BountyActionPayload.OPEN)))
                 .bounds(sharedX() + SHARED_WIDTH - half, keysY() - 44, half, 18)
                 .build(ThemedButton::new));
 
@@ -158,13 +160,13 @@ public class SkillScreen extends Screen {
         }
         // Paragon points come after level 100
         if (progress.level() >= Progression.MAX_LEVEL) {
-            String text = "Paragon" + (progress.paragonPoints() > 0 ? " (" + progress.paragonPoints() + ")" : "");
-            addRenderableWidget(Button.builder(Component.literal(text), pressed -> minecraft.setScreen(new ParagonScreen()))
+            Component text = progress.paragonPoints() > 0 ? Text.tr("skills.paragon_points", progress.paragonPoints()) : Text.tr("paragon.title");
+            addRenderableWidget(Button.builder(text, pressed -> minecraft.setScreen(new ParagonScreen()))
                     .bounds(sharedX(), keysY() - 22, SHARED_WIDTH, 18)
                     .build(ThemedButton::new));
         }
         // Choosing the same class again gives every point back
-        addRenderableWidget(Button.builder(Component.literal("Nulstil point"), pressed -> PacketDistributor.sendToServer(new ChooseClassPayload(playerClass)))
+        addRenderableWidget(Button.builder(Text.tr("skills.reset"), pressed -> PacketDistributor.sendToServer(new ChooseClassPayload(playerClass)))
                 .bounds(sharedX(), keysY(), SHARED_WIDTH, 18)
                 .build(ThemedButton::new));
     }
@@ -209,7 +211,7 @@ public class SkillScreen extends Screen {
 
         // The shared upgrades and the class bonus in one box, stopping above the stash and bounty buttons
         int bonusY = nodeY(0) + SHARED.size() * sharedRowHeight() + 4;
-        int bonusLines = font.split(Component.literal("Klassebonus: " + playerClass.bonus), SHARED_WIDTH).size();
+        int bonusLines = font.split(Text.tr("skills.class_bonus", playerClass.bonus()), SHARED_WIDTH).size();
         int boxBottom = Math.min(bonusY + bonusLines * font.lineHeight + 2, keysY() - 47);
         UiTheme.box(graphics, sharedX() - 3, nodeY(0) - 2, SHARED_WIDTH + 5, boxBottom - nodeY(0) + 2, 0, true);
         UiTheme.divider(graphics, sharedX(), bonusY - 4, SHARED_WIDTH - 2);
@@ -236,11 +238,11 @@ public class SkillScreen extends Screen {
 
         // Once you have a paragon level it is shown instead of level 100, like in Diablo 4
         boolean paragon = progress.paragonLevel() > 0;
-        String title = (playerClass != null ? playerClass.displayName + " - " : "")
-                + (paragon ? "Paragon " + progress.paragonLevel() : "Level " + progress.level());
+        MutableComponent level = paragon ? Text.tr("paragon.level", progress.paragonLevel()) : Text.tr("skills.level", progress.level());
+        Component title = playerClass != null ? playerClass.displayName().append(" - ").append(level) : level;
         // The lines stop before the buttons on both sides of the title. "Købmand" ends 134 from the left, the closer side
         int room = screenWidth() / 2 - 134 - font.width(title) / 2 - 10;
-        UiTheme.title(graphics, font, Component.literal(title), center, top, paragon ? 0x55FFFF : playerClass != null ? playerClass.color : 0xFFD700,
+        UiTheme.title(graphics, font, title, center, top, paragon ? 0x55FFFF : playerClass != null ? playerClass.color : 0xFFD700,
                 Math.max(0, Math.min(40, room)));
 
         int barLeft = left + 20;
@@ -264,7 +266,7 @@ public class SkillScreen extends Screen {
         }
 
         if (playerClass == null) {
-            graphics.drawCenteredString(font, "Vælg en klasse først", center, nodeY(0) + 8, UiTheme.TITLE);
+            graphics.drawCenteredString(font, Text.tr("skills.pick_class_first"), center, nodeY(0) + 8, UiTheme.TITLE);
             return;
         }
         Upgrade hovered = null;
@@ -285,7 +287,7 @@ public class SkillScreen extends Screen {
             if (!open && nodeX(upgrades.size()) + 30 < sharedX()) {
                 int x = nodeX(upgrades.size());
                 int spent = SkillTree.spent(playerClass, progress::rank);
-                graphics.drawString(font, "Låst", x, nodeY(row) + 10, 0xAA5555);
+                graphics.drawString(font, Text.tr("skills.locked"), x, nodeY(row) + 10, 0xAA5555);
                 graphics.drawString(font, spent + "/" + SkillTree.pointsForRow(row), x, nodeY(row) + 21, UiTheme.MUTED);
             }
         }
@@ -294,11 +296,11 @@ public class SkillScreen extends Screen {
             Upgrade upgrade = SHARED.get(row);
             int y = nodeY(0) + row * sharedRowHeight();
             int rank = progress.rank(upgrade);
-            graphics.drawString(font, upgrade.displayName + "  " + rank + "/" + upgrade.maxRank(), sharedX(), y + 3,
+            graphics.drawString(font, upgrade.displayName().append("  " + rank + "/" + upgrade.maxRank()), sharedX(), y + 3,
                     rank >= upgrade.maxRank() ? 0xFFD700 : UiTheme.TEXT);
-            graphics.drawString(font, upgrade.description, sharedX(), y + 14, UiTheme.MUTED);
+            graphics.drawString(font, upgrade.description(), sharedX(), y + 14, UiTheme.MUTED);
         }
-        graphics.drawWordWrap(font, Component.literal("Klassebonus: " + playerClass.bonus), sharedX(), nodeY(0) + SHARED.size() * sharedRowHeight() + 4,
+        graphics.drawWordWrap(font, Text.tr("skills.class_bonus", playerClass.bonus()), sharedX(), nodeY(0) + SHARED.size() * sharedRowHeight() + 4,
                 SHARED_WIDTH, playerClass.color);
 
         drawKeys(graphics, progress);
@@ -321,7 +323,7 @@ public class SkillScreen extends Screen {
             graphics.pose().popPose();
         }
         int nameColor = !open ? UiTheme.DIM : rank >= upgrade.maxRank() ? 0xFFD700 : UiTheme.TEXT;
-        graphics.drawString(font, font.plainSubstrByWidth(upgrade.displayName, NODE_WIDTH - 24), x + 22, y + 4, nameColor);
+        graphics.drawString(font, font.plainSubstrByWidth(upgrade.displayName().getString(), NODE_WIDTH - 24), x + 22, y + 4, nameColor);
         if (!compact()) {
             String kind = upgrade.isPassive() ? "Passiv" : "Skill";
             graphics.drawString(font, kind, x + 22, y + 14, upgrade.isPassive() ? 0x8888CC : UiTheme.MUTED);
@@ -329,7 +331,7 @@ public class SkillScreen extends Screen {
         if (!open && progress.chosenClass() != null && nodeX(SkillTree.row(progress.chosenClass(), upgrade.row).size()) + 30 >= sharedX()) {
             // No room for "Låst" next to the row, so each box says how far you are from opening it
             int spent = SkillTree.spent(progress.chosenClass(), progress::rank);
-            graphics.drawString(font, "Låst " + spent + "/" + SkillTree.pointsForRow(upgrade.row), x + 4, y + nodeHeight() - 10, 0xAA5555);
+            graphics.drawString(font, Text.tr("skills.locked_progress", spent, SkillTree.pointsForRow(upgrade.row)), x + 4, y + nodeHeight() - 10, 0xAA5555);
         } else {
             graphics.drawString(font, rank + "/" + upgrade.maxRank(), x + 4, y + nodeHeight() - 10, rank > 0 ? UiTheme.TEXT : UiTheme.DIM);
         }
@@ -343,7 +345,7 @@ public class SkillScreen extends Screen {
     // "Taster:" and the four keys with the skill on each. The slots are drawn in renderBackground
     private void drawKeys(GuiGraphics graphics, ProgressPayload progress) {
         int y = keysY();
-        graphics.drawString(font, "Taster:", left(), y + 6, UiTheme.MUTED);
+        graphics.drawString(font, Text.tr("skills.keys"), left(), y + 6, UiTheme.MUTED);
         for (int slot = 0; slot < SkillTree.SLOTS; slot++) {
             int x = keyX(slot);
             Skill skill = progress.slot(slot);
@@ -356,28 +358,25 @@ public class SkillScreen extends Screen {
             graphics.drawString(font, key, x + KEY_SIZE - 1 - font.width(key), y + KEY_SIZE - 9, 0xFFD700);
             graphics.pose().popPose();
         }
-        String hint = selected != null
-                ? "Tryk 1-4 eller klik en tast for at sætte " + selected.displayName + " på den"
-                : "Klik en skill og tryk 1-4 for at sætte den på en tast";
+        Component hint = selected != null ? Text.tr("skills.key_hint_selected", selected.displayName()) : Text.tr("skills.key_hint");
         graphics.drawString(font, hint, left(), y + KEY_SIZE + 5, selected != null ? 0xFFD700 : UiTheme.DIM);
     }
 
     private List<Component> tooltip(ProgressPayload progress, PlayerClass playerClass, Upgrade upgrade) {
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal(upgrade.displayName).withStyle(ChatFormatting.GOLD));
-        lines.add(Component.literal(upgrade.isPassive() ? "Passiv" : "Skill").withStyle(ChatFormatting.DARK_GRAY));
-        lines.add(Component.literal(upgrade.description).withStyle(ChatFormatting.GRAY));
+        lines.add(upgrade.displayName().withStyle(ChatFormatting.GOLD));
+        lines.add(Text.tr(upgrade.isPassive() ? "skills.passive" : "skills.skill").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(upgrade.description().withStyle(ChatFormatting.GRAY));
         if (upgrade.skill != null) {
-            lines.add(Component.literal("Rank " + (Upgrade.UTILITY_MAX_RANK + 1) + "-" + upgrade.maxRank() + ": skade bliver ved med at stige, resten stopper ved "
-                    + Upgrade.UTILITY_MAX_RANK + ", og hver rank giver -" + Math.round(Upgrade.COOLDOWN_PER_RANK * 100) + "% cooldown")
-                    .withStyle(ChatFormatting.DARK_AQUA));
+            lines.add(Text.tr("skills.high_ranks", Upgrade.UTILITY_MAX_RANK + 1, upgrade.maxRank(), Upgrade.UTILITY_MAX_RANK,
+                    Math.round(Upgrade.COOLDOWN_PER_RANK * 100)).withStyle(ChatFormatting.DARK_AQUA));
         }
         if (!SkillTree.isRowOpen(playerClass, upgrade.row, progress::rank)) {
-            lines.add(Component.literal("Kræver " + SkillTree.pointsForRow(upgrade.row) + " point i træet").withStyle(ChatFormatting.RED));
+            lines.add(Text.tr("skills.needs_points", SkillTree.pointsForRow(upgrade.row)).withStyle(ChatFormatting.RED));
         } else if (upgrade.skill != null && progress.rank(upgrade) == 0) {
-            lines.add(Component.literal("Det første point låser den op").withStyle(ChatFormatting.YELLOW));
+            lines.add(Text.tr("skills.first_point").withStyle(ChatFormatting.YELLOW));
         } else if (upgrade.skill != null) {
-            lines.add(Component.literal("Klik for at sætte den på en tast").withStyle(ChatFormatting.YELLOW));
+            lines.add(Text.tr("skills.click_to_bind").withStyle(ChatFormatting.YELLOW));
         }
         return lines;
     }

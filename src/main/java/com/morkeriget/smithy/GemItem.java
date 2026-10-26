@@ -2,6 +2,8 @@ package com.morkeriget.smithy;
 
 import java.util.List;
 
+import com.morkeriget.Text;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
@@ -19,17 +21,17 @@ public class GemItem extends Item {
 
     @Override
     public Component getName(ItemStack stack) {
-        return Component.literal(gem.name(Gems.tier(stack))).withColor(gem.color);
+        return gem.name(Gems.tier(stack)).withColor(gem.color);
     }
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         int tier = Gems.tier(stack);
-        lines.add(Component.literal(gem.bonus(tier)).withColor(gem.color));
-        lines.add(Component.literal("Kvalitet " + tier + "/" + Gem.MAX_TIER).withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("Sæt i en sokkel i Smedjen (K)").withStyle(ChatFormatting.DARK_GRAY));
+        lines.add(gem.bonus(tier).withColor(gem.color));
+        lines.add(Text.tr("gem.quality", tier, Gem.MAX_TIER).withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("gem.how_to_socket").withStyle(ChatFormatting.DARK_GRAY));
         if (tier < Gem.MAX_TIER) {
-            lines.add(Component.literal("3 ens kan kombineres til en bedre").withStyle(ChatFormatting.DARK_GRAY));
+            lines.add(Text.tr("gem.how_to_combine").withStyle(ChatFormatting.DARK_GRAY));
         }
     }
 }

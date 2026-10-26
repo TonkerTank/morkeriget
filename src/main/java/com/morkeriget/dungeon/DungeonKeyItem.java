@@ -2,6 +2,7 @@ package com.morkeriget.dungeon;
 
 import java.util.List;
 
+import com.morkeriget.Text;
 import com.morkeriget.rift.RiftAffix;
 import com.morkeriget.rift.Rifts;
 
@@ -34,7 +35,7 @@ public class DungeonKeyItem extends Item {
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
 
-    // "Dungeonnøgle III"
+    // "Dungeon Key III"
     @Override
     public Component getName(ItemStack stack) {
         return Component.translatable(getDescriptionId(stack)).append(" " + Rifts.roman(Dungeons.tier(stack)));
@@ -43,26 +44,23 @@ public class DungeonKeyItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         int tier = Dungeons.tier(stack);
-        lines.add(Component.literal("Højreklik for at åbne et dungeon").withStyle(ChatFormatting.DARK_RED));
-        lines.add(Component.literal("Spillere tæt på dig kommer med").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("Bryd seglet og dræb bossen i det sidste rum").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("Krypt, helvede, is eller have - hvert dungeon er nyt").withStyle(ChatFormatting.GRAY));
-        lines.add(Component.literal("I har " + Dungeon.LIVES + " liv tilsammen").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("key.tooltip.use").withStyle(ChatFormatting.DARK_RED));
+        lines.add(Text.tr("tooltip.party").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("key.tooltip.goal").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("key.tooltip.themes").withStyle(ChatFormatting.GRAY));
+        lines.add(Text.tr("key.tooltip.lives", Dungeon.LIVES).withStyle(ChatFormatting.GRAY));
         if (tier > 1) {
-            lines.add(Component.literal("Niveau " + Rifts.roman(tier) + ": monstre +" + (tier - 1) + " level, flere rum og bedre loot")
-                    .withStyle(ChatFormatting.RED));
+            lines.add(Text.tr("key.tooltip.tier", Rifts.roman(tier), tier - 1).withStyle(ChatFormatting.RED));
         }
         List<RiftAffix> affixes = RiftAffix.of(stack);
         for (RiftAffix affix : affixes) {
-            lines.add(Component.literal("⚠ " + affix.displayName + ": ").withStyle(ChatFormatting.RED)
-                    .append(Component.literal(affix.description).withStyle(ChatFormatting.GRAY)));
+            lines.add(affix.warning());
         }
         if (!affixes.isEmpty()) {
-            lines.add(Component.literal("+" + affixes.size() + " ekstra genstande og +" + Math.round(affixes.size() * RiftAffix.REWARD_PER_AFFIX * 100)
-                    + "% essens, XP og chance for mytisk").withStyle(ChatFormatting.GOLD));
+            lines.add(RiftAffix.rewardLine(affixes.size()));
         }
         if (tier < Dungeons.MAX_TIER) {
-            lines.add(Component.literal("Klar dungeonet for at få en nøgle " + Rifts.roman(tier + 1)).withStyle(ChatFormatting.DARK_GRAY));
+            lines.add(Text.tr("key.tooltip.next", Rifts.roman(tier + 1)).withStyle(ChatFormatting.DARK_GRAY));
         }
     }
 }

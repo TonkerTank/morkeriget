@@ -3,14 +3,18 @@ package com.morkeriget.elite;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+
+import com.morkeriget.Text;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -29,15 +33,16 @@ import org.joml.Vector3f;
 
 // Every boss has its own ability, picked from its name, that it uses every INTERVAL ticks.
 // The ones that hit a moment later (fire rain, the end of a charge) are remembered in PENDING until then
-enum BossAbility {
-    FIRE_RAIN("Ildregn", "kalder ild ned!"),
-    RAISE_DEAD("Genopliv de døde", "vækker de døde!"),
-    CROWS("Kragesværm", "sender sine krager!"),
-    BLOOD_DRAIN("Livsdræn", "drikker dit liv!"),
-    CHARGE("Angreb", "styrter frem!"),
-    DARKNESS("Mørke", "slukker lyset!"),
+public enum BossAbility {
+    // Names and warnings are in the language files, under ability.<name>
+    FIRE_RAIN,
+    RAISE_DEAD,
+    CROWS,
+    BLOOD_DRAIN,
+    CHARGE,
+    DARKNESS,
     // Every boss uses this one too in its second phase, taking turns with its own, see Bosses
-    DOOM_CIRCLES("Dødscirkler", "mærker jer til døden - kom væk fra cirklen!");
+    DOOM_CIRCLES;
 
     // 20 ticks is one second
     static final int INTERVAL = 12 * 20;
@@ -54,8 +59,8 @@ enum BossAbility {
     private static final DustParticleOptions DOOM_DUST = new DustParticleOptions(new Vector3f(1.0f, 0.1f, 0.1f), 2.0f);
 
     private static final Map<String, BossAbility> BY_BOSS = Map.of(
-            "Slagteren", CHARGE, "Gravkongen", RAISE_DEAD, "Blodmoderen", BLOOD_DRAIN, "Den Hule Ridder", CHARGE,
-            "Askeherren", FIRE_RAIN, "Kragedronningen", CROWS, "Rådne Ragnar", RAISE_DEAD, "Mørkets Hyrde", DARKNESS,
+            "butcher", CHARGE, "grave_king", RAISE_DEAD, "blood_mother", BLOOD_DRAIN, "hollow_knight", CHARGE,
+            "ash_lord", FIRE_RAIN, "crow_queen", CROWS, "rotten_ragnar", RAISE_DEAD, "dark_shepherd", DARKNESS,
             "Knogleknuseren", CHARGE, "Sjæleæderen", BLOOD_DRAIN);
 
     // Something that happens a little after the ability is used. Only in memory, so it is lost if the world is reloaded
@@ -64,13 +69,8 @@ enum BossAbility {
 
     private static final Map<UUID, Pending> PENDING = new HashMap<>();
 
-    final String displayName;
-    // Shown to the players after the boss's name, e.g. "Askeherren kalder ild ned!"
-    private final String warning;
-
-    BossAbility(String displayName, String warning) {
-        this.displayName = displayName;
-        this.warning = warning;
+    MutableComponent displayName() {
+        return Text.tr("ability." + name().toLowerCase(Locale.ROOT) + ".name");
     }
 
     static BossAbility forBoss(String name) {
@@ -141,8 +141,8 @@ enum BossAbility {
     }
 
     private void warn(ServerLevel level, Monster boss) {
-        Component message = Component.empty().append(boss.getDisplayName())
-                .append(Component.literal(" " + warning).withStyle(ChatFormatting.GOLD));
+        // E.g. "The Ash Lord calls down fire!"
+        Component message = Text.tr("ability." + name().toLowerCase(Locale.ROOT) + ".warning", boss.getDisplayName()).withStyle(ChatFormatting.GOLD);
         for (ServerPlayer player : level.players()) {
             if (player.distanceTo(boss) <= MESSAGE_RANGE) {
                 player.displayClientMessage(message, true);

@@ -1,7 +1,11 @@
 package com.morkeriget.dungeon;
 
 import java.util.List;
+import java.util.Locale;
 
+import com.morkeriget.Text;
+
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
@@ -11,33 +15,32 @@ import net.minecraft.world.level.block.state.BlockState;
 
 // What a dungeon is built of and who lives there, picked at random each time. Blocks that are in a list more than once
 // are used more often. The nether's magma floor burns, and the ice floor is slippery
-enum DungeonTheme {
-    CRYPT("Krypten",
+public enum DungeonTheme {
+    CRYPT(
             List.of(Blocks.DEEPSLATE_BRICKS, Blocks.DEEPSLATE_BRICKS, Blocks.CRACKED_DEEPSLATE_BRICKS, Blocks.DEEPSLATE_TILES, Blocks.CHISELED_DEEPSLATE),
             List.of(Blocks.POLISHED_BLACKSTONE_BRICKS, Blocks.POLISHED_BLACKSTONE_BRICKS, Blocks.CRACKED_POLISHED_BLACKSTONE_BRICKS, Blocks.POLISHED_DEEPSLATE),
             Blocks.DEEPSLATE_TILES, Blocks.SOUL_LANTERN, Blocks.COBWEB, true,
             List.of(EntityType.ZOMBIE, EntityType.SKELETON, EntityType.SKELETON, EntityType.SPIDER, EntityType.HUSK, EntityType.VINDICATOR, EntityType.WITCH),
             List.of(EntityType.VINDICATOR, EntityType.WITHER_SKELETON, EntityType.ZOMBIE, EntityType.HUSK)),
-    NETHER("Helvedesgruben",
+    NETHER(
             List.of(Blocks.NETHER_BRICKS, Blocks.NETHER_BRICKS, Blocks.RED_NETHER_BRICKS, Blocks.CRACKED_NETHER_BRICKS, Blocks.CHISELED_NETHER_BRICKS),
             List.of(Blocks.BLACKSTONE, Blocks.POLISHED_BLACKSTONE, Blocks.NETHERRACK, Blocks.BLACKSTONE, Blocks.POLISHED_BLACKSTONE, Blocks.MAGMA_BLOCK),
             Blocks.NETHER_BRICKS, Blocks.LANTERN, Blocks.SHROOMLIGHT, false,
             List.of(EntityType.WITHER_SKELETON, EntityType.WITHER_SKELETON, EntityType.BLAZE, EntityType.SKELETON, EntityType.HUSK),
             List.of(EntityType.WITHER_SKELETON, EntityType.VINDICATOR)),
-    FROZEN("Den Frosne Krypt",
+    FROZEN(
             List.of(Blocks.PACKED_ICE, Blocks.PACKED_ICE, Blocks.BLUE_ICE, Blocks.POLISHED_DIORITE, Blocks.SNOW_BLOCK),
             List.of(Blocks.PACKED_ICE, Blocks.SNOW_BLOCK, Blocks.POLISHED_DIORITE, Blocks.SNOW_BLOCK),
             Blocks.PACKED_ICE, Blocks.SOUL_LANTERN, Blocks.BLUE_ICE, false,
             List.of(EntityType.STRAY, EntityType.STRAY, EntityType.SKELETON, EntityType.ZOMBIE, EntityType.VINDICATOR),
             List.of(EntityType.STRAY, EntityType.VINDICATOR, EntityType.ZOMBIE)),
-    OVERGROWN("Den Glemte Have",
+    OVERGROWN(
             List.of(Blocks.MOSSY_STONE_BRICKS, Blocks.MOSSY_STONE_BRICKS, Blocks.MOSSY_COBBLESTONE, Blocks.STONE_BRICKS, Blocks.CRACKED_STONE_BRICKS),
             List.of(Blocks.MOSS_BLOCK, Blocks.MOSS_BLOCK, Blocks.COARSE_DIRT, Blocks.MOSSY_COBBLESTONE, Blocks.ROOTED_DIRT),
             Blocks.MOSSY_STONE_BRICKS, Blocks.LANTERN, Blocks.COBWEB, true,
             List.of(EntityType.ZOMBIE, EntityType.SPIDER, EntityType.CAVE_SPIDER, EntityType.WITCH, EntityType.BOGGED, EntityType.BOGGED),
             List.of(EntityType.ZOMBIE, EntityType.VINDICATOR, EntityType.BOGGED));
 
-    final String displayName;
     private final List<Block> walls;
     private final List<Block> floors;
     private final Block ceiling;
@@ -48,9 +51,8 @@ enum DungeonTheme {
     private final List<EntityType<? extends Monster>> monsters;
     private final List<EntityType<? extends Monster>> bosses;
 
-    DungeonTheme(String displayName, List<Block> walls, List<Block> floors, Block ceiling, Block light, Block decoration, boolean hanging,
+    DungeonTheme(List<Block> walls, List<Block> floors, Block ceiling, Block light, Block decoration, boolean hanging,
                  List<EntityType<? extends Monster>> monsters, List<EntityType<? extends Monster>> bosses) {
-        this.displayName = displayName;
         this.walls = walls;
         this.floors = floors;
         this.ceiling = ceiling;
@@ -59,6 +61,11 @@ enum DungeonTheme {
         this.hanging = hanging;
         this.monsters = monsters;
         this.bosses = bosses;
+    }
+
+    // E.g. "The Frozen Crypt", from the language files
+    MutableComponent displayName() {
+        return Text.tr("theme." + name().toLowerCase(Locale.ROOT));
     }
 
     static DungeonTheme random(RandomSource random) {

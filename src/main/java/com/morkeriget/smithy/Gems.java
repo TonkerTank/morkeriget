@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.Rarity;
 
@@ -186,10 +187,10 @@ public final class Gems {
         for (int i = 0; i < sockets; i++) {
             if (i < gems.size()) {
                 Socketed socketed = gems.get(i);
-                lore.add(Component.literal(FILLED + socketed.gem.name(socketed.tier) + ": " + socketed.gem.bonus(socketed.tier))
+                lore.add(Component.literal(FILLED).append(socketed.gem.name(socketed.tier)).append(": ").append(socketed.gem.bonus(socketed.tier))
                         .withColor(socketed.gem.color));
             } else {
-                lore.add(Component.literal(EMPTY + "Tom sokkel").withStyle(ChatFormatting.DARK_GRAY));
+                lore.add(Component.literal(EMPTY).append(Text.tr("lore.empty_socket")).withStyle(ChatFormatting.DARK_GRAY));
             }
         }
         stack.set(DataComponents.LORE, new ItemLore(lore));

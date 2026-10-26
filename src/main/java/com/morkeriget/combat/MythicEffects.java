@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.loot.MythicItem;
@@ -169,7 +170,7 @@ public final class MythicEffects {
             return;
         }
         Skills.resetCooldowns(player);
-        player.displayClientMessage(Component.literal("Den Stjerneløse Ring: alle skills er klar").withStyle(ChatFormatting.LIGHT_PURPLE), true);
+        player.displayClientMessage(Text.tr("mythic.starless_ring.ready").withStyle(ChatFormatting.LIGHT_PURPLE), true);
         player.playNotifySound(SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.4f);
     }
 

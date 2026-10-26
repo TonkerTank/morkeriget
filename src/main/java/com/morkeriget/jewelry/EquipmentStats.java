@@ -31,7 +31,9 @@ public final class EquipmentStats {
     private EquipmentStats() {
     }
 
-    // One line, e.g. "Liv 34". Higher is always better, so the screen can show green and red changes
+    // One line, e.g. "Health 34". The group and name are keys in the language files (stats.group.<group> and
+    // stats.<name>), so the screen shows them in the player's language. Higher is always better, so the screen can show
+    // green and red changes
     public record Line(String group, String name, float value, int decimals, String unit) {
         public static final StreamCodec<ByteBuf, Line> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.STRING_UTF8, Line::group,
@@ -66,26 +68,26 @@ public final class EquipmentStats {
 
         float damage = (float) withWeapon(player, Attributes.ATTACK_DAMAGE, weapon);
         float speed = (float) withWeapon(player, Attributes.ATTACK_SPEED, weapon);
-        lines.add(new Line("Angreb", "Skade pr. sek.", damage * speed, 1, ""));
-        lines.add(new Line("Angreb", "Skade pr. slag", damage, 1, ""));
-        lines.add(new Line("Angreb", "Slag pr. sek.", speed, 2, ""));
-        special(lines, "Angreb", "Knusende slag", items, Loot.CRUSHING_TAG, "%");
-        special(lines, "Angreb", "Livsstjæl", items, Loot.LIFESTEAL_TAG, "%");
-        special(lines, "Angreb", "Brand", items, Loot.FIRE_TAG, " sek.");
-        special(lines, "Angreb", "Pileskade", items, Loot.ARROW_DAMAGE_TAG, "%");
+        lines.add(new Line("attack", "dps", damage * speed, 1, ""));
+        lines.add(new Line("attack", "damage", damage, 1, ""));
+        lines.add(new Line("attack", "attack_speed", speed, 2, ""));
+        special(lines, "attack", "crushing", items, Loot.CRUSHING_TAG, "%");
+        special(lines, "attack", "lifesteal", items, Loot.LIFESTEAL_TAG, "%");
+        special(lines, "attack", "fire", items, Loot.FIRE_TAG, "s");
+        special(lines, "attack", "arrow_damage", items, Loot.ARROW_DAMAGE_TAG, "%");
 
-        lines.add(new Line("Forsvar", "Liv", player.getMaxHealth(), 0, ""));
-        lines.add(new Line("Forsvar", "Rustning", (float) player.getAttributeValue(Attributes.ARMOR), 0, ""));
-        lines.add(new Line("Forsvar", "Sejhed", (float) player.getAttributeValue(Attributes.ARMOR_TOUGHNESS), 0, ""));
-        special(lines, "Forsvar", "Torne", items, Loot.THORNS_TAG, "%");
+        lines.add(new Line("defense", "health", player.getMaxHealth(), 0, ""));
+        lines.add(new Line("defense", "armor", (float) player.getAttributeValue(Attributes.ARMOR), 0, ""));
+        lines.add(new Line("defense", "toughness", (float) player.getAttributeValue(Attributes.ARMOR_TOUGHNESS), 0, ""));
+        special(lines, "defense", "thorns", items, Loot.THORNS_TAG, "%");
 
-        lines.add(new Line("Andet", "Mana pr. sek.", Mana.regenPerSecond(player, items), 1, ""));
-        lines.add(new Line("Andet", "Kortere cooldowns", (1 - Skills.cooldownScale(player)) * 100, 0, "%"));
+        lines.add(new Line("other", "mana", Mana.regenPerSecond(player, items), 1, ""));
+        lines.add(new Line("other", "cooldowns", (1 - Skills.cooldownScale(player)) * 100, 0, "%"));
         // Walking speed is 0.1 without any bonuses
-        lines.add(new Line("Andet", "Fart", (float) (player.getAttributeValue(Attributes.MOVEMENT_SPEED) / 0.1 * 100), 0, "%"));
+        lines.add(new Line("other", "speed", (float) (player.getAttributeValue(Attributes.MOVEMENT_SPEED) / 0.1 * 100), 0, "%"));
         float luck = (float) player.getAttributeValue(Attributes.LUCK);
         if (luck > 0) {
-            lines.add(new Line("Andet", "Held", luck, 0, ""));
+            lines.add(new Line("other", "luck", luck, 0, ""));
         }
         return lines;
     }

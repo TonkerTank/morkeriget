@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.serialization.Codec;
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.progress.Progression;
@@ -107,7 +108,7 @@ public final class Glyphs {
                     for (Glyph glyph : Glyph.values()) {
                         player.getInventory().placeItemBackInInventory(stack(glyph, level));
                     }
-                    context.getSource().sendSuccess(() -> Component.literal("Du fik alle glyffer på level " + level), false);
+                    context.getSource().sendSuccess(() -> Text.tr("command.got_glyphs", level), false);
                     return 1;
                 }))));
     }
@@ -190,7 +191,7 @@ public final class Glyphs {
         }
         List<Socketed> glyphs = socketed(player);
         if (glyphs.isEmpty()) {
-            player.displayClientMessage(Component.literal("Glyffer kræver paragon - nå level 100 først").withStyle(ChatFormatting.RED), true);
+            player.displayClientMessage(Text.tr("glyph.needs_paragon").withStyle(ChatFormatting.RED), true);
             return false;
         }
         int slot = -1;
@@ -198,7 +199,7 @@ public final class Glyphs {
             Socketed socketed = glyphs.get(i);
             if (socketed != null && socketed.glyph == glyph.glyph) {
                 if (socketed.level >= glyph.level) {
-                    player.displayClientMessage(Component.literal("Du har allerede " + glyph.glyph.displayName + " på level " + socketed.level), true);
+                    player.displayClientMessage(Text.tr("glyph.already", glyph.glyph.displayName(), socketed.level), true);
                     return false;
                 }
                 player.getInventory().placeItemBackInInventory(stack(socketed.glyph, socketed.level));
@@ -210,12 +211,12 @@ public final class Glyphs {
             }
         }
         if (slot < 0) {
-            player.displayClientMessage(Component.literal("Ingen ledig glyf-plads - flere ved paragon 10, 25 og 50").withStyle(ChatFormatting.RED), true);
+            player.displayClientMessage(Text.tr("glyph.no_slot").withStyle(ChatFormatting.RED), true);
             return false;
         }
         glyphs.set(slot, glyph);
         save(player, glyphs);
-        player.displayClientMessage(Component.literal(glyph.glyph.displayName + " (level " + glyph.level + ") sidder nu på paragon-tavlen")
+        player.displayClientMessage(Text.tr("glyph.socketed", glyph.glyph.displayName(), glyph.level)
                 .withStyle(glyph.glyph.color), true);
         player.playNotifySound(SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.2f);
         return true;
@@ -245,8 +246,8 @@ public final class Glyphs {
                 Socketed raised = new Socketed(socketed.glyph, socketed.level + 1);
                 glyphs.set(slot, raised);
                 changed = true;
-                player.sendSystemMessage(Component.literal("Glyf: " + raised.glyph.displayName + " er nu level " + raised.level + " - ")
-                        .withStyle(raised.glyph.color).append(Component.literal(raised.glyph.describe(raised.level)).withStyle(ChatFormatting.GRAY)));
+                player.sendSystemMessage(Text.tr("glyph.raised", raised.glyph.displayName(), raised.level)
+                        .withStyle(raised.glyph.color).append(raised.glyph.describe(raised.level).withStyle(ChatFormatting.GRAY)));
             }
         }
         if (changed) {

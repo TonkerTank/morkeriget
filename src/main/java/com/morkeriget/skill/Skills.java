@@ -2,8 +2,10 @@ package com.morkeriget.skill;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import com.morkeriget.Config;
+import com.morkeriget.Text;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.MythicItem;
@@ -127,7 +129,7 @@ public final class Skills {
         if (!skill.isPotion()) {
             PlayerClass playerClass = Progression.playerClass(player);
             if (playerClass == null) {
-                player.displayClientMessage(Component.literal("Vælg en klasse først - tryk K"), true);
+                player.displayClientMessage(Text.tr("skill.pick_class"), true);
                 return;
             }
             if (!Progression.hasUnlocked(player, skill)) {
@@ -135,11 +137,11 @@ public final class Skills {
             }
         }
         long now = player.serverLevel().getGameTime();
-        String readyTag = "morkeriget_" + skill.name().toLowerCase() + "_ready";
+        String readyTag = "morkeriget_" + skill.name().toLowerCase(Locale.ROOT) + "_ready";
         long ready = player.getPersistentData().getLong(readyTag);
         if (now < ready) {
             long seconds = (ready - now + 19) / 20;
-            player.displayClientMessage(Component.literal(skill.displayName + " er klar om " + seconds + " sek."), true);
+            player.displayClientMessage(Text.tr("skill.ready_in", skill.displayName(), seconds), true);
             return;
         }
         // Each Arcane Flow rank makes skills 5% cheaper
@@ -150,7 +152,7 @@ public final class Skills {
             manaCost *= 0.75f;
         }
         if (Mana.get(player) < manaCost) {
-            player.displayClientMessage(Component.literal("Ikke nok mana til " + skill.displayName), true);
+            player.displayClientMessage(Text.tr("skill.no_mana", skill.displayName()), true);
             return;
         }
         boolean used = switch (skill) {
@@ -333,7 +335,7 @@ public final class Skills {
                 }
             }
         }
-        player.displayClientMessage(Component.literal("Ingen plads at blinke til"), true);
+        player.displayClientMessage(Text.tr("skill.no_blink_room"), true);
         return false;
     }
 
@@ -347,7 +349,7 @@ public final class Skills {
         List<LivingEntity> hit = new ArrayList<>();
         LivingEntity target = closestEnemy(level, player, CHAIN_LIGHTNING_RANGE, hit);
         if (target == null) {
-            player.displayClientMessage(Component.literal("Ingen fjender i nærheden"), true);
+            player.displayClientMessage(Text.tr("skill.no_enemies"), true);
             return false;
         }
         Vec3 from = player.position().add(0, player.getBbHeight() * 0.6, 0);
@@ -391,7 +393,7 @@ public final class Skills {
     // Gives back part of your max health at once. Not used up if you already have full health
     private static boolean healthPotion(ServerPlayer player) {
         if (player.getHealth() >= player.getMaxHealth()) {
-            player.displayClientMessage(Component.literal("Du har fuldt liv"), true);
+            player.displayClientMessage(Text.tr("skill.full_health"), true);
             return false;
         }
         player.heal(player.getMaxHealth() * Config.HEALTH_POTION_HEAL.get().floatValue());
@@ -407,7 +409,7 @@ public final class Skills {
     // Gives mana at once. Not used up if your mana is already full
     private static boolean manaPotion(ServerPlayer player) {
         if (Mana.get(player) >= Mana.MAX) {
-            player.displayClientMessage(Component.literal("Du har fuld mana"), true);
+            player.displayClientMessage(Text.tr("skill.full_mana"), true);
             return false;
         }
         Mana.add(player, Config.MANA_POTION_MANA.get().floatValue());
@@ -424,7 +426,7 @@ public final class Skills {
     public static void resetCooldowns(ServerPlayer player) {
         for (Skill skill : Skill.values()) {
             if (!skill.isPotion()) {
-                player.getPersistentData().remove("morkeriget_" + skill.name().toLowerCase() + "_ready");
+                player.getPersistentData().remove("morkeriget_" + skill.name().toLowerCase(Locale.ROOT) + "_ready");
                 PacketDistributor.sendToPlayer(player, new CooldownPayload(skill, 0));
             }
         }

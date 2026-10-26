@@ -1,10 +1,12 @@
 package com.morkeriget.smithy;
 
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.Text;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
@@ -44,7 +46,7 @@ public final class Smithy {
 
     static {
         for (Gem gem : Gem.values()) {
-            GEMS.put(gem, ITEMS.registerItem("gem_" + gem.name().toLowerCase(), properties -> new GemItem(gem, properties), new Item.Properties()));
+            GEMS.put(gem, ITEMS.registerItem("gem_" + gem.name().toLowerCase(Locale.ROOT), properties -> new GemItem(gem, properties), new Item.Properties()));
         }
     }
 
@@ -91,7 +93,7 @@ public final class Smithy {
         event.registrar("1").playToServer(OpenSmithyPayload.TYPE, OpenSmithyPayload.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 player.openMenu(new SimpleMenuProvider((id, inventory, menuPlayer) -> new SmithyMenu(id, inventory),
-                        Component.literal("Smedje")));
+                        Text.tr("smithy.title")));
             }
         });
     }
