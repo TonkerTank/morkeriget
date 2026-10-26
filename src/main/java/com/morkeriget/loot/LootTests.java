@@ -8,6 +8,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.jewelry.Jewelry;
 
 import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.util.RandomSource;
@@ -15,6 +16,7 @@ import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -27,6 +29,9 @@ public final class LootTests {
     // The best a percent or special bonus can roll, twice its normal best (see Loot.AFFIXES)
     private static final Map<String, Integer> SPECIAL_CAPS = Map.of(
             Loot.LIFESTEAL_TAG, 20, Loot.FIRE_TAG, 10, Loot.CRUSHING_TAG, 30, Loot.ARROW_DAMAGE_TAG, 60, Loot.THORNS_TAG, 60);
+    // The normal worst and best roll of each special bonus, see Loot.AFFIXES
+    private static final Map<String, int[]> SPECIAL_RANGES = Map.of(Loot.LIFESTEAL_TAG, new int[] {3, 10}, Loot.FIRE_TAG, new int[] {2, 5},
+            Loot.CRUSHING_TAG, new int[] {5, 15}, Loot.ARROW_DAMAGE_TAG, new int[] {10, 30}, Loot.THORNS_TAG, new int[] {10, 30});
     private static final Map<Holder<Attribute>, Double> PERCENT_CAPS = Map.of(
             Attributes.ATTACK_SPEED, 0.4, Attributes.MOVEMENT_SPEED, 0.24, Attributes.LUCK, 6.0, Attributes.ATTACK_KNOCKBACK, 3.0);
 
@@ -99,6 +104,45 @@ public final class LootTests {
             }
         }
         return total;
+    }
+
+    // A rerolled dungeon item still rolls as well as the dungeon made it, also one from before the floor was saved
+    @GameTest(template = "empty")
+    public static void rerollKeepsDungeonRolls(GameTestHelper helper) {
+        RandomSource random = helper.getLevel().getRandom();
+        double best = Loot.Quality.dungeon(10, 0, 0).floor();
+        ItemStack item = Loot.create(random, Rarity.LEGENDARY, 50, null, Loot.Quality.dungeon(10, 0, 0));
+        helper.assertTrue(Math.abs(Loot.floor(item) - best) < 1e-9, "Dungeon-genstanden husker ikke sit rul (" + Loot.floor(item) + ")");
+        ItemStack rerolled = Loot.reroll(item, random);
+        helper.assertTrue(Math.abs(Loot.floor(rerolled) - best) < 1e-9, "Re-roll mistede dungeon-rullet (" + Loot.floor(rerolled) + ")");
+        // At level 1 a tier X bonus is at least 1.4 times its roll, and the roll is in the top 5%. With a floor of 0 some of
+        // these rerolls would come out far lower
+        ItemStack low = Loot.create(random, Rarity.LEGENDARY, 1, null, Loot.Quality.dungeon(10, 0, 0));
+        for (int i = 0; i < ROLLS; i++) {
+            low = Loot.reroll(low, random);
+            for (Map.Entry<String, int[]> range : SPECIAL_RANGES.entrySet()) {
+                int value = Loot.affix(low, range.getKey());
+                int min = (int) Math.floor((range.getValue()[0] + (range.getValue()[1] - range.getValue()[0]) * best) * 1.4);
+                helper.assertTrue(value == 0 || value >= min, range.getKey() + " rullede " + value + " efter re-roll, under dungeon-rullets " + min);
+            }
+        }
+        CustomData.update(DataComponents.CUSTOM_DATA, item, tag -> tag.remove("morkeriget_floor"));
+        helper.assertTrue(Math.abs(Loot.floor(item) - best) < 1e-9, "En gammel dungeon-genstand fik ikke sit rul regnet ud (" + Loot.floor(item) + ")");
+        helper.assertTrue(Loot.floor(Loot.create(random, Rarity.LEGENDARY, 50)) == 0, "En almindelig genstand fik et dungeon-rul");
+        helper.succeed();
+    }
+
+    // Stormkalderens is a caster's set, so its weapon is a staff at every level
+    @GameTest(template = "empty")
+    public static void stormcallerWeaponIsStaff(GameTestHelper helper) {
+        RandomSource random = helper.getLevel().getRandom();
+        for (int level : new int[] {1, 5, 15, 50}) {
+            ItemStack staff = Loot.createSet(random, level, ItemSet.STORMCALLER, ItemSet.Piece.STAFF);
+            helper.assertTrue(Staffs.isStaff(staff), "Stormkalderens våben på level " + level + " er " + staff.getItem());
+            helper.assertTrue(ItemSet.of(staff) == ItemSet.STORMCALLER, "Staven hører ikke til sættet");
+        }
+        helper.assertFalse(ItemSet.STORMCALLER.pieces.contains(ItemSet.Piece.WEAPON), "Stormkalderens sæt har stadig et sværd");
+        helper.succeed();
     }
 
     // A new ring is compared with the worst ring you wear, and an amulet with the worst amulet

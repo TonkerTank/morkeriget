@@ -27,6 +27,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.BossEvent;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -46,6 +48,7 @@ import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
@@ -82,6 +85,9 @@ public final class Bosses {
     private static final int SHIELD_TIME = 15 * 20;
     private static final int SHIELD_MINIONS = 4;
     private static final ResourceLocation ENRAGE_BOOST = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "boss_enrage");
+    // The strongest slowness (30% slower) and weakness a boss can have, see onEffect
+    private static final int MAX_BOSS_SLOWNESS = 1;
+    private static final int MAX_BOSS_WEAKNESS = 0;
     // The uber boss, see makeUberBoss
     private static final String UBER_NAME = "Mørkets Herre";
     private static final String UBER_TAG = "morkeriget_uber_boss";
@@ -107,6 +113,7 @@ public final class Bosses {
         NeoForge.EVENT_BUS.addListener(Bosses::onLeaveLevel);
         NeoForge.EVENT_BUS.addListener(Bosses::onDamagePre);
         NeoForge.EVENT_BUS.addListener(Bosses::onIncomingDamage);
+        NeoForge.EVENT_BUS.addListener(Bosses::onEffect);
         // In singleplayer the game can go on to another world, which must start without this one's bars
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> {
             BARS.values().forEach(ServerBossEvent::removeAllPlayers);
@@ -307,6 +314,22 @@ public final class Bosses {
                 boss.level().playSound(null, boss.blockPosition(), SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 1.0f, 0.8f);
             }
         }
+    }
+
+    // Bosses can't be held still, like the unstoppable bosses in Diablo: slowness and weakness on them are weaker and
+    // last half as long. The weaker one is added in place of the strong one, and passes here since it is under the limit
+    private static void onEffect(MobEffectEvent.Applicable event) {
+        if (!(event.getEntity() instanceof Monster boss) || !isBoss(boss)) {
+            return;
+        }
+        MobEffectInstance effect = event.getEffectInstance();
+        int max = effect.is(MobEffects.MOVEMENT_SLOWDOWN) ? MAX_BOSS_SLOWNESS : effect.is(MobEffects.WEAKNESS) ? MAX_BOSS_WEAKNESS : -1;
+        if (max < 0 || effect.getAmplifier() <= max) {
+            return;
+        }
+        event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
+        int duration = effect.isInfiniteDuration() ? effect.getDuration() : Math.max(1, effect.getDuration() / 2);
+        boss.addEffect(new MobEffectInstance(effect.getEffect(), duration, max, effect.isAmbient(), effect.isVisible()), event.getEffectSource());
     }
 
     // Big text in the middle of the screen for the players close by

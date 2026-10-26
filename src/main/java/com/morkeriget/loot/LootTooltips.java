@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.smithy.Durability;
 import com.morkeriget.smithy.Gems;
 
 import net.minecraft.ChatFormatting;
@@ -53,9 +54,14 @@ public final class LootTooltips {
             return;
         }
         // Under the name, so it is seen before anything else
+        int top = 1;
         if (Favorites.is(stack)) {
-            event.getToolTip().add(Math.min(1, event.getToolTip().size()),
+            event.getToolTip().add(Math.min(top++, event.getToolTip().size()),
                     Component.literal("★ Favorit - kan ikke smeltes (Alt+klik fjerner)").withStyle(ChatFormatting.GOLD));
+        }
+        if (Durability.isBroken(stack)) {
+            event.getToolTip().add(Math.min(top++, event.getToolTip().size()),
+                    Component.literal("⚠ Slidt op - giver ingen bonusser, før den er repareret i smedjen").withStyle(ChatFormatting.RED));
         }
         // The greater bonuses as they are now, so a masterwork shows. Vanilla already lists them among the others, but
         // without telling which ones are greater
@@ -64,7 +70,7 @@ public final class LootTooltips {
             greater.add(Component.literal("✦ ").withColor(GREATER_COLOR).append(Masterwork.line(stack, key).copy().withColor(GREATER_COLOR)));
         }
         if (!greater.isEmpty()) {
-            int at = Math.min(Favorites.is(stack) ? 2 : 1, event.getToolTip().size());
+            int at = Math.min(top, event.getToolTip().size());
             event.getToolTip().add(at, Component.literal("Større bonus" + (greater.size() > 1 ? "ser" : "")).withColor(GREATER_COLOR));
             event.getToolTip().addAll(at + 1, greater);
         }

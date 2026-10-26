@@ -15,7 +15,8 @@ import net.minecraft.world.item.component.CustomData;
 public enum ItemSet {
     GUARDIAN("Vogterens", List.of(Piece.HELMET, Piece.CHEST, Piece.LEGS, Piece.BOOTS),
             "+4 rustning og +2 hjerter", "20% mindre skade og 25% torne"),
-    STORMCALLER("Stormkalderens", List.of(Piece.HELMET, Piece.WEAPON, Piece.RING, Piece.AMULET),
+    // A caster's set, so its weapon is a staff. Swords from before that still count as the fourth piece
+    STORMCALLER("Stormkalderens", List.of(Piece.HELMET, Piece.STAFF, Piece.RING, Piece.AMULET),
             "+50% hurtigere mana", "30% kortere cooldowns"),
     BLOODHUNTER("Blodjægerens", List.of(Piece.WEAPON, Piece.CHEST, Piece.BOOTS, Piece.RING),
             "+6% livsstjæl", "+25% skade og +15% angrebshastighed");
@@ -25,7 +26,7 @@ public enum ItemSet {
 
     // A place a set piece is worn. The base item gets better with the item level, like normal loot
     public enum Piece {
-        HELMET("Hjelm"), CHEST("Brystplade"), LEGS("Bukser"), BOOTS("Støvler"), WEAPON("Våben"), RING("Ring"), AMULET("Amulet");
+        HELMET("Hjelm"), CHEST("Brystplade"), LEGS("Bukser"), BOOTS("Støvler"), WEAPON("Våben"), STAFF("Stav"), RING("Ring"), AMULET("Amulet");
 
         public final String displayName;
 
@@ -40,6 +41,7 @@ public enum ItemSet {
                 case LEGS -> tier(itemLevel, Items.CHAINMAIL_LEGGINGS, Items.IRON_LEGGINGS, Items.DIAMOND_LEGGINGS, Items.NETHERITE_LEGGINGS);
                 case BOOTS -> tier(itemLevel, Items.CHAINMAIL_BOOTS, Items.IRON_BOOTS, Items.DIAMOND_BOOTS, Items.NETHERITE_BOOTS);
                 case WEAPON -> tier(itemLevel, Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_SWORD);
+                case STAFF -> tier(itemLevel, Staffs.OAK.get(), Staffs.BLAZE.get(), Staffs.STORM.get(), Staffs.STAR.get());
                 case RING -> Jewelry.RING.get();
                 case AMULET -> Jewelry.AMULET.get();
             };

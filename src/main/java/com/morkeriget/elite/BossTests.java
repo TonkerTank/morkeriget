@@ -7,6 +7,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
@@ -71,6 +73,24 @@ public final class BossTests {
                 .thenWaitUntil(() -> helper.assertTrue(player.getHealth() < player.getMaxHealth(), "Dødscirklen gik ikke af, da bossen intet mål havde"))
                 .thenExecute(() -> TestPlayers.remove(player))
                 .thenSucceed();
+    }
+
+    // Slowness and weakness on a boss are weaker and shorter, but a normal monster gets them as they are
+    @GameTest(template = "empty")
+    public static void bossesCannotBeHeldStill(GameTestHelper helper) {
+        WitherSkeleton boss = spawn(helper);
+        Bosses.makeBoss(boss);
+        boss.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 9));
+        boss.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 60, 4));
+        MobEffectInstance slow = boss.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
+        MobEffectInstance weak = boss.getEffect(MobEffects.WEAKNESS);
+        helper.assertTrue(slow != null && slow.getAmplifier() <= 1 && slow.getDuration() <= 30,
+                "Bossen fik langsomhed " + (slow != null ? slow.getAmplifier() + " i " + slow.getDuration() + " ticks" : "slet ikke"));
+        helper.assertTrue(weak != null && weak.getAmplifier() == 0 && weak.getDuration() <= 30, "Bossen fik for stærk svaghed");
+        WitherSkeleton normal = spawn(helper);
+        normal.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 9));
+        helper.assertTrue(normal.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 9, "Et almindeligt monster fik ikke den fulde langsomhed");
+        helper.succeed();
     }
 
     // A normal boss never gets a third phase

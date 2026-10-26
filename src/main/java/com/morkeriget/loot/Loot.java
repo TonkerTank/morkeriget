@@ -18,6 +18,7 @@ import com.morkeriget.journey.Journey;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.skill.Minions;
+import com.morkeriget.smithy.Durability;
 import com.morkeriget.smithy.Gems;
 import com.morkeriget.smithy.Smithy;
 
@@ -90,6 +91,8 @@ public final class Loot {
     private static final int GREATER_POWER = 25;
     // How much stronger a dungeon made the bonuses, in percent, so a reroll keeps it. See Quality
     private static final String STRENGTH_TAG = "morkeriget_strength";
+    // The worst a bonus could roll, in percent, so a reroll keeps it too. See Quality
+    private static final String FLOOR_TAG = "morkeriget_floor";
     private static final double PERCENT_PER_LEVEL = 0.005;
     private static final double PERCENT_CAP = 2.0;
 
@@ -206,7 +209,8 @@ public final class Loot {
 
     // The bonuses on every item have the same ids (affix_0, gem_0 and so on), but the game takes a bonus off by its id
     // when gear changes, so the same id on a helmet and boots would cancel each other out. Here each one gets its slot
-    // in the id. Armor rolled before baseModifiers existed also gets its base armor back
+    // in the id. Armor rolled before baseModifiers existed also gets its base armor back. A worn-out item gives none of
+    // them, see Durability
     private static void onItemModifiers(ItemAttributeModifierEvent event) {
         List<ItemAttributeModifiers.Entry> bonuses = event.getModifiers().stream()
                 .filter(entry -> entry.modifier().id().getNamespace().equals(Morkeriget.MODID)
@@ -215,13 +219,16 @@ public final class Loot {
         if (bonuses.isEmpty()) {
             return;
         }
+        ItemStack stack = event.getItemStack();
+        boolean broken = Durability.isBroken(stack);
         for (ItemAttributeModifiers.Entry entry : bonuses) {
             AttributeModifier modifier = entry.modifier();
             event.removeModifier(entry.attribute(), modifier.id());
-            event.addModifier(entry.attribute(), new AttributeModifier(modifier.id().withSuffix("_" + entry.slot().getSerializedName()),
-                    modifier.amount(), modifier.operation()), entry.slot());
+            if (!broken) {
+                event.addModifier(entry.attribute(), new AttributeModifier(modifier.id().withSuffix("_" + entry.slot().getSerializedName()),
+                        modifier.amount(), modifier.operation()), entry.slot());
+            }
         }
-        ItemStack stack = event.getItemStack();
         for (ItemAttributeModifiers.Entry entry : stack.getItem().getDefaultAttributeModifiers(stack).modifiers()) {
             event.addModifier(entry.attribute(), entry.modifier(), entry.slot());
         }
@@ -549,11 +556,11 @@ public final class Loot {
         }
         Rarity rarity = getRarity(old) != null ? getRarity(old) : Rarity.COMMON;
         LegendaryPower power = LegendaryPower.of(old) != null ? LegendaryPower.of(old) : power(random, rarity, null);
-        // It keeps as many bonuses and greater bonuses as it had and how strong a dungeon made them, but which bonuses
-        // they are is rolled again
+        // It keeps as many bonuses and greater bonuses as it had, how strong a dungeon made them and how well they roll,
+        // but which bonuses they are is rolled again
         double strength = affix(old, STRENGTH_TAG) / 100.0;
-        Quality quality = new Quality(0, Quality.normal(rarity).greaterChance(), greater(old).size(), Math.max(0, affixCount(old) - rarity.affixCount),
-                Math.max(1, strength), strength > 1);
+        Quality quality = new Quality(floor(old), Quality.normal(rarity).greaterChance(), greater(old).size(),
+                Math.max(0, affixCount(old) - rarity.affixCount), Math.max(1, strength), strength > 1);
         ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power, MythicItem.of(old), quality);
         // The sockets and gems stay as they were, and it is still the same find for the season journey
         Gems.copy(old, rerolled);
@@ -563,6 +570,20 @@ public final class Loot {
         Favorites.copy(old, rerolled);
         Masterwork.carryOver(old, rerolled, random);
         return rerolled;
+    }
+
+    // The worst a bonus on the item can roll, from 0 to 1. Dungeon items from before it was saved have it worked out from
+    // their strength, since both come from the tier, see Quality.dungeon
+    static double floor(ItemStack stack) {
+        if (affix(stack, FLOOR_TAG) > 0) {
+            return affix(stack, FLOOR_TAG) / 100.0;
+        }
+        double strength = affix(stack, STRENGTH_TAG) / 100.0;
+        if (strength <= 1) {
+            return 0;
+        }
+        int tier = Math.max(1, (int) Math.round((strength - 1) / 0.04));
+        return Quality.dungeon(tier, 0, 0).floor();
     }
 
     // Swaps the legendary power on the item for another one, both what it does and the two lines in the lore.
@@ -723,6 +744,9 @@ public final class Loot {
             }
             if (rollQuality.strength() > 1) {
                 tag.putInt(STRENGTH_TAG, (int) Math.round(rollQuality.strength() * 100));
+            }
+            if (rollQuality.floor() > 0) {
+                tag.putInt(FLOOR_TAG, (int) Math.round(rollQuality.floor() * 100));
             }
         });
         int sockets = Gems.rollSockets(random, rarity);

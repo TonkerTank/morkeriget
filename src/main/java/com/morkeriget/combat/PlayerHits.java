@@ -14,6 +14,7 @@ import com.morkeriget.progress.Paragon;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
+import com.morkeriget.smithy.Durability;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
@@ -153,7 +154,8 @@ public final class PlayerHits {
         return ItemKind.of(held) == ItemKind.MELEE ? held : ItemStack.EMPTY;
     }
 
-    // The weapon plus everything the player wears in the right place: armour on the body, a shield in the off hand, jewelry
+    // The weapon plus everything the player wears in the right place: armour on the body, a shield in the off hand, jewelry.
+    // Not worn-out items, see Durability
     private static List<ItemStack> affixItems(ServerPlayer player, ItemStack weapon) {
         List<ItemStack> items = new ArrayList<>();
         items.add(weapon);
@@ -166,6 +168,7 @@ public final class PlayerHits {
             }
         }
         items.addAll(Jewelry.worn(player));
+        items.removeIf(Durability::isBroken);
         return items;
     }
 

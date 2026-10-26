@@ -15,7 +15,8 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 
 // Durability works like in Diablo: things never wear out from being used (see ItemStackMixin), but when a player dies,
-// everything they wear and hold loses some. It never breaks, and the smithy repairs it for essence
+// everything they wear and hold loses some. It never breaks, but worn all the way down it gives none of its bonuses,
+// gems or powers until the smithy repairs it for essence. It still works as a plain sword or piece of armor
 public final class Durability {
     // A tenth of the full durability for each death
     private static final double DEATH_LOSS = 0.1;
@@ -37,15 +38,26 @@ public final class Durability {
         boolean lost = false;
         for (ItemStack stack : equipped(player)) {
             if (stack.isDamageableItem()) {
+                boolean wasBroken = isBroken(stack);
                 int max = stack.getMaxDamage();
                 stack.setDamageValue(Math.min(max - 1, stack.getDamageValue() + (int) Math.ceil(max * DEATH_LOSS)));
                 lost = true;
+                if (!wasBroken && isBroken(stack)) {
+                    player.sendSystemMessage(Component.empty().append(stack.getHoverName())
+                            .append(Component.literal(" er slidt helt op og giver ingen bonusser, før du reparerer den i smedjen")
+                                    .withStyle(ChatFormatting.RED)));
+                }
             }
         }
         if (lost) {
             player.sendSystemMessage(Component.literal("Dit udstyr mistede " + Math.round(DEATH_LOSS * 100) + "% holdbarhed - reparér det i smedjen")
                     .withStyle(ChatFormatting.GRAY));
         }
+    }
+
+    // Worn all the way down, so its bonuses don't count. See Loot.onItemModifiers, PlayerHits and SetBonuses
+    public static boolean isBroken(ItemStack stack) {
+        return stack.isDamageableItem() && stack.getDamageValue() >= stack.getMaxDamage() - 1;
     }
 
     // Armor, both hands and the weapon slot, each only once if the weapon is also in the hand

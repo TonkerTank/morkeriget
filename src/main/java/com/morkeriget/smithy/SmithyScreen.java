@@ -79,7 +79,7 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
                 .build(ThemedButton::new));
         // Under the codex panel, in a little panel of its own
         repair = addRenderableWidget(Button.builder(Component.literal("Reparér"), pressed -> click(SmithyMenu.REPAIR))
-                .tooltip(Tooltip.create(Component.literal("Udstyr slides kun, når du dør. Reparér det her for essens")))
+                .tooltip(Tooltip.create(Component.literal("Udstyr slides kun, når du dør, og helt slidt giver det ingen bonusser. Reparér det her for essens")))
                 .bounds(codexLeft, topPos + REPAIR_Y + 5, codexInner, 18)
                 .build(ThemedButton::new));
         salvage = button(SmithyMenu.SALVAGE, "Smelt om", 0, 0);

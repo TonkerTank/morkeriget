@@ -11,6 +11,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.progress.Progression;
+import com.morkeriget.smithy.Durability;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -145,7 +146,8 @@ public final class SetBonuses {
         return worn.size();
     }
 
-    // Armour on the body, a sword in the main hand and the jewelry slots. Other things in the hand don't count
+    // Armour on the body, a weapon or staff in the main hand and the jewelry slots. Other things in the hand don't count,
+    // and nor do worn-out items, see Durability
     private static List<ItemStack> wornItems(Player player) {
         List<ItemStack> items = new ArrayList<>();
         for (ItemStack armor : player.getArmorSlots()) {
@@ -157,6 +159,7 @@ public final class SetBonuses {
             items.add(player.getMainHandItem());
         }
         items.addAll(Jewelry.worn(player));
+        items.removeIf(Durability::isBroken);
         return items;
     }
 
