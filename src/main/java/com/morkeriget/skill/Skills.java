@@ -62,6 +62,7 @@ public final class Skills {
         NeoForge.EVENT_BUS.addListener(Mana::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ClassSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(ClassSkills::onEntityTick);
+        NeoForge.EVENT_BUS.addListener(ClassSkills::onWolfBite);
         NeoForge.EVENT_BUS.addListener(Minions::onJoinLevel);
         NeoForge.EVENT_BUS.addListener(Minions::onIncomingDamage);
         NeoForge.EVENT_BUS.addListener(NecroSkills::onDamagePre);

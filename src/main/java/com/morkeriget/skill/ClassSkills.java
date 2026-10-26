@@ -43,6 +43,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
@@ -65,9 +66,9 @@ final class ClassSkills {
     private static final double ARROW_RAIN_SNAP = 5.0;
     private static final int SMOKE_BOMB_DURATION = 4 * 20;
     private static final double SMOKE_BOMB_RADIUS = 8.0;
-    private static final int WOLF_LIFETIME = 20 * 20;
-    // Arrows from the ranger's skills, before the bow's level and the ranger bonus in PlayerHits
-    private static final double ARROW_DAMAGE = 2.0;
+    // Each of Multishot's arrows, before the bow's level and the ranger bonus in PlayerHits. Up close all of them hit the
+    // same monster, so each one is weaker than a normal shot
+    private static final double ARROW_DAMAGE = 0.9;
     // Summoned wolves and skeletons disappear at this game time
     static final String SUMMON_UNTIL_TAG = "morkeriget_summon_until";
     static final String MULTISHOT_TAG = "morkeriget_multishot_arrow";
@@ -399,12 +400,18 @@ final class ClassSkills {
         return true;
     }
 
-    // Tame wolves that fight for you for a while. They get stronger with your level
+    // Tame wolves that fight for you until the skill is ready again. They get stronger with your level. A new pack takes
+    // the place of the old one, so shorter cooldowns don't pile up wolves
     static boolean wolves(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
+        for (Wolf old : level.getEntitiesOfClass(Wolf.class, player.getBoundingBox().inflate(64),
+                wolf -> wolf.getPersistentData().contains(SUMMON_UNTIL_TAG) && wolf.isOwnedBy(player))) {
+            level.sendParticles(ParticleTypes.POOF, old.getX(), old.getY() + 0.5, old.getZ(), 10, 0.3, 0.3, 0.3, 0.02);
+            old.discard();
+        }
         // Each Wolves upgrade rank makes them 15% stronger, and every third rank adds a wolf. Pack Leader adds 10% a rank
         int rank = Progression.rank(player, Upgrade.WOLVES);
-        double strength = (1 + 0.05 * (Progression.level(player) - 1)) * (1 + 0.15 * rank)
+        double strength = (1 + 0.025 * (Progression.level(player) - 1)) * (1 + 0.15 * rank)
                 * (1 + 0.1 * Progression.rank(player, Upgrade.PACK_LEADER)) - 1;
         LivingEntity nearest = enemies(level, player.position(), 16).stream()
                 .min((a, b) -> Double.compare(a.distanceToSqr(player), b.distanceToSqr(player))).orElse(null);
@@ -423,7 +430,7 @@ final class ClassSkills {
             boost(wolf.getAttribute(Attributes.MAX_HEALTH), strength);
             boost(wolf.getAttribute(Attributes.ATTACK_DAMAGE), strength);
             wolf.setHealth(wolf.getMaxHealth());
-            wolf.getPersistentData().putLong(SUMMON_UNTIL_TAG, level.getGameTime() + WOLF_LIFETIME);
+            wolf.getPersistentData().putLong(SUMMON_UNTIL_TAG, level.getGameTime() + Skill.WOLVES.cooldown());
             if (nearest != null) {
                 wolf.setTarget(nearest);
             }
@@ -438,6 +445,14 @@ final class ClassSkills {
         level.playSound(null, player.blockPosition(), SoundEvents.WOLF_HOWL, SoundSource.PLAYERS, 1.0f, 1.0f);
         level.playSound(null, player.blockPosition(), SoundEvents.WOLF_GROWL, SoundSource.PLAYERS, 0.8f, 0.8f);
         return true;
+    }
+
+    // Each bite from a summoned wolf counts, also when the pack bites the same monster at once, like Multishot's arrows
+    static void onWolfBite(LivingDamageEvent.Post event) {
+        if (event.getSource().getEntity() instanceof Wolf wolf && wolf.getPersistentData().contains(SUMMON_UNTIL_TAG)
+                && !(event.getEntity() instanceof Player)) {
+            event.getEntity().invulnerableTime = 0;
+        }
     }
 
     // Summoned wolves go away again when their time is up
