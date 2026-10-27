@@ -79,7 +79,7 @@ public class LootBagMenu extends ChestMenu {
             player.displayClientMessage(Text.tr("bag.nothing_to_salvage"), true);
             return false;
         }
-        player.getInventory().placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), result[1]));
+        Smithy.essence(result[1]).forEach(player.getInventory()::placeItemBackInInventory);
         player.displayClientMessage(Text.tr("smithy.salvaged", result[0], result[1])
                 .withStyle(ChatFormatting.LIGHT_PURPLE), true);
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);

@@ -6,6 +6,7 @@ import java.util.Map;
 
 import com.morkeriget.Morkeriget;
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.smithy.Smithy;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
@@ -142,6 +143,18 @@ public final class LootTests {
             helper.assertTrue(ItemSet.of(staff) == ItemSet.STORMCALLER, "Staven hører ikke til sættet");
         }
         helper.assertFalse(ItemSet.STORMCALLER.pieces.contains(ItemSet.Piece.WEAPON), "Stormkalderens sæt har stadig et sværd");
+        helper.succeed();
+    }
+
+    // Big essence rewards, like Mørkets Herre's 80-120, come as full stacks, so they can be saved when lying on the ground
+    @GameTest(template = "empty")
+    public static void bigEssenceRewardsAreSplitIntoStacks(GameTestHelper helper) {
+        List<ItemStack> stacks = Smithy.essence(130);
+        helper.assertTrue(stacks.stream().mapToInt(ItemStack::getCount).sum() == 130, "Essensen blev ikke til 130 i alt");
+        for (ItemStack stack : stacks) {
+            helper.assertTrue(stack.getCount() <= stack.getMaxStackSize(), "En stak essens har " + stack.getCount() + ", over " + stack.getMaxStackSize());
+        }
+        helper.assertTrue(Smithy.essence(0).isEmpty(), "Ingen essens gav alligevel en stak");
         helper.succeed();
     }
 

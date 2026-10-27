@@ -1,6 +1,8 @@
 package com.morkeriget.smithy;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -128,6 +130,17 @@ public final class Smithy {
                 result[1] += salvageValue(rarity);
             }
         }
+    }
+
+    // Essence as full stacks. A stack bigger than an item can hold can't be saved, so it is lost if it lies on the
+    // ground when the chunk unloads
+    public static List<ItemStack> essence(int amount) {
+        List<ItemStack> stacks = new ArrayList<>();
+        int max = ESSENCE.get().getDefaultMaxStackSize();
+        for (; amount > 0; amount -= max) {
+            stacks.add(new ItemStack(ESSENCE.get(), Math.min(amount, max)));
+        }
+        return stacks;
     }
 
     public static int salvageValue(Rarity rarity) {

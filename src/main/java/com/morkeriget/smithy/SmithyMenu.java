@@ -298,7 +298,7 @@ public class SmithyMenu extends AbstractContainerMenu {
             player.displayClientMessage(Text.tr("smithy.nothing_to_salvage"), true);
             return false;
         }
-        player.getInventory().placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), essence));
+        Smithy.essence(essence).forEach(player.getInventory()::placeItemBackInInventory);
         player.displayClientMessage(Text.tr("smithy.salvaged", count, essence), true);
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
         return true;

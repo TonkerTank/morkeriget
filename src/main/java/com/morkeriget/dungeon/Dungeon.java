@@ -795,7 +795,7 @@ final class Dungeon {
                 rewards.add(mythic);
                 Loot.announceMythic(player, mythic);
             }
-            rewards.add(new ItemStack(Smithy.ESSENCE.get(), (int) Math.round((5 + tier * 3 + random.nextInt(5)) * affixBonus)));
+            rewards.addAll(Smithy.essence((int) Math.round((5 + tier * 3 + random.nextInt(5)) * affixBonus)));
             for (int i = 0; i < 1 + tier / 3; i++) {
                 rewards.add(Gems.random(random, monsterLevel, tier / 4));
             }
@@ -837,7 +837,7 @@ final class Dungeon {
                 rewards.add(mythic);
                 Loot.announceMythic(player, mythic);
             }
-            rewards.add(new ItemStack(Smithy.ESSENCE.get(), 80 + random.nextInt(41)));
+            rewards.addAll(Smithy.essence(80 + random.nextInt(41)));
             for (int i = 0; i < 3; i++) {
                 rewards.add(Gems.random(random, monsterLevel, 3));
             }

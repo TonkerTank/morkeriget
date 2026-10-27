@@ -231,7 +231,7 @@ public final class Journey {
         RandomSource random = player.getRandom();
         int level = Progression.level(player);
         List<ItemStack> rewards = new ArrayList<>();
-        rewards.add(new ItemStack(Smithy.ESSENCE.get(), switch (chapter) {
+        rewards.addAll(Smithy.essence(switch (chapter) {
             case 1 -> 15;
             case 2 -> 30;
             case 3 -> 60;

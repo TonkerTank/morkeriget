@@ -665,7 +665,7 @@ public final class Rifts {
             // 50% more essence for a fast rift
             boolean fast = ticks < FAST_TIME;
             int essence = (int) Math.round((4 + tier * 2 + random.nextInt(5)) * affixBonus);
-            rewards.add(new ItemStack(Smithy.ESSENCE.get(), fast ? essence * 3 / 2 : essence));
+            rewards.addAll(Smithy.essence(fast ? essence * 3 / 2 : essence));
             // One gem, and one more for every third tier. Every fourth tier makes them a tier better
             for (int i = 0; i < 1 + tier / 3; i++) {
                 rewards.add(Gems.random(random, monsterLevel, tier / 4));
