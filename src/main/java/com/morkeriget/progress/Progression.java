@@ -53,6 +53,7 @@ public final class Progression {
     private static final ResourceLocation RANGER_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "class_ranger");
     private static final ResourceLocation AGILE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_agile");
     private static final ResourceLocation GLASS_CANNON_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_glass_cannon");
+    private static final ResourceLocation ZEAL_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_zeal");
     private static final ResourceLocation PARAGON_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_damage");
     private static final ResourceLocation PARAGON_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_health");
     private static final ResourceLocation PARAGON_SPEED_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_speed");
@@ -363,6 +364,12 @@ public final class Progression {
                     rank(player, Upgrade.GLASS_CANNON) * 0.06, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             damage.addOrUpdateTransientModifier(new AttributeModifier(PARAGON_DAMAGE_ID,
                     rank(player, Paragon.DAMAGE) * 0.01, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+        // Each Zeal rank makes you swing 4% faster
+        AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
+        if (attackSpeed != null) {
+            attackSpeed.addOrUpdateTransientModifier(new AttributeModifier(ZEAL_ID,
+                    rank(player, Upgrade.ZEAL) * 0.04, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
         }
     }
 

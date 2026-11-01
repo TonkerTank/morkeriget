@@ -80,13 +80,16 @@ public final class BalanceTests {
             PlayerClass.BARBARIAN, List.of(Skill.WHIRLWIND, Skill.LEAP, Skill.EARTHQUAKE, Skill.RUSH, Skill.DOOM_SLAM),
             PlayerClass.SORCERER, List.of(Skill.FROST_NOVA, Skill.CHAIN_LIGHTNING, Skill.FIREBALL, Skill.METEOR, Skill.THUNDERSTORM),
             PlayerClass.RANGER, List.of(Skill.MULTISHOT, Skill.ARROW_RAIN, Skill.WOLVES, Skill.EXPLOSIVE_ARROW, Skill.BEAR_TRAP, Skill.ARROW_HURRICANE),
-            PlayerClass.NECROMANCER, List.of(Skill.BONE_SPEAR, Skill.RAISE_SKELETONS, Skill.BLOOD_NOVA, Skill.ARMY_OF_THE_DEAD));
+            PlayerClass.NECROMANCER, List.of(Skill.BONE_SPEAR, Skill.RAISE_SKELETONS, Skill.BLOOD_NOVA, Skill.ARMY_OF_THE_DEAD),
+            PlayerClass.PALADIN, List.of(Skill.HOLY_HAMMER, Skill.SHIELD_BASH, Skill.HOLY_LIGHT, Skill.CONSECRATION, Skill.SPEAR_OF_JUDGEMENT,
+                    Skill.HEAVENS_JUDGEMENT));
     // The best set of four for each class from the single skills, the big ones first
     private static final Map<PlayerClass, List<Skill>> BUILDS = Map.of(
             PlayerClass.BARBARIAN, List.of(Skill.DOOM_SLAM, Skill.EARTHQUAKE, Skill.LEAP, Skill.WHIRLWIND),
             PlayerClass.SORCERER, List.of(Skill.METEOR, Skill.THUNDERSTORM, Skill.FIREBALL, Skill.CHAIN_LIGHTNING),
             PlayerClass.RANGER, List.of(Skill.ARROW_HURRICANE, Skill.EXPLOSIVE_ARROW, Skill.ARROW_RAIN, Skill.MULTISHOT),
-            PlayerClass.NECROMANCER, List.of(Skill.CURSE, Skill.ARMY_OF_THE_DEAD, Skill.RAISE_SKELETONS, Skill.BONE_SPEAR));
+            PlayerClass.NECROMANCER, List.of(Skill.CURSE, Skill.ARMY_OF_THE_DEAD, Skill.RAISE_SKELETONS, Skill.BONE_SPEAR),
+            PlayerClass.PALADIN, List.of(Skill.HEAVENS_JUDGEMENT, Skill.CONSECRATION, Skill.SPEAR_OF_JUDGEMENT, Skill.HOLY_HAMMER));
     private static final String BUILD = "4 skills + slag";
     // The damage per second every class's four skills must stay within, against one dummy and against all five
     private static final int[] BUILD_SINGLE = {30, 90};
@@ -241,7 +244,7 @@ public final class BalanceTests {
     // grow with their item level instead, see PlayerHits
     private static ItemStack weapon(PlayerClass playerClass, RandomSource random) {
         Item item = switch (playerClass) {
-            case BARBARIAN -> Items.NETHERITE_SWORD;
+            case BARBARIAN, PALADIN -> Items.NETHERITE_SWORD;
             case SORCERER, NECROMANCER -> Staffs.STAR.get();
             case RANGER -> Items.BOW;
         };

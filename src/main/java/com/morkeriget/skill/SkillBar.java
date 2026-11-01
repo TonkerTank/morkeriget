@@ -92,6 +92,13 @@ public final class SkillBar {
             case BEAR_TRAP -> new ItemStack(Items.TRIPWIRE_HOOK);
             case BLOOD_NOVA -> new ItemStack(Items.REDSTONE_BLOCK);
             case BONE_PRISON -> new ItemStack(Items.IRON_BARS);
+            case HOLY_HAMMER -> new ItemStack(Items.GOLDEN_AXE);
+            case SHIELD_BASH -> new ItemStack(Items.SHIELD);
+            case HOLY_AURA -> new ItemStack(Items.BEACON);
+            case HOLY_LIGHT -> new ItemStack(Items.GOLDEN_APPLE);
+            case CONSECRATION -> new ItemStack(Items.GLOWSTONE);
+            case SPEAR_OF_JUDGEMENT -> new ItemStack(Items.END_ROD);
+            case HEAVENS_JUDGEMENT -> new ItemStack(Items.NETHER_STAR);
             case HEALTH_POTION -> potion(0xE02020);
             case MANA_POTION -> potion(0x3060FF);
         };

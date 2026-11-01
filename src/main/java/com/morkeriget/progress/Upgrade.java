@@ -55,6 +55,17 @@ public enum Upgrade {
     BONE_PRISON(Skill.BONE_PRISON, PlayerClass.NECROMANCER, 2),
     SOUL_HARVEST(null, PlayerClass.NECROMANCER, 2),
     ARMY_OF_THE_DEAD(Skill.ARMY_OF_THE_DEAD, PlayerClass.NECROMANCER, 3),
+    // Paladin
+    HOLY_HAMMER(Skill.HOLY_HAMMER, PlayerClass.PALADIN, 0),
+    SHIELD_BASH(Skill.SHIELD_BASH, PlayerClass.PALADIN, 0),
+    ZEAL(null, PlayerClass.PALADIN, 0),
+    HOLY_AURA(Skill.HOLY_AURA, PlayerClass.PALADIN, 1),
+    HOLY_LIGHT(Skill.HOLY_LIGHT, PlayerClass.PALADIN, 1),
+    DEVOTION(null, PlayerClass.PALADIN, 1),
+    CONSECRATION(Skill.CONSECRATION, PlayerClass.PALADIN, 2),
+    SPEAR_OF_JUDGEMENT(Skill.SPEAR_OF_JUDGEMENT, PlayerClass.PALADIN, 2),
+    RETRIBUTION(null, PlayerClass.PALADIN, 2),
+    HEAVENS_JUDGEMENT(Skill.HEAVENS_JUDGEMENT, PlayerClass.PALADIN, 3),
     // For everyone
     VITALITY(null, null, 0),
     SPIRIT(null, null, 0),

@@ -72,6 +72,11 @@ public final class Skills {
         NeoForge.EVENT_BUS.addListener(TreeSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onDamagePost);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onProjectileImpact);
+        NeoForge.EVENT_BUS.addListener(PaladinSkills::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(PaladinSkills::onDamagePre);
+        NeoForge.EVENT_BUS.addListener(PaladinSkills::onDamagePost);
+        NeoForge.EVENT_BUS.addListener(SkillDisplays::onServerTick);
+        NeoForge.EVENT_BUS.addListener(SkillDisplays::onEntityTick);
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> forget(event.getEntity()));
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> forget(event.getEntity()));
         NeoForge.EVENT_BUS.addListener((LivingDeathEvent event) -> {
@@ -94,6 +99,7 @@ public final class Skills {
     private static void forget(Player player) {
         TreeSkills.forget(player);
         ClassSkills.forget(player);
+        PaladinSkills.forget(player);
     }
 
     // The game makes a new player object after death and when leaving the End, and only copies some of the saved data.
@@ -187,6 +193,14 @@ public final class Skills {
             case DOOM_SLAM -> TreeSkills.doomSlam(player);
             case ARROW_HURRICANE -> TreeSkills.arrowHurricane(player);
             case ARMY_OF_THE_DEAD -> TreeSkills.armyOfTheDead(player);
+            // The paladin
+            case HOLY_HAMMER -> PaladinSkills.holyHammer(player);
+            case SHIELD_BASH -> PaladinSkills.shieldBash(player);
+            case HOLY_AURA -> PaladinSkills.holyAura(player);
+            case HOLY_LIGHT -> PaladinSkills.holyLight(player);
+            case CONSECRATION -> PaladinSkills.consecration(player);
+            case SPEAR_OF_JUDGEMENT -> PaladinSkills.spearOfJudgement(player);
+            case HEAVENS_JUDGEMENT -> PaladinSkills.heavensJudgement(player);
             case HEALTH_POTION -> healthPotion(player);
             case MANA_POTION -> manaPotion(player);
         };

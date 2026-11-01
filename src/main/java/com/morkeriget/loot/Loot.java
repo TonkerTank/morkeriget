@@ -475,7 +475,7 @@ public final class Loot {
             return null;
         }
         return switch (playerClass) {
-            case BARBARIAN -> WeaponType.MELEE;
+            case BARBARIAN, PALADIN -> WeaponType.MELEE;
             case RANGER -> WeaponType.BOW;
             case SORCERER, NECROMANCER -> WeaponType.STAFF;
         };

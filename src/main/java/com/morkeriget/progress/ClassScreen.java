@@ -15,10 +15,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
 // Picking a class: one panel for each with its skills and bonus, and a button to pick it. Opened with K before a class
 // is picked, or with "Skift klasse" in the skill screen. Client only
 public class ClassScreen extends Screen {
-    // Four panels have to fit on the smallest normal screen, which is 427 wide
-    private static final int PANEL_WIDTH = 104;
-    // Room for seven skills and the bonus
-    private static final int PANEL_HEIGHT = 200;
+    // The widest a panel gets. On a small screen they get narrower, so all five fit on the smallest normal one (427 wide)
+    private static final int MAX_PANEL_WIDTH = 104;
+    // Room for seven skills and the bonus, which can take three lines in a narrow panel
+    private static final int PANEL_HEIGHT = 210;
     // The room the description takes under the name
     private static final int DESCRIPTION_HEIGHT = 28;
     private static final int GAP = 2;
@@ -27,9 +27,14 @@ public class ClassScreen extends Screen {
         super(Text.tr("class.title"));
     }
 
+    private int panelWidth() {
+        int count = PlayerClass.values().length;
+        return Math.min(MAX_PANEL_WIDTH, (width - 8 - (count - 1) * GAP) / count);
+    }
+
     private int panelLeft(PlayerClass playerClass) {
-        int total = PlayerClass.values().length * PANEL_WIDTH + (PlayerClass.values().length - 1) * GAP;
-        return (width - total) / 2 + playerClass.ordinal() * (PANEL_WIDTH + GAP);
+        int total = PlayerClass.values().length * panelWidth() + (PlayerClass.values().length - 1) * GAP;
+        return (width - total) / 2 + playerClass.ordinal() * (panelWidth() + GAP);
     }
 
     // The panel goes from 30 above this, for the title, to 32 below the classes, for "Tilbage". Kept on the screen
@@ -52,7 +57,7 @@ public class ClassScreen extends Screen {
         for (PlayerClass playerClass : PlayerClass.values()) {
             Component text = Text.tr(playerClass == current ? "class.reset" : "class.pick");
             addRenderableWidget(Button.builder(text, pressed -> PacketDistributor.sendToServer(new ChooseClassPayload(playerClass)))
-                    .bounds(panelLeft(playerClass) + 6, top() + panelHeight() - 24, PANEL_WIDTH - 12, 18)
+                    .bounds(panelLeft(playerClass) + 6, top() + panelHeight() - 24, panelWidth() - 12, 18)
                     .build(ThemedButton::new));
         }
         if (current != null) {
@@ -69,16 +74,16 @@ public class ClassScreen extends Screen {
         int top = top();
         PlayerClass current = ClientProgress.get().chosenClass();
         int count = PlayerClass.values().length;
-        int total = count * PANEL_WIDTH + (count - 1) * GAP;
-        // The four classes nearly fill a small screen, so the padding shrinks to keep the frame on it
+        int total = count * panelWidth() + (count - 1) * GAP;
+        // The classes nearly fill a small screen, so the padding shrinks to keep the frame on it
         int pad = Math.max(0, Math.min(8, (width - total) / 2 - 3));
         // Room for "Tilbage" under the classes once you have one
         int bottom = top + panelHeight() + (current != null ? 32 : 6);
         UiTheme.panel(graphics, (width - total) / 2 - pad, top - 30, total + 2 * pad, bottom - (top - 30));
         for (PlayerClass playerClass : PlayerClass.values()) {
             int x = panelLeft(playerClass);
-            boolean hovered = mouseX >= x && mouseX < x + PANEL_WIDTH && mouseY >= top && mouseY < top + panelHeight();
-            UiTheme.box(graphics, x, top, PANEL_WIDTH, panelHeight(), playerClass.color, playerClass == current || hovered);
+            boolean hovered = mouseX >= x && mouseX < x + panelWidth() && mouseY >= top && mouseY < top + panelHeight();
+            UiTheme.box(graphics, x, top, panelWidth(), panelHeight(), playerClass.color, playerClass == current || hovered);
         }
     }
 
@@ -92,18 +97,19 @@ public class ClassScreen extends Screen {
 
         for (PlayerClass playerClass : PlayerClass.values()) {
             int x = panelLeft(playerClass);
-            graphics.drawCenteredString(font, playerClass.displayName(), x + PANEL_WIDTH / 2, top + 6, playerClass.color);
+            graphics.drawCenteredString(font, playerClass.displayName(), x + panelWidth() / 2, top + 6, playerClass.color);
             int y = top + 18;
             if (!compact()) {
-                graphics.drawWordWrap(font, playerClass.description(), x + 5, y, PANEL_WIDTH - 10, UiTheme.MUTED);
+                graphics.drawWordWrap(font, playerClass.description(), x + 5, y, panelWidth() - 10, UiTheme.MUTED);
                 y += DESCRIPTION_HEIGHT;
             }
             for (Skill skill : playerClass.skills) {
                 graphics.renderItem(SkillBar.icon(skill), x + 3, y);
-                graphics.drawString(font, skill.displayName(), x + 21, y + 4, UiTheme.TEXT);
+                // Cut short if the panel is narrow
+                graphics.drawString(font, font.plainSubstrByWidth(skill.displayName().getString(), panelWidth() - 23), x + 21, y + 4, UiTheme.TEXT);
                 y += 15;
             }
-            graphics.drawWordWrap(font, playerClass.bonus(), x + 5, y + 2, PANEL_WIDTH - 10, playerClass.color);
+            graphics.drawWordWrap(font, playerClass.bonus(), x + 5, y + 2, panelWidth() - 10, playerClass.color);
         }
     }
 
