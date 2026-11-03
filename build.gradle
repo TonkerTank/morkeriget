@@ -5,6 +5,15 @@ plugins {
     id 'idea'
 }
 
+// The game tests start in a new world every time, like on GitHub. Otherwise things from earlier runs, e.g. drops lying
+// in a dungeon, are still there and can make a test pass or fail
+def gameTestWorld = file('run/gametest/world')
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doFirst {
+        gameTestWorld.deleteDir()
+    }
+}
+
 tasks.named('wrapper', Wrapper).configure {
     // Define wrapper values here so as to not have to always do so when updating gradlew.properties.
     // Switching this to Wrapper.DistributionType.ALL will download the full gradle sources that comes with
@@ -70,6 +79,8 @@ neoForge {
         gameTestServer {
             type = "gameTestServer"
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            // Its own folder, so the tests never touch the world of runServer
+            gameDirectory = project.file('run/gametest')
         }
 
         data {
