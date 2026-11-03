@@ -109,8 +109,9 @@ public final class DungeonTests {
                     List<ItemEntity> drops = level.getEntitiesOfClass(ItemEntity.class, arena);
                     long legendaries = drops.stream().filter(drop -> Loot.getRarity(drop.getItem()) == Rarity.LEGENDARY).count();
                     helper.assertTrue(legendaries >= 3, "Mørkets Herre gav kun " + legendaries + " legendariske genstande");
-                    helper.assertTrue(drops.stream().anyMatch(drop -> drop.getItem().is(Smithy.ESSENCE.get()) && drop.getItem().getCount() >= 80),
-                            "Mørkets Herre gav ikke nok essens");
+                    // 80-120 essence comes as stacks of at most 64, so all of it is counted
+                    int essence = drops.stream().filter(drop -> drop.getItem().is(Smithy.ESSENCE.get())).mapToInt(drop -> drop.getItem().getCount()).sum();
+                    helper.assertTrue(essence >= 80, "Mørkets Herre gav kun " + essence + " essens");
                 })
                 .thenExecute(() -> TestPlayers.remove(player))
                 .thenSucceed();
