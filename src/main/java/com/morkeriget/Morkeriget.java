@@ -8,6 +8,7 @@ import com.morkeriget.dummy.TrainingDummy;
 import com.morkeriget.dungeon.Dungeons;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
+import com.morkeriget.feedback.Feedback;
 import com.morkeriget.glyph.Glyphs;
 import com.morkeriget.helltide.Helltide;
 import com.morkeriget.jewelry.Jewelry;
@@ -75,5 +76,7 @@ public class Morkeriget {
         TrainingDummy.register(modEventBus);
         // Glyphs for the paragon board, from dungeon bosses
         Glyphs.register(modEventBus);
+        // The first time in a world, a window asks for feedback
+        Feedback.register(modEventBus);
     }
 }

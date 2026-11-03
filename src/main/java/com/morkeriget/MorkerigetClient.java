@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.morkeriget.combat.DamageNumbers;
 import com.morkeriget.combat.TargetFrame;
+import com.morkeriget.feedback.ClientFeedback;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.FavoriteClicks;
@@ -52,8 +53,11 @@ public class MorkerigetClient {
         modEventBus.addListener(XpBar::register);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
             XpBar.reset();
+            ClientFeedback.reset();
             LootTooltips.setWornJewelry(List.of());
         });
+        // The feedback window, opened once the world has loaded
+        NeoForge.EVENT_BUS.addListener(ClientFeedback::onClientTick);
         // Skill icons with keys and cooldowns next to the mana bar
         modEventBus.addListener(SkillBar::register);
         NeoForge.EVENT_BUS.addListener(SkillBar::onClientTick);

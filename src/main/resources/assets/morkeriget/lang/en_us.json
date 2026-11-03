@@ -766,5 +766,9 @@
   "morkeriget.smithy.slot.item": "Loot",
   "morkeriget.smithy.slot.gem": "Gem",
   "morkeriget.smithy.no_sockets": "None",
-  "morkeriget.smithy.sockets": "%s/%s sockets"
+  "morkeriget.smithy.sockets": "%s/%s sockets",
+  "morkeriget.feedback.title": "Thanks for playing Realm of Darkness!",
+  "morkeriget.feedback.text": "The mod is still in beta, so feedback will be really appreciated! Bugs, balance, ideas or just what you think of it. You can write on GitHub or in the comments on CurseForge or Modrinth.",
+  "morkeriget.feedback.give": "Give feedback",
+  "morkeriget.feedback.close": "Close"
 }
