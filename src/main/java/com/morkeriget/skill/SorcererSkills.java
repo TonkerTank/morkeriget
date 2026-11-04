@@ -1,11 +1,6 @@
 package com.morkeriget.skill;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
@@ -19,10 +14,8 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 // The sorcerer's skill variants that need more than a line in the skill itself: Fireball's Burn and Splinter, Frost
 // Nova's Deep Freeze and Ice Mantle, and Blink's Arcane Blast and Phase Shift. Server only
@@ -48,25 +41,15 @@ final class SorcererSkills {
     // Phase Shift: Resistance III (60% less damage) for a moment after Blink
     private static final int PHASE_SHIFT_DURATION = 2 * 20;
 
-    private record Burn(LivingEntity target, float damage, int left, long next) {
-    }
-
-    private static final Map<UUID, List<Burn>> BURNS = new HashMap<>();
-
     private SorcererSkills() {
-    }
-
-    static void forget(Player player) {
-        BURNS.remove(player.getUUID());
     }
 
     // What the Fireball variants do to the monsters it hit
     static void afterFireball(ServerPlayer player, Vec3 impact, List<LivingEntity> hit, float damage) {
         ServerLevel level = player.serverLevel();
         if (Progression.has(player, Upgrade.FIREBALL_BURN)) {
-            long next = level.getGameTime() + 20;
             for (LivingEntity target : hit) {
-                BURNS.computeIfAbsent(player.getUUID(), uuid -> new ArrayList<>()).add(new Burn(target, damage * BURN_PER_SECOND, BURN_SECONDS, next));
+                DamageOverTime.add(player, target, damage * BURN_PER_SECOND, BURN_SECONDS, ParticleTypes.FLAME);
             }
         }
         if (Progression.has(player, Upgrade.FIREBALL_SPLINTER)) {
@@ -127,41 +110,6 @@ final class SorcererSkills {
         LivingEntity target = event.getEntity();
         if (target.getPersistentData().getLong(DEEP_FREEZE_TAG) > target.level().getGameTime()) {
             event.setNewDamage(event.getNewDamage() * (1 + DEEP_FREEZE_BONUS));
-        }
-    }
-
-    // The burns tick once a second, and stop if the monster dies
-    static void onPlayerTick(PlayerTickEvent.Post event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) {
-            return;
-        }
-        List<Burn> burns = BURNS.get(player.getUUID());
-        if (burns == null) {
-            return;
-        }
-        ServerLevel level = player.serverLevel();
-        long now = level.getGameTime();
-        List<Burn> next = new ArrayList<>();
-        for (Iterator<Burn> it = burns.iterator(); it.hasNext(); ) {
-            Burn burn = it.next();
-            if (now < burn.next) {
-                continue;
-            }
-            it.remove();
-            LivingEntity target = burn.target;
-            if (!target.isAlive() || target.level() != level) {
-                continue;
-            }
-            target.invulnerableTime = 0;
-            target.hurt(player.damageSources().playerAttack(player), burn.damage);
-            level.sendParticles(ParticleTypes.FLAME, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 8, 0.3, 0.4, 0.3, 0.02);
-            if (burn.left > 1) {
-                next.add(new Burn(target, burn.damage, burn.left - 1, now + 20));
-            }
-        }
-        burns.addAll(next);
-        if (burns.isEmpty()) {
-            BURNS.remove(player.getUUID());
         }
     }
 }

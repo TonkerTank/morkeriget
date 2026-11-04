@@ -95,6 +95,17 @@ final class TreeSkills {
     private static final int THICK_ICE_LEVEL = 3;
     // Chain Storm: each bolt jumps on to one more monster this close
     private static final double CHAIN_STORM_RANGE = 5.0;
+    // The barbarian's variants of Rush, Earthquake and Doom Slam: how long Trample stuns, Wide Crack's radius and how
+    // hard Echo hits
+    private static final int TRAMPLE_STUN = 20;
+    private static final double WIDE_CRACK = 1.5;
+    static final float ECHO_DAMAGE = 0.5f;
+    // The ranger's variants of Explosive Arrow, Bear Trap and Arrow Hurricane
+    private static final double BIG_BLAST = 1.5;
+    private static final int BLAST_STUN = 20;
+    private static final double TRAP_SPACING = 2.5;
+    private static final int TRAP_POISON_TIME = 5 * 20;
+    private static final float LONG_STORM = 1.5f;
     // The necromancer's variants of Bone Prison, Army of the Dead and Blood Nova.
     // Large Prison: this times the radius. Crushing Prison: this times your attack damage as it closes
     private static final double LARGE_PRISON = 1.5;
@@ -169,7 +180,10 @@ final class TreeSkills {
         }
         flat = flat.normalize();
         Vec3 start = player.position().add(0, 0.5, 0);
-        Vec3 end = level.clip(new ClipContext(start, start.add(flat.scale(RUSH_DISTANCE)),
+        // Long Run goes twice as far, and Trample stuns everything it hits
+        boolean longRun = Progression.has(player, Upgrade.RUSH_LONG);
+        boolean trample = Progression.has(player, Upgrade.RUSH_TRAMPLE);
+        Vec3 end = level.clip(new ClipContext(start, start.add(flat.scale(RUSH_DISTANCE * (longRun ? 2 : 1))),
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player)).getLocation();
         // Each Rush rank adds 20% damage
         float damage = attackDamage(player, 2.1, Upgrade.RUSH, 0.2);
@@ -192,13 +206,17 @@ final class TreeSkills {
                     target.hurt(player.damageSources().playerAttack(player), damage);
                     // Thrown to the side, out of the way
                     target.knockback(0.6, flat.z, -flat.x);
+                    if (trample) {
+                        hold(target, TRAMPLE_STUN);
+                    }
                     level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(),
                             10, 0.3, 0.3, 0.3, 0.3);
                 }
             }
         }
         // Fast enough to get there in about half a second
-        player.setDeltaMovement(flat.x * Math.min(2.2, distance / 3.5), 0.15, flat.z * Math.min(2.2, distance / 3.5));
+        double speed = Math.min(longRun ? 3.3 : 2.2, distance / 3.5);
+        player.setDeltaMovement(flat.x * speed, 0.15, flat.z * speed);
         player.hurtMarked = true;
         level.playSound(null, player.blockPosition(), SoundEvents.RAVAGER_STEP, SoundSource.PLAYERS, 1.0f, 1.2f);
         level.playSound(null, player.blockPosition(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.0f, 0.8f);
@@ -353,7 +371,14 @@ final class TreeSkills {
         Vec3 center = event.getRayTraceResult().getLocation();
         // Each Explosive Arrow rank adds 15% damage
         float damage = (float) (EXPLOSIVE_DAMAGE * ClassSkills.bowScale(player) * (1 + 0.15 * Progression.rank(player, Upgrade.EXPLOSIVE_ARROW)));
-        explode(level, player, center, EXPLOSIVE_RADIUS, damage);
+        // Bigger Blast reaches further, and Stunning Blast holds what it hits
+        double radius = Progression.has(player, Upgrade.EXPLOSIVE_ARROW_BIG) ? EXPLOSIVE_RADIUS * BIG_BLAST : EXPLOSIVE_RADIUS;
+        explode(level, player, center, radius, damage);
+        if (Progression.has(player, Upgrade.EXPLOSIVE_ARROW_STUN)) {
+            for (LivingEntity target : ClassSkills.enemies(level, center, radius)) {
+                hold(target, BLAST_STUN);
+            }
+        }
         // Cluster Bomb: three smaller ones around it, half as strong
         if (LegendaryPower.has(player, LegendaryPower.CLUSTER_BOMB)) {
             for (int i = 0; i < 3; i++) {
@@ -393,6 +418,16 @@ final class TreeSkills {
         // The iron jaws as two rings on the ground, and dirt thrown up where it lands
         trapJaws(level, center);
         level.sendParticles(DIRT, center.x, center.y + 0.1, center.z, 10, 0.3, 0.05, 0.3, 0.1);
+        // Three Traps: one more on each side, across the way you look
+        if (Progression.has(player, Upgrade.BEAR_TRAP_TRIPLE)) {
+            Vec3 look = player.getLookAngle();
+            Vec3 side = new Vec3(-look.z, 0, look.x);
+            side = side.lengthSqr() < 0.01 ? new Vec3(TRAP_SPACING, 0, 0) : side.normalize().scale(TRAP_SPACING);
+            for (Vec3 spot : List.of(center.add(side), center.subtract(side))) {
+                add(player, new Effect(Kind.BEAR_TRAP, spot, damage, 1, now, now + BEAR_TRAP_LIFETIME));
+                trapJaws(level, spot);
+            }
+        }
         level.playSound(null, center.x, center.y, center.z, SoundEvents.CHAIN_PLACE, SoundSource.PLAYERS, 1.0f, 0.8f);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.IRON_TRAPDOOR_CLOSE, SoundSource.PLAYERS, 0.7f, 1.4f);
         return true;
@@ -638,6 +673,10 @@ final class TreeSkills {
         int rank = Progression.rank(player, Upgrade.ARROW_HURRICANE);
         float damage = (float) (HURRICANE_ARROW_DAMAGE * (1 + 0.15 * rank));
         int volleys = HURRICANE_VOLLEYS + Upgrade.utility(rank) / 2;
+        // Long Storm lasts half again as long
+        if (Progression.has(player, Upgrade.ARROW_HURRICANE_LONG)) {
+            volleys = Math.round(volleys * LONG_STORM);
+        }
         // It runs every tick so the tornado moves smoothly, and a volley goes off every HURRICANE_TIME ticks of it
         add(player, new Effect(Kind.ARROW_HURRICANE, player.position(), damage, volleys * HURRICANE_TIME, level.getGameTime(), 0));
         // A gust that blows out from the ranger as the storm starts
@@ -719,6 +758,10 @@ final class TreeSkills {
             Arrow arrow = ClassSkills.arrow(level, player, effect.damage);
             arrow.setPos(from.x, from.y, from.z);
             arrow.getPersistentData().putBoolean(HURRICANE_TAG, true);
+            // Fire Arrows: burning arrows set what they hit on fire
+            if (Progression.has(player, Upgrade.ARROW_HURRICANE_FIRE)) {
+                arrow.igniteForSeconds(100);
+            }
             Vec3 aim = target.position().add(0, target.getBbHeight() * 0.6, 0).subtract(from);
             // A little higher the further away, so the arrow doesn't drop short
             arrow.shoot(aim.x, aim.y + aim.horizontalDistance() * 0.05, aim.z, 2.6f, 1.5f);
@@ -852,6 +895,15 @@ final class TreeSkills {
                         player.resetFallDistance();
                         doomSlamLanding(level, player);
                         next.add(new Effect(Kind.DOOM_SLAM_WAVE, player.position(), effect.damage, DOOM_SLAM_WAVES, now, 0));
+                        // Echo: the same waves again a second later, at half the damage
+                        if (Progression.has(player, Upgrade.DOOM_SLAM_ECHO)) {
+                            next.add(new Effect(Kind.DOOM_SLAM_WAVE, player.position(), effect.damage * ECHO_DAMAGE, DOOM_SLAM_WAVES, now + 20, 0));
+                        }
+                        // Aftershock Slam: an Earthquake where you landed
+                        if (Progression.has(player, Upgrade.DOOM_SLAM_QUAKE)) {
+                            next.add(new Effect(Kind.EARTHQUAKE, player.position(), attackDamage(player, 1.0, Upgrade.EARTHQUAKE, 0.2),
+                                    EARTHQUAKE_PULSES, now + 10, 0));
+                        }
                     } else {
                         // A trail on the way down. The fall is reset every tick, like Leap, since the server hands
                         // out fall damage as soon as you land, before this sees it
@@ -892,20 +944,26 @@ final class TreeSkills {
     }
 
     private static void earthquakePulse(ServerLevel level, ServerPlayer player, Effect effect) {
-        for (LivingEntity target : ClassSkills.enemies(level, effect.center, EARTHQUAKE_RADIUS)) {
+        // Wide Crack reaches further, and Crippling Quake makes them very slow
+        double radius = Progression.has(player, Upgrade.EARTHQUAKE_WIDE) ? EARTHQUAKE_RADIUS * WIDE_CRACK : EARTHQUAKE_RADIUS;
+        boolean cripple = Progression.has(player, Upgrade.EARTHQUAKE_CRIPPLE);
+        for (LivingEntity target : ClassSkills.enemies(level, effect.center, radius)) {
             // Each pulse is its own hit, even if the monster was just hit
             target.invulnerableTime = 0;
             target.hurt(player.damageSources().playerAttack(player), effect.damage);
+            if (cripple) {
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, EARTHQUAKE_PULSE_TIME + 5, 3));
+            }
         }
         Vec3 center = effect.center;
-        level.sendParticles(DIRT, center.x, center.y + 0.1, center.z, 30, EARTHQUAKE_RADIUS / 2, 0.1, EARTHQUAKE_RADIUS / 2, 0.2);
+        level.sendParticles(DIRT, center.x, center.y + 0.1, center.z, 30, radius / 2, 0.1, radius / 2, 0.2);
         // A ring of dust rolling out, the edge shaking and a couple of rocks bursting up from the ground
         SkillVisuals.burst(level, center, 0.1, 12, 0.3, ParticleTypes.DUST_PLUME);
-        SkillVisuals.ring(level, center, 0.1, EARTHQUAKE_RADIUS, 16, SkillVisuals.EARTH_FADE);
+        SkillVisuals.ring(level, center, 0.1, radius, 16, SkillVisuals.EARTH_FADE);
         RandomSource random = level.getRandom();
         for (int i = 0; i < 2; i++) {
             double angle = random.nextDouble() * Math.PI * 2;
-            double distance = random.nextDouble() * EARTHQUAKE_RADIUS;
+            double distance = random.nextDouble() * radius;
             level.sendParticles(STONE, center.x + Math.cos(angle) * distance, center.y + 0.2, center.z + Math.sin(angle) * distance,
                     6, 0.15, 0.3, 0.15, 0.2);
         }
@@ -967,6 +1025,10 @@ final class TreeSkills {
         LivingEntity target = caught.get(0);
         target.hurt(player.damageSources().playerAttack(player), effect.damage);
         hold(target, BEAR_TRAP_HOLD);
+        // Poison Trap
+        if (Progression.has(player, Upgrade.BEAR_TRAP_POISON)) {
+            target.addEffect(new MobEffectInstance(MobEffects.POISON, TRAP_POISON_TIME, 1));
+        }
         level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 0.3, target.getZ(), 20, 0.3, 0.2, 0.3, 0.2);
         // The jaws snap shut: two sweeps closing, blood and chips of iron
         level.sendParticles(ParticleTypes.SWEEP_ATTACK, target.getX(), target.getY() + 0.3, target.getZ(), 2, 0.2, 0, 0.2, 0);

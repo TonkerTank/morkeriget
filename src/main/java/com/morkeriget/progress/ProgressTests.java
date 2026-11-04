@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -21,6 +22,22 @@ public final class ProgressTests {
     private static final ResourceLocation TEST_SPEED = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "test_speed");
 
     private ProgressTests() {
+    }
+
+    // A class gives its starter weapon once: picking it again gives nothing, and another class gives its own
+    @GameTest(template = "empty")
+    public static void starterWeaponOncePerClass(GameTestHelper helper) {
+        ServerPlayer player = TestPlayers.survivor(helper, new BlockPos(2, 2, 2));
+        StarterWeapons.give(player, PlayerClass.BARBARIAN);
+        int swords = player.getInventory().countItem(Items.IRON_SWORD);
+        StarterWeapons.give(player, PlayerClass.BARBARIAN);
+        int again = player.getInventory().countItem(Items.IRON_SWORD);
+        StarterWeapons.give(player, PlayerClass.RANGER);
+        int bows = player.getInventory().countItem(Items.BOW);
+        helper.assertTrue(swords == 1 && again == 1, "Barbaren fik " + swords + " og så " + again + " sværd, ikke 1 og 1");
+        helper.assertTrue(bows == 1, "Rangeren fik " + bows + " buer, ikke 1");
+        TestPlayers.remove(player);
+        helper.succeed();
     }
 
     // Lots of speed is taken down to 2.5 times the normal, and the cap goes away again with the speed

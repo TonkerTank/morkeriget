@@ -13,6 +13,7 @@ import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.Paragon;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
+import com.morkeriget.progress.StarterWeapons;
 import com.morkeriget.progress.Upgrade;
 
 import net.minecraft.ChatFormatting;
@@ -61,6 +62,10 @@ public final class Skills {
     private static final String RHYTHM_TAG = "morkeriget_rhythm";
     // Blood Pact: health a skill costs for each point of mana it would have cost
     public static final float BLOOD_PACT_HEALTH = 0.2f;
+    // The barbarian's variants here: Wide Whirl's radius, Light on Your Feet's cooldown, Spirit of Battle's healing
+    private static final double WIDE_WHIRL = 1.5;
+    static final float LIGHT_FEET_COOLDOWN = 0.6f;
+    private static final float SPIRIT_HEAL = 0.2f;
     private static final double BATTLE_CRY_RADIUS = 8.0;
     private static final int BATTLE_CRY_DURATION = 6 * 20;
     private static final BlockParticleOption ICE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.PACKED_ICE.defaultBlockState());
@@ -82,11 +87,15 @@ public final class Skills {
         NeoForge.EVENT_BUS.addListener(TreeSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onDamagePost);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onProjectileImpact);
-        NeoForge.EVENT_BUS.addListener(SorcererSkills::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(DamageOverTime::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(SorcererSkills::onDamagePre);
+        NeoForge.EVENT_BUS.addListener(BarbarianSkills::onDamagePre);
+        NeoForge.EVENT_BUS.addListener(BarbarianSkills::onDeath);
+        NeoForge.EVENT_BUS.addListener(RangerSkills::onDamagePre);
         NeoForge.EVENT_BUS.addListener(PaladinSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(PaladinSkills::onDamagePre);
         NeoForge.EVENT_BUS.addListener(PaladinSkills::onDamagePost);
+        NeoForge.EVENT_BUS.addListener(PaladinSkills::onHeal);
         NeoForge.EVENT_BUS.addListener(SkillDisplays::onServerTick);
         NeoForge.EVENT_BUS.addListener(SkillDisplays::onEntityTick);
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> forget(event.getEntity()));
@@ -112,17 +121,21 @@ public final class Skills {
         TreeSkills.forget(player);
         ClassSkills.forget(player);
         PaladinSkills.forget(player);
-        SorcererSkills.forget(player);
+        DamageOverTime.forget(player);
     }
 
     // The game makes a new player object after death and when leaving the End, and only copies some of the saved data.
-    // Cooldowns carry over so they match the skill bar. Mana is full after death, like health, but not after the End
+    // Cooldowns carry over so they match the skill bar, and so do the starter weapons already given. Mana is full after
+    // death, like health, but not after the End
     private static void onClone(PlayerEvent.Clone event) {
         CompoundTag old = event.getOriginal().getPersistentData();
         CompoundTag now = event.getEntity().getPersistentData();
         for (String key : old.getAllKeys()) {
             if (key.startsWith("morkeriget_") && key.endsWith("_ready")) {
                 now.putLong(key, old.getLong(key));
+            }
+            if (key.startsWith(StarterWeapons.TAG_PREFIX)) {
+                now.putBoolean(key, old.getBoolean(key));
             }
         }
         if (!event.isWasDeath() && event.getOriginal() instanceof ServerPlayer original && event.getEntity() instanceof ServerPlayer player) {
@@ -249,6 +262,10 @@ public final class Skills {
                 if (upgrade != null) {
                     cooldownScale *= Upgrade.cooldownScale(Progression.rank(player, upgrade));
                 }
+                // Light on Your Feet: Leap is ready sooner
+                if (skill == Skill.LEAP && Progression.has(player, Upgrade.LEAP_LIGHT)) {
+                    cooldownScale *= LIGHT_FEET_COOLDOWN;
+                }
             }
             if (!skill.isPotion() && Progression.has(player, Upgrade.ARCANE_RHYTHM)) {
                 player.getPersistentData().putInt(RHYTHM_TAG, rhythm ? 0 : player.getPersistentData().getInt(RHYTHM_TAG) + 1);
@@ -272,9 +289,15 @@ public final class Skills {
         // Each Whirlwind upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.WHIRLWIND);
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.1 * upgrade * (maelstrom ? 1.3 : 1));
-        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(WHIRLWIND_RADIUS),
+        // Wide Whirl reaches further, and Bleeding Wounds keep hurting
+        double radius = Progression.has(player, Upgrade.WHIRLWIND_WIDE) ? WHIRLWIND_RADIUS * WIDE_WHIRL : WHIRLWIND_RADIUS;
+        boolean bleed = Progression.has(player, Upgrade.WHIRLWIND_BLEED);
+        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(radius),
                 entity -> Minions.isEnemy(entity))) {
             target.hurt(player.damageSources().playerAttack(player), damage);
+            if (bleed) {
+                DamageOverTime.add(player, target, damage * BarbarianSkills.BLEED_PER_SECOND, BarbarianSkills.BLEED_SECONDS, SkillVisuals.BLOOD);
+            }
             Vec3 push = target.position().subtract(player.position()).normalize();
             if (maelstrom) {
                 target.knockback(0.5, push.x, push.z);
@@ -301,7 +324,7 @@ public final class Skills {
         level.sendParticles(ParticleTypes.SMALL_GUST, player.getX(), player.getY() + 1, player.getZ(), 4, 1.2, 0.4, 1.2, 0);
         if (maelstrom) {
             // The wind pulls in, like the monsters
-            SkillVisuals.implode(level, center, 0.3, WHIRLWIND_RADIUS, 20, 0.35, ParticleTypes.CLOUD);
+            SkillVisuals.implode(level, center, 0.3, radius, 20, 0.35, ParticleTypes.CLOUD);
         } else {
             SkillVisuals.burst(level, center, 0.2, 20, 0.3, ParticleTypes.CLOUD);
         }
@@ -495,6 +518,11 @@ public final class Skills {
 
     // Gives back part of your max health at once. Not used up if you already have full health
     private static boolean healthPotion(ServerPlayer player) {
+        // Call of Blood: kills heal you instead
+        if (Progression.has(player, Upgrade.CALL_OF_BLOOD)) {
+            player.displayClientMessage(Text.tr("skill.no_health_potions"), true);
+            return false;
+        }
         if (player.getHealth() >= player.getMaxHealth()) {
             player.displayClientMessage(Text.tr("skill.full_health"), true);
             return false;
@@ -542,9 +570,17 @@ public final class Skills {
         int duration = BATTLE_CRY_DURATION + 20 * Upgrade.utility(Progression.rank(player, Upgrade.BATTLE_CRY));
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, duration, 0));
         player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, duration, 0));
+        // Spirit of Battle heals you, and Terrifying Shout makes the monsters very slow
+        if (Progression.has(player, Upgrade.BATTLE_CRY_SPIRIT)) {
+            player.heal(player.getMaxHealth() * SPIRIT_HEAL);
+        }
+        boolean terrify = Progression.has(player, Upgrade.BATTLE_CRY_TERRIFY);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(BATTLE_CRY_RADIUS),
                 entity -> Minions.isEnemy(entity))) {
             target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 0));
+            if (terrify) {
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 2));
+            }
             level.sendParticles(ParticleTypes.ANGRY_VILLAGER, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(),
                     3, 0.3, 0.2, 0.3, 0);
             level.sendParticles(ParticleTypes.SMOKE, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(),

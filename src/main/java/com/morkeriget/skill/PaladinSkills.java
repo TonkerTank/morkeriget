@@ -33,6 +33,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import org.joml.Quaternionf;
 
@@ -86,6 +87,23 @@ final class PaladinSkills {
     // Retribution: a pillar of light on the one who hit you, at most once per RETRIBUTION_COOLDOWN
     private static final int RETRIBUTION_COOLDOWN = 20;
     private static final String RETRIBUTION_READY_TAG = "morkeriget_retribution_ready";
+    // The variants and keystones. The wider ones reach this much further
+    private static final double WIDER = 1.5;
+    // Heavy Hammer stuns this long, Shield Wall lasts this long, Holy Blast is this big
+    private static final int HEAVY_HAMMER_STUN = 15;
+    private static final int SHIELD_WALL_DURATION = 3 * 20;
+    private static final double HOLY_BLAST_RADIUS = 3.0;
+    // Pillars of Light heal this part of your health for each pillar that hits
+    private static final float PILLAR_HEAL = 0.01f;
+    // Aura of Might: players in the aura do this much more damage
+    static final float MIGHT = 0.15f;
+    private static final String MIGHT_UNTIL_TAG = "morkeriget_aura_might_until";
+    // Martyr: others heal more, you take more. Holy Wrath: weaker healing. Unbreakable: less damage when low
+    static final float MARTYR_HEAL = 1.5f;
+    static final float MARTYR_TAKEN = 0.1f;
+    static final float WRATH_HEAL = 0.5f;
+    static final float UNBREAKABLE = 0.4f;
+    static final float UNBREAKABLE_BELOW = 0.3f;
 
     private enum Kind {
         HAMMER, CONSECRATION, JUDGEMENT, SPEAR
@@ -108,6 +126,8 @@ final class PaladinSkills {
         Display display;
         // The way the spear flies
         Vec3 way;
+        // The enemy Focused Judgement's pillars come down on
+        LivingEntity focus;
 
         Effect(Kind kind, Vec3 center, float damage, double extra, int steps, long next) {
             this.kind = kind;
@@ -160,6 +180,23 @@ final class PaladinSkills {
     }
 
     // The player and the other players close by, for the healing and the aura
+    // How far the skills reach with their variants: Big Hammer, Long Thrust, Wide Aura and Radiant Light
+    private static double hammerReach(ServerPlayer player) {
+        return Progression.has(player, Upgrade.HOLY_HAMMER_BIG) ? HAMMER_REACH * WIDER : HAMMER_REACH;
+    }
+
+    private static double bashRange(ServerPlayer player) {
+        return Progression.has(player, Upgrade.SHIELD_BASH_LONG) ? BASH_RANGE * 2 : BASH_RANGE;
+    }
+
+    private static double auraRadius(ServerPlayer player) {
+        return Progression.has(player, Upgrade.HOLY_AURA_WIDE) ? AURA_RADIUS * WIDER : AURA_RADIUS;
+    }
+
+    private static double lightHitRadius(ServerPlayer player) {
+        return Progression.has(player, Upgrade.HOLY_LIGHT_RADIANT) ? LIGHT_HIT_RADIUS * WIDER : LIGHT_HIT_RADIUS;
+    }
+
     private static List<ServerPlayer> allies(ServerPlayer player, double radius) {
         return player.serverLevel().getEntitiesOfClass(ServerPlayer.class, player.getBoundingBox().inflate(radius),
                 other -> other.isAlive() && !other.isSpectator() && other.distanceTo(player) <= radius);
@@ -182,7 +219,7 @@ final class PaladinSkills {
 
     private static void hammerTick(ServerLevel level, ServerPlayer player, Effect effect) {
         double progress = (double) effect.step / HAMMER_TICKS;
-        double radius = HAMMER_START + (HAMMER_REACH - HAMMER_START) * progress;
+        double radius = HAMMER_START + (hammerReach(player) - HAMMER_START) * progress;
         double angle = effect.extra + Math.PI * 2 * HAMMER_TURNS * progress;
         // It follows you, so you can walk with it
         Vec3 spot = player.position().add(Math.cos(angle) * radius, 1.0, Math.sin(angle) * radius);
@@ -191,6 +228,9 @@ final class PaladinSkills {
             if (last == null || effect.step - last >= HAMMER_REHIT) {
                 effect.lastHit.put(target.getId(), effect.step);
                 hit(player, target, effect.damage);
+                if (Progression.has(player, Upgrade.HOLY_HAMMER_HEAVY)) {
+                    stun(target, HEAVY_HAMMER_STUN);
+                }
                 level.sendParticles(ParticleTypes.ENCHANTED_HIT, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(),
                         6, 0.3, 0.3, 0.3, 0.2);
                 level.playSound(null, target.blockPosition(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.25f, 1.9f);
@@ -237,8 +277,8 @@ final class PaladinSkills {
         int stun = BASH_STUN + 2 * Upgrade.utility(Progression.rank(player, Upgrade.SHIELD_BASH));
         player.setDeltaMovement(flat.x * 0.9, Math.max(0.1, player.getDeltaMovement().y), flat.z * 0.9);
         player.hurtMarked = true;
-        Vec3 front = player.position().add(flat.scale(BASH_RANGE / 2));
-        for (LivingEntity target : ClassSkills.enemies(level, player.position(), BASH_RANGE)) {
+        Vec3 front = player.position().add(flat.scale(bashRange(player) / 2));
+        for (LivingEntity target : ClassSkills.enemies(level, player.position(), bashRange(player))) {
             Vec3 way = target.position().subtract(player.position());
             Vec3 wayFlat = new Vec3(way.x, 0, way.z);
             if (wayFlat.lengthSqr() > 0.01 && wayFlat.normalize().dot(flat) < 0.3) {
@@ -249,6 +289,10 @@ final class PaladinSkills {
             stun(target, stun);
             level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 10, 0.3, 0.3, 0.3, 0.3);
             level.sendParticles(SkillVisuals.GOLD, target.getX(), target.getY() + target.getBbHeight() + 0.3, target.getZ(), 5, 0.3, 0.1, 0.3, 0);
+        }
+        // Shield Wall: Resistance II (40% less damage) for a while after
+        if (Progression.has(player, Upgrade.SHIELD_BASH_WALL)) {
+            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, SHIELD_WALL_DURATION, 1));
         }
         // A golden wall of light where the shield hits and dust kicked up behind you
         Vec3 side = new Vec3(-flat.z, 0, flat.x);
@@ -293,7 +337,7 @@ final class PaladinSkills {
         stars.add(SkillDisplays.spin(level, feet, LIGHT, 2.8f, 0.02f, 45, 3, duration, player, 0.036));
         stars.removeIf(java.util.Objects::isNull);
         AURA_STARS.put(player.getUUID(), stars);
-        SkillVisuals.shockwave(level, player.position(), 0.2, AURA_RADIUS, 3, SkillVisuals.GOLD);
+        SkillVisuals.shockwave(level, player.position(), 0.2, auraRadius(player), 3, SkillVisuals.GOLD);
         SkillVisuals.spiral(level, player.position(), 1.0, 2.4, 2, 28, ParticleTypes.END_ROD);
         level.playSound(null, player.blockPosition(), SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.3f);
         level.playSound(null, player.blockPosition(), SoundEvents.BELL_BLOCK, SoundSource.PLAYERS, 0.6f, 1.5f);
@@ -302,13 +346,19 @@ final class PaladinSkills {
 
     // Once a second while the aura lasts, so players who come close get it too
     private static void auraPulse(ServerLevel level, ServerPlayer player) {
-        for (ServerPlayer ally : allies(player, AURA_RADIUS)) {
+        boolean might = Progression.has(player, Upgrade.HOLY_AURA_MIGHT);
+        boolean martyr = Progression.has(player, Upgrade.MARTYR);
+        for (ServerPlayer ally : allies(player, auraRadius(player))) {
             ally.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 30, 0, true, true));
-            ally.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 30, 0, true, true));
+            // Martyr heals the others faster
+            ally.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 30, martyr && ally != player ? 1 : 0, true, true));
+            if (might) {
+                ally.getPersistentData().putLong(MIGHT_UNTIL_TAG, level.getGameTime() + 30);
+            }
         }
         if (LegendaryPower.has(player, LegendaryPower.RADIANT_AURA)) {
             float damage = damage(player, 0.5, Upgrade.HOLY_AURA);
-            for (LivingEntity target : ClassSkills.enemies(level, player.position(), AURA_RADIUS)) {
+            for (LivingEntity target : ClassSkills.enemies(level, player.position(), auraRadius(player))) {
                 hit(player, target, damage);
                 level.sendParticles(ParticleTypes.WAX_ON, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 4, 0.3, 0.4, 0.3, 0);
             }
@@ -326,7 +376,7 @@ final class PaladinSkills {
             level.sendParticles(SkillVisuals.GOLD, player.getX() + Math.cos(a) * 1.0, player.getY() + 0.15, player.getZ() + Math.sin(a) * 1.0, 1, 0, 0, 0, 0);
         }
         if (now % 20 == 0) {
-            SkillVisuals.ring(level, player.position(), 0.15, AURA_RADIUS, 32, ParticleTypes.WAX_ON);
+            SkillVisuals.ring(level, player.position(), 0.15, auraRadius(player), 32, ParticleTypes.WAX_ON);
         }
     }
 
@@ -335,20 +385,23 @@ final class PaladinSkills {
         ServerLevel level = player.serverLevel();
         // Each Holy Light rank heals 2% more of your max health, and each Devotion rank 5% more on top
         float share = (float) (LIGHT_HEAL + 0.02 * Upgrade.utility(Progression.rank(player, Upgrade.HOLY_LIGHT))) * devotion(player);
-        for (ServerPlayer ally : allies(player, LIGHT_HEAL_RADIUS)) {
-            ally.heal(ally.getMaxHealth() * share);
+        // Inner Light heals only you, twice as much. Martyr heals the others more
+        boolean inner = Progression.has(player, Upgrade.HOLY_LIGHT_INNER);
+        boolean martyr = Progression.has(player, Upgrade.MARTYR);
+        for (ServerPlayer ally : inner ? List.of(player) : allies(player, LIGHT_HEAL_RADIUS)) {
+            ally.heal(ally.getMaxHealth() * share * (inner ? 2 : 1) * (martyr && ally != player ? MARTYR_HEAL : 1));
             level.sendParticles(ParticleTypes.HEART, ally.getX(), ally.getY() + 2, ally.getZ(), 3, 0.3, 0.2, 0.3, 0);
             SkillVisuals.spiral(level, ally.position(), 0.7, 2.2, 1.5, 18, SkillVisuals.GOLD);
         }
         float damage = damage(player, 1.2, Upgrade.HOLY_LIGHT);
-        for (LivingEntity target : ClassSkills.enemies(level, player.position(), LIGHT_HIT_RADIUS)) {
+        for (LivingEntity target : ClassSkills.enemies(level, player.position(), lightHitRadius(player))) {
             hit(player, target, target.isInvertedHealAndHarm() ? damage * 2 : damage);
             level.sendParticles(ParticleTypes.END_ROD, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 6, 0.3, 0.4, 0.3, 0.05);
         }
         // A wide pillar of light coming down on you and a flash going out
-        pillar(level, player.position(), 2.4f, 14, (float) LIGHT_HIT_RADIUS);
+        pillar(level, player.position(), 2.4f, 14, (float) lightHitRadius(player));
         SkillVisuals.burst(level, player.position(), 1.0, 24, 0.25, ParticleTypes.END_ROD);
-        SkillVisuals.shockwave(level, player.position(), 0.2, LIGHT_HIT_RADIUS, 2, SkillVisuals.GOLD);
+        SkillVisuals.shockwave(level, player.position(), 0.2, lightHitRadius(player), 2, SkillVisuals.GOLD);
         level.playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.4f);
         level.playSound(null, player.blockPosition(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8f, 1.6f);
         return true;
@@ -359,7 +412,7 @@ final class PaladinSkills {
         ServerLevel level = player.serverLevel();
         // Each Consecration rank adds 20% damage and a fifth of a block
         int rank = Progression.rank(player, Upgrade.CONSECRATION);
-        double radius = CONSECRATION_RADIUS + 0.2 * Upgrade.utility(rank);
+        double radius = (CONSECRATION_RADIUS + 0.2 * Upgrade.utility(rank)) * (Progression.has(player, Upgrade.CONSECRATION_BIG) ? WIDER : 1);
         add(player, new Effect(Kind.CONSECRATION, player.position(), damage(player, 0.5, Upgrade.CONSECRATION), radius, CONSECRATION_PULSES,
                 level.getGameTime()));
         SkillVisuals.shockwave(level, player.position(), 0.1, radius, 3, SkillVisuals.GOLD);
@@ -383,7 +436,8 @@ final class PaladinSkills {
             level.sendParticles(ParticleTypes.WAX_ON, target.getX(), target.getY() + 0.3, target.getZ(), 3, 0.3, 0.2, 0.3, 0);
         }
         if (player.position().distanceTo(effect.center) <= radius + 0.5) {
-            player.heal(player.getMaxHealth() * CONSECRATION_HEAL * devotion(player));
+            // Healing Ground heals twice as much
+            player.heal(player.getMaxHealth() * CONSECRATION_HEAL * devotion(player) * (Progression.has(player, Upgrade.CONSECRATION_HEALING) ? 2 : 1));
         }
         // The edge, a glow over the ground and specks of light rising from it
         SkillVisuals.ring(level, effect.center, 0.1, radius, 28, SkillVisuals.GOLD);
@@ -427,6 +481,10 @@ final class PaladinSkills {
                 if (effect.hit.add(target.getId())) {
                     hit(player, target, effect.damage);
                     target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 4));
+                    // Holy Fire
+                    if (Progression.has(player, Upgrade.SPEAR_FIRE)) {
+                        target.igniteForSeconds(4);
+                    }
                     level.sendParticles(ParticleTypes.FLASH, target.getX(), target.getY() + 1, target.getZ(), 1, 0, 0, 0, 0);
                     level.sendParticles(ParticleTypes.END_ROD, target.getX(), target.getY() + 1, target.getZ(), 8, 0.2, 0.3, 0.2, 0.1);
                     level.playSound(null, target.blockPosition(), SoundEvents.TRIDENT_HIT, SoundSource.PLAYERS, 0.7f, 1.5f);
@@ -444,6 +502,14 @@ final class PaladinSkills {
             Vec3 end = effect.center.add(effect.way.scale(effect.extra));
             if (effect.display != null) {
                 effect.display.discard();
+            }
+            // Holy Blast: it explodes where it stops
+            if (Progression.has(player, Upgrade.SPEAR_BLAST)) {
+                for (LivingEntity target : ClassSkills.enemies(level, end, HOLY_BLAST_RADIUS)) {
+                    hit(player, target, effect.damage);
+                }
+                SkillVisuals.shockwave(level, end, 0, HOLY_BLAST_RADIUS, 2, SkillVisuals.GOLD);
+                level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
             }
             SkillVisuals.burst(level, end.subtract(0, 0.5, 0), 0.5, 14, 0.15, ParticleTypes.END_ROD);
             level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
@@ -475,7 +541,13 @@ final class PaladinSkills {
         RandomSource random = player.getRandom();
         List<LivingEntity> around = ClassSkills.enemies(level, player.position(), JUDGEMENT_RADIUS);
         Vec3 spot;
-        if (!around.isEmpty()) {
+        // Focused Judgement: every pillar on the same enemy, for as long as it is alive and in reach
+        if (Progression.has(player, Upgrade.HEAVENS_FOCUS) && !around.isEmpty()) {
+            if (effect.focus == null || !effect.focus.isAlive() || !around.contains(effect.focus)) {
+                effect.focus = around.get(random.nextInt(around.size()));
+            }
+            spot = effect.focus.position();
+        } else if (!around.isEmpty()) {
             spot = around.get(random.nextInt(around.size())).position();
         } else {
             double angle = random.nextDouble() * Math.PI * 2;
@@ -483,8 +555,13 @@ final class PaladinSkills {
             spot = player.position().add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
         }
         pillar(level, spot);
-        for (LivingEntity target : ClassSkills.enemies(level, spot, PILLAR_RADIUS)) {
+        List<LivingEntity> struck = ClassSkills.enemies(level, spot, PILLAR_RADIUS);
+        for (LivingEntity target : struck) {
             hit(player, target, effect.damage);
+        }
+        // Pillars of Light: a pillar that hits something heals you
+        if (!struck.isEmpty() && Progression.has(player, Upgrade.HEAVENS_LIGHT)) {
+            player.heal(player.getMaxHealth() * PILLAR_HEAL);
         }
     }
 
@@ -570,6 +647,27 @@ final class PaladinSkills {
         if (event.getEntity() instanceof ServerPlayer player && Progression.playerClass(player) == PlayerClass.PALADIN
                 && !ClassSkills.enemies(player.serverLevel(), player.position(), GUARD_RANGE).isEmpty()) {
             event.setNewDamage(event.getNewDamage() * (1 - GUARD));
+        }
+        if (event.getEntity() instanceof ServerPlayer player) {
+            // Martyr takes more, Unbreakable takes less when low
+            if (Progression.has(player, Upgrade.MARTYR)) {
+                event.setNewDamage(event.getNewDamage() * (1 + MARTYR_TAKEN));
+            }
+            if (Progression.has(player, Upgrade.UNBREAKABLE) && player.getHealth() < player.getMaxHealth() * UNBREAKABLE_BELOW) {
+                event.setNewDamage(event.getNewDamage() * (1 - UNBREAKABLE));
+            }
+        }
+        // Aura of Might: players in the aura hit harder
+        if (event.getSource().getEntity() instanceof ServerPlayer attacker && event.getEntity() != attacker
+                && attacker.getPersistentData().getLong(MIGHT_UNTIL_TAG) > attacker.serverLevel().getGameTime()) {
+            event.setNewDamage(event.getNewDamage() * (1 + MIGHT));
+        }
+    }
+
+    // Holy Wrath: every kind of healing is half as strong
+    static void onHeal(LivingHealEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player && Progression.has(player, Upgrade.HOLY_WRATH)) {
+            event.setAmount(event.getAmount() * WRATH_HEAL);
         }
     }
 

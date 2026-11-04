@@ -11,6 +11,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.loot.ItemKind;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.mixin.ArrowAccessor;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
@@ -62,6 +63,14 @@ final class ClassSkills {
     private static final double ARROW_RAIN_DAMAGE = 6.2;
     private static final int ARROW_RAIN_WAVES = 3;
     private static final int ARROW_RAIN_WAVE_TIME = 10;
+    // The ranger's variants here: how long Poison Arrows and Poison Cloud poison, how much harder Focused Rain hits, and
+    // how strong Alpha and Big Pack's wolves are
+    private static final int POISON_ARROW_TIME = 3 * 20;
+    private static final int POISON_CLOUD_TIME = 4 * 20;
+    private static final float FOCUSED_RAIN = 1.5f;
+    static final double ALPHA_STRENGTH = 3.0;
+    private static final double BIG_PACK_STRENGTH = 0.75;
+    static final int BIG_PACK_EXTRA = 2;
     // Looking at the ground this close to an enemy still puts the rain on the enemy
     private static final double ARROW_RAIN_SNAP = 5.0;
     private static final int SMOKE_BOMB_DURATION = 4 * 20;
@@ -152,7 +161,9 @@ final class ClassSkills {
         ServerLevel level = player.serverLevel();
         // Each Leap upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.LEAP);
-        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.5 * upgrade);
+        // Heavy Landing hits 50% harder
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.5 * upgrade
+                * (Progression.has(player, Upgrade.LEAP_HEAVY) ? 1.5 : 1));
         boolean earthbreaker = LegendaryPower.has(player, LegendaryPower.EARTHBREAKER);
         for (LivingEntity target : enemies(level, player.position(), LEAP_RADIUS)) {
             target.hurt(player.damageSources().playerAttack(player), damage);
@@ -193,7 +204,8 @@ final class ClassSkills {
         // Haste makes attacks faster, 10% per level
         player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, duration, 2));
         player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, duration, 0));
-        player.heal(player.getMaxHealth() * 0.15f);
+        // Blood Rush heals three times as much
+        player.heal(player.getMaxHealth() * 0.15f * (Progression.has(player, Upgrade.FRENZY_BLOOD_RUSH) ? 3 : 1));
         ServerLevel level = player.serverLevel();
         level.sendParticles(ParticleTypes.ANGRY_VILLAGER, player.getX(), player.getY() + 1, player.getZ(), 8, 0.5, 0.6, 0.5, 0);
         // Red rage winding up around you, sparks flying off and a few hearts for the healing
@@ -265,10 +277,19 @@ final class ClassSkills {
         boolean storm = LegendaryPower.has(player, LegendaryPower.ARROW_STORM);
         int side = storm ? 4 : 2;
         float spread = storm ? 6 : 8;
+        boolean pierce = Progression.has(player, Upgrade.MULTISHOT_PIERCE);
+        boolean poison = Progression.has(player, Upgrade.MULTISHOT_POISON);
         for (int i = -side; i <= side; i++) {
             Arrow arrow = arrow(level, player, damage);
             // So all of them can hit a monster up close, see TreeSkills.onProjectileImpact
             arrow.getPersistentData().putBoolean(MULTISHOT_TAG, true);
+            // Pierce goes through two monsters, Poison Arrows poison them
+            if (pierce) {
+                ((ArrowAccessor) arrow).morkeriget$setPierceLevel((byte) 2);
+            }
+            if (poison) {
+                arrow.addEffect(new MobEffectInstance(MobEffects.POISON, POISON_ARROW_TIME, 0));
+            }
             arrow.shootFromRotation(player, player.getXRot(), player.getYRot() + i * spread, 0, 3.0f, 1.0f);
             level.addFreshEntity(arrow);
             // A streak flying off the bow along each arrow, so the fan can be seen
@@ -293,6 +314,11 @@ final class ClassSkills {
         int rank = Progression.rank(player, Upgrade.ARROW_RAIN);
         double radius = ARROW_RAIN_RADIUS + 0.2 * Upgrade.utility(rank);
         float damage = (float) (ARROW_RAIN_DAMAGE * bowScale(player) * (1 + 0.15 * rank));
+        // Focused Rain: half the area, half again the damage
+        if (Progression.has(player, Upgrade.ARROW_RAIN_FOCUS)) {
+            radius *= 0.5;
+            damage *= FOCUSED_RAIN;
+        }
         int waves = LegendaryPower.has(player, LegendaryPower.ENDLESS_RAIN) ? ARROW_RAIN_WAVES * 2 : ARROW_RAIN_WAVES;
         RAINS.put(player.getUUID(), new Rain(center, radius, damage, waves, level.getGameTime() + ARROW_RAIN_WAVE_TIME));
         circle(level, center, radius);
@@ -345,6 +371,10 @@ final class ClassSkills {
             // Each wave is its own hit, even if the monster was just hit
             target.invulnerableTime = 0;
             target.hurt(player.damageSources().playerAttack(player), rain.damage);
+            // Ice Rain slows them down
+            if (Progression.has(player, Upgrade.ARROW_RAIN_ICE)) {
+                target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, ARROW_RAIN_WAVE_TIME + 20, 2));
+            }
         }
         level.playSound(null, rain.center.x, rain.center.y, rain.center.z, SoundEvents.ARROW_HIT, SoundSource.PLAYERS, 1.0f, 0.8f);
     }
@@ -383,7 +413,11 @@ final class ClassSkills {
                 mob.setTarget(null);
             }
             target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 3 * 20, 0));
-            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 3 * 20, 1));
+            // Blinding Smoke makes them very slow, Poison Cloud poisons them
+            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 3 * 20, Progression.has(player, Upgrade.SMOKE_BOMB_BLIND) ? 4 : 1));
+            if (Progression.has(player, Upgrade.SMOKE_BOMB_POISON)) {
+                target.addEffect(new MobEffectInstance(MobEffects.POISON, POISON_CLOUD_TIME, 1));
+            }
             level.sendParticles(ParticleTypes.SQUID_INK, target.getX(), target.getY() + target.getBbHeight(), target.getZ(),
                     4, 0.2, 0.1, 0.2, 0.02);
         }
@@ -413,12 +447,17 @@ final class ClassSkills {
         }
         // Each Wolves upgrade rank makes them 15% stronger, and every third rank adds a wolf. Pack Leader adds 10% a rank
         int rank = Progression.rank(player, Upgrade.WOLVES);
+        // Alpha: a single wolf, three times as strong. Big Pack: two more, a quarter weaker
+        boolean alpha = Progression.has(player, Upgrade.WOLVES_ALPHA);
+        boolean pack = Progression.has(player, Upgrade.WOLVES_PACK);
+        double scale = alpha ? ALPHA_STRENGTH : pack ? BIG_PACK_STRENGTH : 1;
         double strength = (1 + 0.025 * (Progression.level(player) - 1)) * (1 + 0.15 * rank)
-                * (1 + 0.1 * Progression.rank(player, Upgrade.PACK_LEADER)) - 1;
+                * (1 + 0.1 * Progression.rank(player, Upgrade.PACK_LEADER)) * scale - 1;
+        int count = alpha ? 1 : 2 + Upgrade.utility(rank) / 3 + (pack ? BIG_PACK_EXTRA : 0);
         LivingEntity nearest = enemies(level, player.position(), 16).stream()
                 .min((a, b) -> Double.compare(a.distanceToSqr(player), b.distanceToSqr(player))).orElse(null);
         RandomSource random = player.getRandom();
-        for (int i = 0; i < 2 + Upgrade.utility(rank) / 3; i++) {
+        for (int i = 0; i < count; i++) {
             Wolf wolf = EntityType.WOLF.create(level);
             if (wolf == null) {
                 continue;
@@ -501,7 +540,7 @@ final class ClassSkills {
     }
 
     private static void boost(AttributeInstance attribute, double amount) {
-        if (attribute != null && amount > 0) {
+        if (attribute != null && amount != 0) {
             attribute.addPermanentModifier(new AttributeModifier(WOLF_BOOST, amount, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
         }
     }

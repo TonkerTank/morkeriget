@@ -147,4 +147,55 @@ public final class PaladinTests {
                 .thenIdle(DISPLAYS_GONE)
                 .thenSucceed();
     }
+
+    // Holy Wrath: every heal is half as strong
+    @GameTest(template = "empty")
+    public static void holyWrathHalvesHealing(GameTestHelper helper) {
+        ServerPlayer player = paladin(helper, Map.of(Upgrade.HOLY_WRATH, 1));
+        player.setHealth(4);
+        player.heal(4);
+        helper.assertTrue(Math.abs(player.getHealth() - 6) < 0.01, "Hellig vrede helede op til " + player.getHealth() + ", ikke 6");
+        TestPlayers.remove(player);
+        helper.succeed();
+    }
+
+    // Unbreakable: 40% less damage below 30% health, and the normal damage above. No enemy close by, so the class
+    // bonus doesn't count
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void unbreakableWhenLow(GameTestHelper helper) {
+        ServerPlayer player = paladin(helper, Map.of(Upgrade.UNBREAKABLE, 1));
+        helper.startSequence()
+                .thenIdle(SPAWN_PROTECTION)
+                .thenExecute(() -> {
+                    player.setHealth(player.getMaxHealth());
+                    player.hurt(player.damageSources().generic(), 2);
+                    float high = player.getMaxHealth() - player.getHealth();
+                    player.setHealth(player.getMaxHealth() * 0.25f);
+                    float before = player.getHealth();
+                    player.invulnerableTime = 0;
+                    player.hurt(player.damageSources().generic(), 2);
+                    float low = before - player.getHealth();
+                    helper.assertTrue(Math.abs(high - 2) < 0.01 && Math.abs(low - 1.2f) < 0.01,
+                            "Uovervindelig tog " + high + " skade ved fuldt liv og " + low + " ved lavt, ikke 2 og 1,2");
+                    TestPlayers.remove(player);
+                })
+                .thenSucceed();
+    }
+
+    // Inner Light heals only the paladin, not the player next to them
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void innerLightHealsOnlyYou(GameTestHelper helper) {
+        ServerPlayer player = paladin(helper, Map.of(Upgrade.HOLY_LIGHT, 5, Upgrade.HOLY_LIGHT_INNER, 1));
+        ServerPlayer friend = TestPlayers.survivor(helper, new BlockPos(4, 2, 2));
+        player.setHealth(4);
+        friend.setHealth(4);
+        Skills.use(player, Skill.HOLY_LIGHT);
+        helper.assertTrue(player.getHealth() > 8, "Indre lys helede ikke paladinen: " + player.getHealth());
+        helper.assertTrue(friend.getHealth() == 4, "Indre lys helede spilleren ved siden af: " + friend.getHealth());
+        TestPlayers.remove(friend);
+        TestPlayers.remove(player);
+        helper.startSequence()
+                .thenIdle(DISPLAYS_GONE)
+                .thenSucceed();
+    }
 }

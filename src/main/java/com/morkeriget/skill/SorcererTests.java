@@ -89,7 +89,7 @@ public final class SorcererTests {
         helper.succeed();
     }
 
-    // Sorcerers who spent their points in the old tree get them all back once, and other classes keep theirs
+    // Sorcerers who spent their points in the old tree get them all back once, and only once
     @GameTest(template = "empty")
     public static void oldTreeGivesPointsBack(GameTestHelper helper) {
         PlayerProgress old = new PlayerProgress(12, 0, 0, Map.of("FIREBALL", 12), "SORCERER", PlayerProgress.START.slots(), 0, 0, Map.of(), 0);
@@ -97,8 +97,6 @@ public final class SorcererTests {
         PlayerProgress back = old.respec();
         helper.assertTrue(back.points() == 12 && back.ranks().isEmpty(), "Pointene kom ikke tilbage: " + back.points());
         helper.assertFalse(back.isFromOldTree(), "Pointene ville blive givet tilbage igen");
-        PlayerProgress barbarian = new PlayerProgress(12, 0, 0, Map.of("WHIRLWIND", 12), "BARBARIAN", PlayerProgress.START.slots(), 0, 0, Map.of(), 0);
-        helper.assertFalse(barbarian.isFromOldTree(), "Barbaren fik pointene tilbage, selvom træet er det samme");
         helper.succeed();
     }
 

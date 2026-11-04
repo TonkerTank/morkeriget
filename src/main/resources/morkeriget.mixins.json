@@ -4,6 +4,7 @@
   "package": "com.morkeriget.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "ArrowAccessor",
     "BlockDisplayAccessor",
     "DisplayAccessor",
     "GameTestServerMixin",
