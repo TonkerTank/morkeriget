@@ -70,6 +70,10 @@ public final class Mana {
         if (Progression.playerClass(player) == PlayerClass.SORCERER) {
             regen *= 1.4f;
         }
+        // The Arcane Abundance keystone doubles it, for longer cooldowns
+        if (Progression.has(player, Upgrade.ARCANE_ABUNDANCE)) {
+            regen *= 2;
+        }
         // Sapphires in worn items, and the staff in your hand
         return regen * (1 + (PlayerHits.total(items, Gems.MANA_REGEN_TAG) + PlayerHits.total(items, Loot.STAFF_MANA_TAG)) / 100f);
     }

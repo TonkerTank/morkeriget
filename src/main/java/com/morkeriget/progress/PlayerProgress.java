@@ -12,15 +12,17 @@ import com.morkeriget.skill.Skill;
 
 // A player's level, XP towards the next level, unspent skill points, the rank of each upgrade, their class
 // ("" until they pick one) and the skill on each of the keys 1-4 ("" for an empty key). After level 100 the XP counts
-// towards the next paragon level instead, and paragon points are spent on Paragon stats. Saved on the player and kept
-// when they die
+// towards the next paragon level instead, and paragon points are spent on Paragon stats. treeVersion is the
+// PlayerClass.treeVersion the points were spent in, so they can be given back when the class's tree is reworked.
+// Saved on the player and kept when they die
 public record PlayerProgress(int level, int xp, int points, Map<String, Integer> ranks, String playerClass, List<String> slots,
-                             int paragonLevel, int paragonPoints, Map<String, Integer> paragon) {
+                             int paragonLevel, int paragonPoints, Map<String, Integer> paragon, int treeVersion) {
     private static final List<String> NO_SLOTS = Collections.nCopies(SkillTree.SLOTS, "");
-    public static final PlayerProgress START = new PlayerProgress(1, 0, 1, Map.of(), "", NO_SLOTS, 0, 0, Map.of());
+    public static final PlayerProgress START = new PlayerProgress(1, 0, 1, Map.of(), "", NO_SLOTS, 0, 0, Map.of(), 0);
 
     // Players saved before classes existed have no class field, and get "" so they pick one.
-    // Players saved before the skill tree have no slots, see isFromBeforeSkillTree. Before paragon there was no paragon
+    // Players saved before the skill tree have no slots, see isFromBeforeSkillTree. Before paragon there was no paragon,
+    // and before the reworked trees no tree version
     public static final Codec<PlayerProgress> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.INT.fieldOf("level").forGetter(PlayerProgress::level),
             Codec.INT.fieldOf("xp").forGetter(PlayerProgress::xp),
@@ -30,7 +32,8 @@ public record PlayerProgress(int level, int xp, int points, Map<String, Integer>
             Codec.STRING.listOf().optionalFieldOf("slots", List.of()).forGetter(PlayerProgress::slots),
             Codec.INT.optionalFieldOf("paragon_level", 0).forGetter(PlayerProgress::paragonLevel),
             Codec.INT.optionalFieldOf("paragon_points", 0).forGetter(PlayerProgress::paragonPoints),
-            Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("paragon", Map.of()).forGetter(PlayerProgress::paragon)
+            Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("paragon", Map.of()).forGetter(PlayerProgress::paragon),
+            Codec.INT.optionalFieldOf("tree_version", 0).forGetter(PlayerProgress::treeVersion)
     ).apply(instance, PlayerProgress::new));
 
     // XP needed to go from this level to the next. Level 1 needs 70, level 2 needs 100, and so on
@@ -62,16 +65,29 @@ public record PlayerProgress(int level, int xp, int points, Map<String, Integer>
         return slots.size() != SkillTree.SLOTS;
     }
 
-    // Spends one skill point on the upgrade. A skill that was just unlocked goes on the first free key
+    // Whether the class's tree has been reworked since the points were spent, so they are given back, see Progression.onLogin
+    public boolean isFromOldTree() {
+        PlayerClass chosen = PlayerClass.byName(playerClass);
+        return chosen != null && treeVersion < chosen.treeVersion;
+    }
+
+    // Spends one skill point on the upgrade. A skill that was just unlocked goes on the first free key. Picking another
+    // variant or keystone moves the point from the one picked before, so it costs nothing
     public PlayerProgress withUpgrade(Upgrade upgrade) {
         Map<String, Integer> newRanks = new HashMap<>(ranks);
         newRanks.put(upgrade.name(), rank(upgrade) + 1);
+        int cost = 1;
+        Upgrade before = SkillTree.picked(upgrade, this::rank);
+        if (before != null) {
+            newRanks.remove(before.name());
+            cost = 0;
+        }
         List<String> newSlots = new ArrayList<>(slots);
         if (upgrade.skill != null && rank(upgrade) == 0 && !newSlots.contains(upgrade.skill.name()) && newSlots.contains("")) {
             newSlots.set(newSlots.indexOf(""), upgrade.skill.name());
         }
-        return new PlayerProgress(level, xp, points - 1, Map.copyOf(newRanks), playerClass, List.copyOf(newSlots),
-                paragonLevel, paragonPoints, paragon);
+        return new PlayerProgress(level, xp, points - cost, Map.copyOf(newRanks), playerClass, List.copyOf(newSlots),
+                paragonLevel, paragonPoints, paragon, treeVersion);
     }
 
     // Puts the skill on the key. If it was on another key already, the two keys swap
@@ -82,33 +98,37 @@ public record PlayerProgress(int level, int xp, int points, Map<String, Integer>
             newSlots.set(before, newSlots.get(index));
         }
         newSlots.set(index, skill.name());
-        return new PlayerProgress(level, xp, points, ranks, playerClass, List.copyOf(newSlots), paragonLevel, paragonPoints, paragon);
+        return new PlayerProgress(level, xp, points, ranks, playerClass, List.copyOf(newSlots), paragonLevel, paragonPoints, paragon, treeVersion);
     }
 
     // Picks a class (or the same one again) and gives back every skill point, so they can be spent again.
     // Paragon points stay where they are, they aren't tied to a class
     public PlayerProgress withClass(PlayerClass newClass) {
-        return new PlayerProgress(level, xp, pointsForLevel(level), Map.of(), newClass.name(), NO_SLOTS, paragonLevel, paragonPoints, paragon);
+        return new PlayerProgress(level, xp, pointsForLevel(level), Map.of(), newClass.name(), NO_SLOTS, paragonLevel, paragonPoints, paragon,
+                newClass.treeVersion);
     }
 
     // Every skill point back and empty keys, but the same class
     public PlayerProgress respec() {
-        return new PlayerProgress(level, xp, pointsForLevel(level), Map.of(), playerClass, NO_SLOTS, paragonLevel, paragonPoints, paragon);
+        PlayerClass chosen = PlayerClass.byName(playerClass);
+        return new PlayerProgress(level, xp, pointsForLevel(level), Map.of(), playerClass, NO_SLOTS, paragonLevel, paragonPoints, paragon,
+                chosen != null ? chosen.treeVersion : 0);
     }
 
     public PlayerProgress withLevel(int newLevel, int newXp, int newPoints) {
-        return new PlayerProgress(newLevel, newXp, newPoints, ranks, playerClass, slots, paragonLevel, paragonPoints, paragon);
+        return new PlayerProgress(newLevel, newXp, newPoints, ranks, playerClass, slots, paragonLevel, paragonPoints, paragon, treeVersion);
     }
 
     public PlayerProgress withParagonLevel(int newParagonLevel, int newXp, int newParagonPoints) {
-        return new PlayerProgress(level, newXp, points, ranks, playerClass, slots, newParagonLevel, newParagonPoints, paragon);
+        return new PlayerProgress(level, newXp, points, ranks, playerClass, slots, newParagonLevel, newParagonPoints, paragon, treeVersion);
     }
 
     // Spends amount paragon points on the stat
     public PlayerProgress withParagon(Paragon stat, int amount) {
         Map<String, Integer> newParagon = new HashMap<>(paragon);
         newParagon.put(stat.name(), rank(stat) + amount);
-        return new PlayerProgress(level, xp, points, ranks, playerClass, slots, paragonLevel, paragonPoints - amount, Map.copyOf(newParagon));
+        return new PlayerProgress(level, xp, points, ranks, playerClass, slots, paragonLevel, paragonPoints - amount, Map.copyOf(newParagon),
+                treeVersion);
     }
 
     private static Skill skillByName(String name) {

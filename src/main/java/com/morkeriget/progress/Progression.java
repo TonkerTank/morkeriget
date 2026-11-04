@@ -54,6 +54,10 @@ public final class Progression {
     private static final ResourceLocation AGILE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_agile");
     private static final ResourceLocation GLASS_CANNON_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_glass_cannon");
     private static final ResourceLocation ZEAL_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "passive_zeal");
+    private static final ResourceLocation UNSTABLE_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "keystone_unstable_damage");
+    private static final ResourceLocation UNSTABLE_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "keystone_unstable_health");
+    public static final double UNSTABLE_DAMAGE = 0.4;
+    public static final double UNSTABLE_HEALTH = 0.3;
     private static final ResourceLocation PARAGON_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_damage");
     private static final ResourceLocation PARAGON_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_health");
     private static final ResourceLocation PARAGON_SPEED_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_speed");
@@ -140,6 +144,11 @@ public final class Progression {
 
     public static int rank(ServerPlayer player, Upgrade upgrade) {
         return player.getData(PROGRESS).rank(upgrade);
+    }
+
+    // Whether the player has picked the variant or keystone (or has a point in anything else)
+    public static boolean has(ServerPlayer player, Upgrade upgrade) {
+        return rank(player, upgrade) > 0;
     }
 
     // null until the player has picked a class
@@ -259,7 +268,7 @@ public final class Progression {
         }
         PlayerProgress progress = player.getData(PROGRESS);
         PlayerClass playerClass = playerClass(player);
-        if (progress.points() <= 0 || playerClass == null || !SkillTree.canRaise(playerClass, payload.upgrade(), progress::rank)) {
+        if (playerClass == null || !SkillTree.canRaise(playerClass, payload.upgrade(), progress.points(), progress::rank)) {
             return;
         }
         player.setData(PROGRESS, progress.withUpgrade(payload.upgrade()));
@@ -325,7 +334,8 @@ public final class Progression {
         Map<String, Integer> named = new HashMap<>();
         ranks.forEach((upgrade, rank) -> named.put(upgrade.name(), rank));
         PlayerProgress start = PlayerProgress.START;
-        player.setData(PROGRESS, new PlayerProgress(level, 0, 0, Map.copyOf(named), playerClass.name(), start.slots(), paragonLevel, 0, Map.of()));
+        player.setData(PROGRESS, new PlayerProgress(level, 0, 0, Map.copyOf(named), playerClass.name(), start.slots(), paragonLevel, 0, Map.of(),
+                playerClass.treeVersion));
         applyPassives(player);
         sync(player);
     }
@@ -342,6 +352,9 @@ public final class Progression {
                     playerClass == PlayerClass.BARBARIAN ? 0.2 : 0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             health.addOrUpdateTransientModifier(new AttributeModifier(PARAGON_HEALTH_ID,
                     rank(player, Paragon.HEALTH) * 0.01, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            // The Unstable Magic keystone takes 30% of it
+            health.addOrUpdateTransientModifier(new AttributeModifier(UNSTABLE_HEALTH_ID,
+                    rank(player, Upgrade.UNSTABLE_MAGIC) * -UNSTABLE_HEALTH, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             if (player.getHealth() > player.getMaxHealth()) {
                 player.setHealth(player.getMaxHealth());
             }
@@ -364,6 +377,9 @@ public final class Progression {
                     rank(player, Upgrade.GLASS_CANNON) * 0.06, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
             damage.addOrUpdateTransientModifier(new AttributeModifier(PARAGON_DAMAGE_ID,
                     rank(player, Paragon.DAMAGE) * 0.01, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            // Every skill's damage comes from this, so Unstable Magic's 40% goes on all of them
+            damage.addOrUpdateTransientModifier(new AttributeModifier(UNSTABLE_DAMAGE_ID,
+                    rank(player, Upgrade.UNSTABLE_MAGIC) * UNSTABLE_DAMAGE, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
         // Each Zeal rank makes you swing 4% faster
         AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);
@@ -381,6 +397,12 @@ public final class Progression {
                     player.sendSystemMessage(Text.tr("progress.skill_tree_new").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                             .append(Text.tr("progress.points_back_press_k").withStyle(ChatFormatting.YELLOW)));
                 }
+            } else if (player.getData(PROGRESS).isFromOldTree()) {
+                // The class's tree has been reworked since the points were spent
+                player.setData(PROGRESS, player.getData(PROGRESS).respec());
+                player.sendSystemMessage(Text.tr("progress.skill_tree_reworked", playerClass(player).displayName())
+                        .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+                        .append(Text.tr("progress.points_back_press_k").withStyle(ChatFormatting.YELLOW)));
             }
             applyPassives(player);
             restoreHealth(player);

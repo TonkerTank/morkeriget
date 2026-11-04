@@ -237,10 +237,12 @@ final class ClassSkills {
         // Each Fireball upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.FIREBALL);
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.0 * upgrade);
-        for (LivingEntity target : enemies(level, impact, FIREBALL_RADIUS)) {
+        List<LivingEntity> hit = enemies(level, impact, FIREBALL_RADIUS);
+        for (LivingEntity target : hit) {
             target.hurt(player.damageSources().playerAttack(player), damage);
             target.igniteForSeconds(4);
         }
+        SorcererSkills.afterFireball(player, impact, hit, damage);
         level.sendParticles(ParticleTypes.EXPLOSION, impact.x, impact.y, impact.z, 3, 0.5, 0.5, 0.5, 0);
         level.sendParticles(ParticleTypes.FLAME, impact.x, impact.y, impact.z, 40, 0.8, 0.8, 0.8, 0.1);
         // A ring of fire rolling out, lava drops, smoke and a burning edge where it reaches

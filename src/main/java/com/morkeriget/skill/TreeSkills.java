@@ -79,8 +79,22 @@ final class TreeSkills {
 
     // Something a skill left behind that happens later: earthquake pulses, a falling meteor, a trap waiting for a monster
     private enum Kind {
-        EARTHQUAKE, METEOR, BEAR_TRAP, THUNDERSTORM, DOOM_SLAM_FALL, DOOM_SLAM_WAVE, ARROW_HURRICANE, ARMY_OF_THE_DEAD
+        EARTHQUAKE, METEOR, BEAR_TRAP, THUNDERSTORM, DOOM_SLAM_FALL, DOOM_SLAM_WAVE, ARROW_HURRICANE, ARMY_OF_THE_DEAD, MOLTEN_GROUND
     }
+
+    // The sorcerer's variants of Meteor, Ice Armor and Thunderstorm.
+    // Impact: the monsters it hits are thrown up and held for a moment
+    private static final int IMPACT_HOLD = 2 * 20;
+    // Molten Ground: burning ground where it came down, hurting with this part of the meteor's damage every MOLTEN_TIME
+    static final float MOLTEN_DAMAGE = 0.15f;
+    static final int MOLTEN_PULSES = 8;
+    private static final int MOLTEN_TIME = 10;
+    // Icicles: whoever hits you through Ice Armor takes this times your attack damage
+    static final double ICICLES_DAMAGE = 0.8;
+    // Thick Ice: Absorption IV instead of II, so twice the hearts
+    private static final int THICK_ICE_LEVEL = 3;
+    // Chain Storm: each bolt jumps on to one more monster this close
+    private static final double CHAIN_STORM_RANGE = 5.0;
 
     // Doom Slam: you jump up, and when you land three shockwaves roll out, each further than the last
     private static final double DOOM_SLAM_JUMP = 0.9;
@@ -228,7 +242,7 @@ final class TreeSkills {
         ServerLevel level = player.serverLevel();
         // Each Ice Armor rank makes it last one second longer
         int duration = ICE_ARMOR_DURATION + 20 * Upgrade.utility(Progression.rank(player, Upgrade.ICE_ARMOR));
-        player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, 1));
+        player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, duration, Progression.has(player, Upgrade.ICE_ARMOR_THICK) ? THICK_ICE_LEVEL : 1));
         player.getPersistentData().putLong(ICE_ARMOR_UNTIL_TAG, level.getGameTime() + duration);
         level.sendParticles(ParticleTypes.SNOWFLAKE, player.getX(), player.getY() + 1, player.getZ(), 40, 0.5, 0.8, 0.5, 0.02);
         // Frost winding up around you, ice shards pulled in to make the armour, and a cold glint
@@ -268,6 +282,10 @@ final class TreeSkills {
         }
         attacker.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 2 * 20, 9));
         attacker.setTicksFrozen(attacker.getTicksRequiredToFreeze() + 2 * 20 * 2);
+        if (Progression.has(player, Upgrade.ICE_ARMOR_ICICLES)) {
+            attacker.hurt(player.damageSources().playerAttack(player), (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * ICICLES_DAMAGE));
+            player.serverLevel().sendParticles(ParticleTypes.END_ROD, attacker.getX(), attacker.getY() + 1, attacker.getZ(), 6, 0.3, 0.4, 0.3, 0.05);
+        }
         player.serverLevel().sendParticles(ParticleTypes.SNOWFLAKE, attacker.getX(), attacker.getY() + 1, attacker.getZ(), 10, 0.3, 0.5, 0.3, 0.02);
         player.serverLevel().sendParticles(ICE, attacker.getX(), attacker.getY() + attacker.getBbHeight() / 2, attacker.getZ(), 8, 0.3, 0.4, 0.3, 0);
         player.serverLevel().playSound(null, attacker.blockPosition(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 0.5f, 1.6f);
@@ -446,7 +464,8 @@ final class TreeSkills {
     // Dark clouds gather where you aim, and then lightning comes down on the monsters under them, one bolt at a time
     static boolean thunderstorm(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        Vec3 center = ClassSkills.arrowRainTarget(level, player);
+        // Roaming Storm gathers over you instead of where you aim
+        Vec3 center = Progression.has(player, Upgrade.THUNDERSTORM_ROAMING) ? player.position() : ClassSkills.arrowRainTarget(level, player);
         // Each Thunderstorm rank adds 20% damage, and every second rank a bolt
         int rank = Progression.rank(player, Upgrade.THUNDERSTORM);
         float damage = attackDamage(player, 1.6, Upgrade.THUNDERSTORM, 0.2);
@@ -476,13 +495,47 @@ final class TreeSkills {
             spot = effect.center.add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
         }
         bolt(level, spot);
-        for (LivingEntity target : ClassSkills.enemies(level, spot, STORM_BOLT_RADIUS)) {
-            target.invulnerableTime = 0;
-            target.hurt(player.damageSources().playerAttack(player), effect.damage);
-            // Stunned for a moment by the shock
-            target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 15, 4));
+        List<LivingEntity> struck = ClassSkills.enemies(level, spot, STORM_BOLT_RADIUS);
+        for (LivingEntity target : struck) {
+            shock(player, target, effect.damage);
+        }
+        // Chain Storm: the bolt jumps on to the closest monster it didn't hit
+        if (Progression.has(player, Upgrade.THUNDERSTORM_CHAIN)) {
+            LivingEntity closest = null;
+            for (LivingEntity entity : ClassSkills.enemies(level, spot, CHAIN_STORM_RANGE)) {
+                if (!struck.contains(entity) && (closest == null || entity.distanceToSqr(spot) < closest.distanceToSqr(spot))) {
+                    closest = entity;
+                }
+            }
+            if (closest != null) {
+                SkillVisuals.zigzag(level, spot.add(0, 0.5, 0), closest.position().add(0, closest.getBbHeight() / 2, 0),
+                        ParticleTypes.ELECTRIC_SPARK, SkillVisuals.SPARK);
+                shock(player, closest, effect.damage);
+            }
         }
         stormClouds(level, effect.center, 12);
+    }
+
+    private static void shock(ServerPlayer player, LivingEntity target, float damage) {
+        target.invulnerableTime = 0;
+        target.hurt(player.damageSources().playerAttack(player), damage);
+        // Stunned for a moment by the shock
+        target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 15, 4));
+    }
+
+    // Molten Ground: the burning ground hurts everything standing in it
+    private static void moltenPulse(ServerLevel level, ServerPlayer player, Effect effect) {
+        Vec3 center = effect.center;
+        for (LivingEntity target : ClassSkills.enemies(level, center, METEOR_RADIUS)) {
+            target.invulnerableTime = 0;
+            target.hurt(player.damageSources().playerAttack(player), effect.damage);
+        }
+        level.sendParticles(ParticleTypes.LAVA, center.x, center.y + 0.2, center.z, 4, METEOR_RADIUS / 2, 0.05, METEOR_RADIUS / 2, 0);
+        level.sendParticles(ParticleTypes.FLAME, center.x, center.y + 0.2, center.z, 20, METEOR_RADIUS / 2, 0.1, METEOR_RADIUS / 2, 0.01);
+        level.sendParticles(MAGMA, center.x, center.y + 0.1, center.z, 6, METEOR_RADIUS / 2, 0.05, METEOR_RADIUS / 2, 0);
+        if (effect.left % 2 == 0) {
+            level.playSound(null, center.x, center.y, center.z, SoundEvents.LAVA_AMBIENT, SoundSource.PLAYERS, 0.8f, 1.0f);
+        }
     }
 
     // The bolt coming down on the spot, with a flash, sparks, soul fire and a crack where it hits. Vanilla's lightning
@@ -748,10 +801,18 @@ final class TreeSkills {
                     }
                 }
                 case METEOR -> meteorImpact(level, player, effect);
+                case MOLTEN_GROUND -> {
+                    moltenPulse(level, player, effect);
+                    if (effect.left > 1) {
+                        next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + MOLTEN_TIME, 0));
+                    }
+                }
                 case THUNDERSTORM -> {
                     lightningStrike(level, player, effect);
                     if (effect.left > 1) {
-                        next.add(new Effect(effect.kind, effect.center, effect.damage, effect.left - 1, now + STORM_BOLT_TIME, 0));
+                        // Roaming Storm: the clouds follow you
+                        Vec3 center = Progression.has(player, Upgrade.THUNDERSTORM_ROAMING) ? player.position() : effect.center;
+                        next.add(new Effect(effect.kind, center, effect.damage, effect.left - 1, now + STORM_BOLT_TIME, 0));
                     }
                 }
                 case DOOM_SLAM_FALL -> {
@@ -832,10 +893,20 @@ final class TreeSkills {
             level.sendParticles(ParticleTypes.LARGE_SMOKE, point.x, point.y, point.z, 1, 0.2, 0.2, 0.2, 0);
             level.sendParticles(SkillVisuals.FIRE_FADE, point.x, point.y, point.z, 1, 0.25, 0.25, 0.25, 0);
         }
+        boolean impact = Progression.has(player, Upgrade.METEOR_IMPACT);
         for (LivingEntity target : ClassSkills.enemies(level, center, METEOR_RADIUS)) {
             target.invulnerableTime = 0;
             target.hurt(player.damageSources().playerAttack(player), effect.damage);
             target.igniteForSeconds(4);
+            if (impact) {
+                target.setDeltaMovement(target.getDeltaMovement().add(0, 0.7, 0));
+                target.hurtMarked = true;
+                hold(target, IMPACT_HOLD);
+            }
+        }
+        if (Progression.has(player, Upgrade.METEOR_MOLTEN_GROUND)) {
+            add(player, new Effect(Kind.MOLTEN_GROUND, center, effect.damage * MOLTEN_DAMAGE, MOLTEN_PULSES,
+                    level.getGameTime() + MOLTEN_TIME, 0));
         }
         level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, center.x, center.y + 0.5, center.z, 1, 0, 0, 0, 0);
         level.sendParticles(ParticleTypes.LAVA, center.x, center.y + 0.5, center.z, 30, 1.5, 0.5, 1.5, 0);

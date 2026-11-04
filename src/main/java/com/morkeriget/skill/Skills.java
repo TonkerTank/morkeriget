@@ -15,6 +15,7 @@ import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -51,6 +52,13 @@ public final class Skills {
     private static final double CHAIN_LIGHTNING_RANGE = 12.0;
     private static final double CHAIN_LIGHTNING_JUMP_RANGE = 6.0;
     private static final int CHAIN_LIGHTNING_JUMPS = 3;
+    // Overcharge: how much harder each jump hits than the one before
+    static final float CHAIN_OVERCHARGE = 0.15f;
+    // Arcane Abundance: mana comes back twice as fast, but cooldowns are this much longer
+    public static final float ABUNDANCE_COOLDOWN = 1.25f;
+    // Arcane Rhythm: every RHYTHM_EVERY skill costs no mana and has no cooldown
+    public static final int RHYTHM_EVERY = 5;
+    private static final String RHYTHM_TAG = "morkeriget_rhythm";
     private static final double BATTLE_CRY_RADIUS = 8.0;
     private static final int BATTLE_CRY_DURATION = 6 * 20;
     private static final BlockParticleOption ICE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.PACKED_ICE.defaultBlockState());
@@ -72,6 +80,8 @@ public final class Skills {
         NeoForge.EVENT_BUS.addListener(TreeSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onDamagePost);
         NeoForge.EVENT_BUS.addListener(TreeSkills::onProjectileImpact);
+        NeoForge.EVENT_BUS.addListener(SorcererSkills::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(SorcererSkills::onDamagePre);
         NeoForge.EVENT_BUS.addListener(PaladinSkills::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(PaladinSkills::onDamagePre);
         NeoForge.EVENT_BUS.addListener(PaladinSkills::onDamagePost);
@@ -100,6 +110,7 @@ public final class Skills {
         TreeSkills.forget(player);
         ClassSkills.forget(player);
         PaladinSkills.forget(player);
+        SorcererSkills.forget(player);
     }
 
     // The game makes a new player object after death and when leaving the End, and only copies some of the saved data.
@@ -123,6 +134,9 @@ public final class Skills {
         float scale = SetBonuses.has(player, ItemSet.STORMCALLER, 4) ? 0.7f : 1;
         scale *= 1 - 0.04f * Progression.rank(player, Upgrade.TIME_WARP);
         scale *= 1 - 0.002f * Progression.rank(player, Paragon.COOLDOWN);
+        if (Progression.has(player, Upgrade.ARCANE_ABUNDANCE)) {
+            scale *= ABUNDANCE_COOLDOWN;
+        }
         return MythicItem.has(player, MythicItem.JESTERS_CROWN) ? scale * 0.75f : scale;
     }
 
@@ -156,6 +170,12 @@ public final class Skills {
         boolean crown = !skill.isPotion() && MythicItem.has(player, MythicItem.JESTERS_CROWN);
         if (crown) {
             manaCost *= 0.75f;
+        }
+        // Arcane Rhythm: the fifth skill in a row is free and ready again at once
+        boolean rhythm = !skill.isPotion() && Progression.has(player, Upgrade.ARCANE_RHYTHM)
+                && player.getPersistentData().getInt(RHYTHM_TAG) >= RHYTHM_EVERY - 1;
+        if (rhythm) {
+            manaCost = 0;
         }
         if (Mana.get(player) < manaCost) {
             player.displayClientMessage(Text.tr("skill.no_mana", skill.displayName()), true);
@@ -214,6 +234,15 @@ public final class Skills {
                 Upgrade upgrade = Upgrade.forSkill(skill);
                 if (upgrade != null) {
                     cooldownScale *= Upgrade.cooldownScale(Progression.rank(player, upgrade));
+                }
+            }
+            if (!skill.isPotion() && Progression.has(player, Upgrade.ARCANE_RHYTHM)) {
+                player.getPersistentData().putInt(RHYTHM_TAG, rhythm ? 0 : player.getPersistentData().getInt(RHYTHM_TAG) + 1);
+                if (rhythm) {
+                    cooldownScale = 0;
+                    player.displayClientMessage(Text.tr("skill.arcane_rhythm").withStyle(ChatFormatting.LIGHT_PURPLE), true);
+                    player.serverLevel().sendParticles(SkillVisuals.ARCANE, player.getX(), player.getY() + 1, player.getZ(), 20, 0.4, 0.6, 0.4, 0);
+                    player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.5f);
                 }
             }
             int cooldown = Math.round(skill.cooldown() * cooldownScale);
@@ -282,8 +311,11 @@ public final class Skills {
         double radius = FROST_NOVA_RADIUS + rank * 0.5;
         int duration = FROST_NOVA_DURATION + rank * 10;
         float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5);
-        for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, new AABB(center, center.add(0, player.getBbHeight(), 0)).inflate(radius),
-                entity -> Minions.isEnemy(entity))) {
+        List<LivingEntity> hit = level.getEntitiesOfClass(LivingEntity.class, new AABB(center, center.add(0, player.getBbHeight(), 0)).inflate(radius),
+                entity -> Minions.isEnemy(entity));
+        // Before the damage, so Deep Freeze already counts for the nova itself
+        SorcererSkills.afterFrostNova(player, hit, duration);
+        for (LivingEntity target : hit) {
             target.hurt(player.damageSources().playerAttack(player), damage);
             target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, duration, 9));
             // Makes them shake and turn blue like in powder snow. It thaws by 2 every tick
@@ -345,6 +377,7 @@ public final class Skills {
                         frostNovaAt(player, from);
                         frostNovaAt(player, feet);
                     }
+                    SorcererSkills.afterBlink(player, feet);
                     return true;
                 }
             }
@@ -368,6 +401,13 @@ public final class Skills {
         }
         Vec3 from = player.position().add(0, player.getBbHeight() * 0.6, 0);
         level.sendParticles(ParticleTypes.ELECTRIC_SPARK, from.x, from.y, from.z, 10, 0.3, 0.3, 0.3, 0.2);
+        if (Progression.has(player, Upgrade.CHAIN_LIGHTNING_FORK)) {
+            forkedLightning(player, target, from, damage, jumps);
+            level.playSound(null, player.blockPosition(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.0f, 1.6f);
+            return true;
+        }
+        // Overcharge: each jump hits harder than the one before
+        float growth = Progression.has(player, Upgrade.CHAIN_LIGHTNING_OVERCHARGE) ? 1 + CHAIN_OVERCHARGE : 1;
         while (target != null && hit.size() <= jumps) {
             hit.add(target);
             Vec3 to = target.position().add(0, target.getBbHeight() / 2, 0);
@@ -377,11 +417,46 @@ public final class Skills {
             level.playSound(null, to.x, to.y, to.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.4f,
                     Math.min(2.0f, 1.4f + 0.1f * hit.size()));
             from = to;
+            damage *= growth;
             target = closestEnemy(level, target, CHAIN_LIGHTNING_JUMP_RANGE, hit);
         }
         level.playSound(null, player.blockPosition(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.0f, 1.6f);
         level.playSound(null, player.blockPosition(), SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.3f, 2.0f);
         return true;
+    }
+
+    // Fork: from every monster it hits, the lightning goes on to the two closest it hasn't hit, but there are half as
+    // many jumps. At most twice as many monsters are hit as without it
+    private static void forkedLightning(ServerPlayer player, LivingEntity first, Vec3 from, float damage, int jumps) {
+        ServerLevel level = player.serverLevel();
+        int max = 2 * (jumps + 1);
+        List<LivingEntity> hit = new ArrayList<>();
+        hit.add(first);
+        sparks(level, from, first.position().add(0, first.getBbHeight() / 2, 0));
+        first.hurt(player.damageSources().playerAttack(player), damage);
+        List<LivingEntity> wave = List.of(first);
+        for (int generation = 0; generation < Math.max(1, jumps / 2) && hit.size() < max; generation++) {
+            List<LivingEntity> nextWave = new ArrayList<>();
+            for (LivingEntity source : wave) {
+                for (int branch = 0; branch < 2 && hit.size() < max; branch++) {
+                    LivingEntity next = closestEnemy(level, source, CHAIN_LIGHTNING_JUMP_RANGE, hit);
+                    if (next == null) {
+                        break;
+                    }
+                    hit.add(next);
+                    nextWave.add(next);
+                    Vec3 to = next.position().add(0, next.getBbHeight() / 2, 0);
+                    sparks(level, source.position().add(0, source.getBbHeight() / 2, 0), to);
+                    next.hurt(player.damageSources().playerAttack(player), damage);
+                    level.playSound(null, to.x, to.y, to.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.3f,
+                            Math.min(2.0f, 1.4f + 0.1f * generation));
+                }
+            }
+            if (nextWave.isEmpty()) {
+                break;
+            }
+            wave = nextWave;
+        }
     }
 
     // The closest living monster around the entity that it can see and that isn't in the list

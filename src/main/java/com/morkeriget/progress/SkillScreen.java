@@ -21,13 +21,17 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.lwjgl.glfw.GLFW;
 
 // The screen opened with K: class, level and XP at the top, the class's skill tree on the left, the upgrades every
 // class has on the right, and the keys 1-4 at the bottom. Click a skill and press 1-4 (or click a key) to put it on
-// that key. Client only
+// that key. In the reworked trees, lines show which box needs which, a skill with variants has a small button in its
+// corner that opens a window to pick one, and the keystones share one box that opens the same kind of window.
+// Client only
 public class SkillScreen extends Screen {
     private static final int WIDTH = 440;
     private static final int COMPACT_WIDTH = 412;
@@ -48,9 +52,21 @@ public class SkillScreen extends Screen {
     private static final int SHARED_ROW_HEIGHT = 28;
     private static final List<Upgrade> SHARED = List.of(Upgrade.VITALITY, Upgrade.SPIRIT, Upgrade.STRENGTH);
     private static final int KEY_SIZE = 20;
+    // The button in the corner of a skill with variants
+    private static final int VARIANT_BUTTON = 12;
+    // The window where a variant or keystone is picked
+    private static final int PICK_WIDTH = 240;
+    private static final int PICK_ROW = 46;
+
+    // A box in the tree. For the keystones, upgrade is the one picked, or the first one
+    private record Box(Upgrade upgrade, boolean keystones, int x, int y) {
+    }
 
     // The skill clicked last, waiting for a key
     private Skill selected;
+    // What the pick window shows, or null while it is closed. owner is the skill for variants, null for keystones
+    private List<Upgrade> choices;
+    private Upgrade owner;
 
     public SkillScreen() {
         super(Text.tr("skills.title"));
@@ -119,6 +135,33 @@ public class SkillScreen extends Screen {
         return left() + 44 + slot * (KEY_SIZE + 6);
     }
 
+    // Every box in the class's tree: the skills and passives, and one for the keystones if the class has them
+    private List<Box> boxes(ProgressPayload progress, PlayerClass playerClass) {
+        List<Box> boxes = new ArrayList<>();
+        for (Upgrade upgrade : Upgrade.values()) {
+            if (upgrade.playerClass == playerClass && (upgrade.kind == Upgrade.Kind.SKILL || upgrade.kind == Upgrade.Kind.PASSIVE)) {
+                boxes.add(new Box(upgrade, false, nodeX(SkillTree.column(upgrade)), nodeY(upgrade.row)));
+            }
+        }
+        List<Upgrade> keystones = Upgrade.keystones(playerClass);
+        if (!keystones.isEmpty()) {
+            Upgrade first = keystones.get(0);
+            Upgrade shown = keystones.stream().filter(keystone -> progress.rank(keystone) > 0).findFirst().orElse(first);
+            boxes.add(new Box(shown, true, nodeX(first.column), nodeY(first.row)));
+        }
+        return boxes;
+    }
+
+    private boolean inside(Box box, double mouseX, double mouseY) {
+        return mouseX >= box.x && mouseX < box.x + NODE_WIDTH && mouseY >= box.y && mouseY < box.y + nodeHeight();
+    }
+
+    // The keystone box counts as open when the first keystone is, they all have the same rules
+    private static boolean isOpen(ProgressPayload progress, PlayerClass playerClass, Box box) {
+        Upgrade upgrade = box.keystones ? Upgrade.keystones(playerClass).get(0) : box.upgrade;
+        return SkillTree.isOpen(playerClass, upgrade, progress::rank);
+    }
+
     @Override
     protected void init() {
         // Menus are opened by the server, so ask it to open the equipment screen
@@ -149,10 +192,18 @@ public class SkillScreen extends Screen {
         if (playerClass == null) {
             return;
         }
-        for (int row = 0; row < treeRows(); row++) {
-            List<Upgrade> upgrades = SkillTree.row(playerClass, row);
-            for (int column = 0; column < upgrades.size(); column++) {
-                plusButton(progress, playerClass, upgrades.get(column), nodeX(column) + NODE_WIDTH - 16, nodeY(row) + nodeHeight() - 16);
+        for (Box box : boxes(progress, playerClass)) {
+            // The keystone box has no +, it is clicked to open the window
+            if (box.keystones) {
+                continue;
+            }
+            plusButton(progress, playerClass, box.upgrade, box.x + NODE_WIDTH - 16, box.y + nodeHeight() - 16);
+            List<Upgrade> variants = box.upgrade.variants();
+            if (!variants.isEmpty()) {
+                // The icon of the picked variant, or a ?, is drawn over it in render
+                addRenderableWidget(Button.builder(Component.empty(), pressed -> openPicker(box.upgrade, variants))
+                        .bounds(variantButtonX(box), variantButtonY(box), VARIANT_BUTTON, VARIANT_BUTTON)
+                        .build(ThemedButton::new));
             }
         }
         for (int row = 0; row < SHARED.size(); row++) {
@@ -171,12 +222,26 @@ public class SkillScreen extends Screen {
                 .build(ThemedButton::new));
     }
 
+    private static int variantButtonX(Box box) {
+        return box.x + NODE_WIDTH - VARIANT_BUTTON - 2;
+    }
+
+    private static int variantButtonY(Box box) {
+        return box.y + 2;
+    }
+
     private void plusButton(ProgressPayload progress, PlayerClass playerClass, Upgrade upgrade, int x, int y) {
         Button button = Button.builder(Component.literal("+"), pressed -> PacketDistributor.sendToServer(new UpgradePayload(upgrade)))
                 .bounds(x, y, 14, 14)
                 .build(ThemedButton::new);
-        button.active = progress.points() > 0 && SkillTree.canRaise(playerClass, upgrade, progress::rank);
+        button.active = SkillTree.canRaise(playerClass, upgrade, progress.points(), progress::rank);
         addRenderableWidget(button);
+    }
+
+    private void openPicker(Upgrade owner, List<Upgrade> choices) {
+        this.owner = owner;
+        this.choices = choices;
+        selected = null;
     }
 
     // Called when the server sends new values, e.g. right after clicking +
@@ -184,7 +249,7 @@ public class SkillScreen extends Screen {
         rebuildWidgets();
     }
 
-    // The panel, the boxes and the slots go behind the buttons. The icons and text are drawn over them in render
+    // The panel, the lines, the boxes and the slots go behind the buttons. The icons and text are drawn over them in render
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
@@ -195,18 +260,18 @@ public class SkillScreen extends Screen {
         if (playerClass == null) {
             return;
         }
-        for (int row = 0; row < treeRows(); row++) {
-            boolean open = SkillTree.isRowOpen(playerClass, row, progress::rank);
-            List<Upgrade> upgrades = SkillTree.row(playerClass, row);
-            for (int column = 0; column < upgrades.size(); column++) {
-                Upgrade upgrade = upgrades.get(column);
-                int x = nodeX(column);
-                int y = nodeY(row);
-                int rank = progress.rank(upgrade);
-                boolean isSelected = upgrade.skill != null && upgrade.skill == selected;
-                UiTheme.box(graphics, x, y, NODE_WIDTH, nodeHeight(), isSelected ? 0xFFD700 : rank > 0 ? playerClass.color : 0, open || isSelected);
-                UiTheme.slot(graphics, x + 3, y + 3);
+        List<Box> boxes = boxes(progress, playerClass);
+        for (Box box : boxes) {
+            if (box.upgrade.parent != null && !box.keystones) {
+                drawLine(graphics, box.upgrade.parent, box, progress.rank(box.upgrade.parent) > 0 ? 0xFF000000 | playerClass.color : 0xFF3A3A3A);
             }
+        }
+        for (Box box : boxes) {
+            int rank = box.keystones ? (progress.rank(box.upgrade) > 0 ? 1 : 0) : progress.rank(box.upgrade);
+            boolean isSelected = box.upgrade.skill != null && box.upgrade.skill == selected;
+            int color = isSelected ? 0xFFD700 : rank > 0 ? playerClass.color : 0;
+            UiTheme.box(graphics, box.x, box.y, NODE_WIDTH, nodeHeight(), color, isOpen(progress, playerClass, box) || isSelected);
+            UiTheme.slot(graphics, box.x + 3, box.y + 3);
         }
 
         // The shared upgrades and the class bonus in one box, stopping above the stash and bounty buttons
@@ -227,9 +292,27 @@ public class SkillScreen extends Screen {
         }
     }
 
+    // From the bottom of the parent's box to the top of the child's, with a bend if they are in different columns
+    private void drawLine(GuiGraphics graphics, Upgrade parent, Box child, int color) {
+        int fromX = nodeX(SkillTree.column(parent)) + NODE_WIDTH / 2;
+        int fromY = nodeY(parent.row) + nodeHeight();
+        int toX = child.x + NODE_WIDTH / 2;
+        int toY = child.y;
+        if (fromX == toX) {
+            graphics.fill(fromX - 1, fromY, fromX + 1, toY, color);
+            return;
+        }
+        int middle = (fromY + toY) / 2;
+        graphics.fill(fromX - 1, fromY, fromX + 1, middle + 1, color);
+        graphics.fill(Math.min(fromX, toX) - 1, middle - 1, Math.max(fromX, toX) + 1, middle + 1, color);
+        graphics.fill(toX - 1, middle - 1, toX + 1, toY, color);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
+        // The buttons under the pick window don't light up while it is open
+        boolean picking = choices != null;
+        super.render(graphics, picking ? -1 : mouseX, picking ? -1 : mouseY, partialTick);
         ProgressPayload progress = ClientProgress.get();
         PlayerClass playerClass = progress.chosenClass();
         int left = left();
@@ -269,26 +352,11 @@ public class SkillScreen extends Screen {
             graphics.drawCenteredString(font, Text.tr("skills.pick_class_first"), center, nodeY(0) + 8, UiTheme.TITLE);
             return;
         }
-        Upgrade hovered = null;
-        for (int row = 0; row < treeRows(); row++) {
-            boolean open = SkillTree.isRowOpen(playerClass, row, progress::rank);
-            List<Upgrade> upgrades = SkillTree.row(playerClass, row);
-            for (int column = 0; column < upgrades.size(); column++) {
-                Upgrade upgrade = upgrades.get(column);
-                int x = nodeX(column);
-                int y = nodeY(row);
-                drawNode(graphics, progress, upgrade, x, y, open);
-                if (mouseX >= x && mouseX < x + NODE_WIDTH && mouseY >= y && mouseY < y + nodeHeight()) {
-                    hovered = upgrade;
-                }
-            }
-            // Next to the row, how many points it takes to open it, if there is room before the shared column. Otherwise
-            // the boxes say it, see drawNode. The tooltip says it in words
-            if (!open && nodeX(upgrades.size()) + 30 < sharedX()) {
-                int x = nodeX(upgrades.size());
-                int spent = SkillTree.spent(playerClass, progress::rank);
-                graphics.drawString(font, Text.tr("skills.locked"), x, nodeY(row) + 10, 0xAA5555);
-                graphics.drawString(font, spent + "/" + SkillTree.pointsForRow(row), x, nodeY(row) + 21, UiTheme.MUTED);
+        Box hovered = null;
+        for (Box box : boxes(progress, playerClass)) {
+            drawNode(graphics, progress, playerClass, box);
+            if (inside(box, mouseX, mouseY)) {
+                hovered = box;
             }
         }
 
@@ -305,16 +373,25 @@ public class SkillScreen extends Screen {
 
         drawKeys(graphics, progress);
 
-        if (hovered != null) {
-            graphics.renderComponentTooltip(font, tooltip(progress, playerClass, hovered), mouseX, mouseY);
+        if (picking) {
+            drawPicker(graphics, progress, playerClass, mouseX, mouseY);
+        } else if (hovered != null) {
+            graphics.renderComponentTooltip(font, hovered.keystones ? keystoneTooltip(progress, playerClass, hovered)
+                    : tooltip(progress, playerClass, hovered.upgrade), mouseX, mouseY);
         }
     }
 
-    // The icon, name, rank and the key it is on, over the box from renderBackground. Grey while the row is locked, dim
+    // The icon, name, rank and the key it is on, over the box from renderBackground. Grey while it is locked, dim
     // before the first point
-    private void drawNode(GuiGraphics graphics, ProgressPayload progress, Upgrade upgrade, int x, int y, boolean open) {
+    private void drawNode(GuiGraphics graphics, ProgressPayload progress, PlayerClass playerClass, Box box) {
+        Upgrade upgrade = box.upgrade;
+        int x = box.x;
+        int y = box.y;
+        boolean open = isOpen(progress, playerClass, box);
         int rank = progress.rank(upgrade);
-        graphics.renderItem(icon(upgrade), x + 3, y + 3);
+        // The keystone box goes to 1 when one of them is picked
+        int maxRank = box.keystones ? 1 : upgrade.maxRank();
+        graphics.renderItem(box.keystones && rank == 0 ? new ItemStack(Items.NETHER_STAR) : icon(upgrade), x + 3, y + 3);
         if (!open || rank == 0) {
             // A dark layer over the icon, in front of the item
             graphics.pose().pushPose();
@@ -322,24 +399,50 @@ public class SkillScreen extends Screen {
             graphics.fill(x + 3, y + 3, x + 19, y + 19, open ? 0x80000000 : 0xC0000000);
             graphics.pose().popPose();
         }
-        int nameColor = !open ? UiTheme.DIM : rank >= upgrade.maxRank() ? 0xFFD700 : UiTheme.TEXT;
-        graphics.drawString(font, font.plainSubstrByWidth(upgrade.displayName().getString(), NODE_WIDTH - 24), x + 22, y + 4, nameColor);
+        List<Upgrade> variants = upgrade.variants();
+        int nameRoom = NODE_WIDTH - 24 - (variants.isEmpty() ? 0 : VARIANT_BUTTON + 2);
+        String name = box.keystones && rank == 0 ? Text.tr("skills.keystone").getString() : upgrade.displayName().getString();
+        int nameColor = !open ? UiTheme.DIM : rank >= maxRank ? 0xFFD700 : UiTheme.TEXT;
+        graphics.drawString(font, font.plainSubstrByWidth(name, nameRoom), x + 22, y + 4, nameColor);
         if (!compact()) {
-            String kind = upgrade.isPassive() ? "Passiv" : "Skill";
-            graphics.drawString(font, kind, x + 22, y + 14, upgrade.isPassive() ? 0x8888CC : UiTheme.MUTED);
+            String kind = box.keystones ? Text.tr("skills.keystone").getString() : upgrade.isPassive() ? "Passiv" : "Skill";
+            int kindColor = box.keystones ? 0xCC9944 : upgrade.isPassive() ? 0x8888CC : UiTheme.MUTED;
+            graphics.drawString(font, kind, x + 22, y + 14, kindColor);
         }
-        if (!open && progress.chosenClass() != null && nodeX(SkillTree.row(progress.chosenClass(), upgrade.row).size()) + 30 >= sharedX()) {
-            // No room for "Låst" next to the row, so each box says how far you are from opening it
-            int spent = SkillTree.spent(progress.chosenClass(), progress::rank);
-            graphics.drawString(font, Text.tr("skills.locked_progress", spent, SkillTree.pointsForRow(upgrade.row)), x + 4, y + nodeHeight() - 10, 0xAA5555);
+        Upgrade rules = box.keystones ? Upgrade.keystones(playerClass).get(0) : upgrade;
+        int spent = SkillTree.spent(playerClass, progress::rank);
+        if (!open && spent < SkillTree.pointsNeeded(rules)) {
+            // How far you are from opening it
+            graphics.drawString(font, Text.tr("skills.locked_progress", spent, SkillTree.pointsNeeded(rules)), x + 4, y + nodeHeight() - 10, 0xAA5555);
         } else {
-            graphics.drawString(font, rank + "/" + upgrade.maxRank(), x + 4, y + nodeHeight() - 10, rank > 0 ? UiTheme.TEXT : UiTheme.DIM);
+            graphics.drawString(font, rank + "/" + maxRank, x + 4, y + nodeHeight() - 10, rank > 0 ? UiTheme.TEXT : UiTheme.DIM);
         }
         int slot = slotOf(progress, upgrade.skill);
         if (slot >= 0) {
             String key = "[" + keyName(slot) + "]";
             graphics.drawString(font, key, x + NODE_WIDTH - 20 - font.width(key), y + nodeHeight() - 10, 0xFFD700);
         }
+        if (!variants.isEmpty()) {
+            drawVariantButton(graphics, progress, box, variants);
+        }
+    }
+
+    // Over the button in the corner: the picked variant's icon, a gold ? when one can be picked, or a grey one before that
+    private void drawVariantButton(GuiGraphics graphics, ProgressPayload progress, Box box, List<Upgrade> variants) {
+        int x = variantButtonX(box);
+        int y = variantButtonY(box);
+        Upgrade picked = variants.stream().filter(variant -> progress.rank(variant) > 0).findFirst().orElse(null);
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 250);
+        if (picked != null) {
+            graphics.pose().translate(x + 1, y + 1, 0);
+            graphics.pose().scale(0.625f, 0.625f, 1);
+            graphics.renderItem(icon(picked), 0, 0);
+        } else {
+            boolean ready = progress.rank(box.upgrade) >= Upgrade.VARIANT_RANK;
+            graphics.drawCenteredString(font, "?", x + VARIANT_BUTTON / 2 + 1, y + 2, ready ? 0xFFD700 : UiTheme.DIM);
+        }
+        graphics.pose().popPose();
     }
 
     // "Taster:" and the four keys with the skill on each. The slots are drawn in renderBackground
@@ -362,6 +465,87 @@ public class SkillScreen extends Screen {
         graphics.drawString(font, hint, left(), y + KEY_SIZE + 5, selected != null ? 0xFFD700 : UiTheme.DIM);
     }
 
+    private int pickX() {
+        return (width - PICK_WIDTH) / 2;
+    }
+
+    private int pickY() {
+        return (height - pickHeight()) / 2;
+    }
+
+    private int pickHeight() {
+        return 24 + choices.size() * PICK_ROW + 4;
+    }
+
+    private int optionY(int index) {
+        return pickY() + 22 + index * PICK_ROW;
+    }
+
+    private boolean onOption(int index, double mouseX, double mouseY) {
+        int y = optionY(index);
+        return mouseX >= pickX() + 6 && mouseX < pickX() + PICK_WIDTH - 6 && mouseY >= y && mouseY < y + PICK_ROW - 4;
+    }
+
+    // The window over the screen with each variant or keystone: icon, name, what it does, and whether it can be picked
+    private void drawPicker(GuiGraphics graphics, ProgressPayload progress, PlayerClass playerClass, int mouseX, int mouseY) {
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 400);
+        graphics.fill(0, 0, width, height, 0xA0000000);
+        int x = pickX();
+        int y = pickY();
+        UiTheme.panel(graphics, x, y, PICK_WIDTH, pickHeight());
+        Component title = owner != null ? Text.tr("skills.pick_variant", owner.displayName()) : Text.tr("skills.pick_keystone");
+        graphics.drawCenteredString(font, title, x + PICK_WIDTH / 2, y + 8, 0xFFD700);
+        for (int i = 0; i < choices.size(); i++) {
+            Upgrade choice = choices.get(i);
+            int optionY = optionY(i);
+            boolean picked = progress.rank(choice) > 0;
+            boolean canPick = SkillTree.canRaise(playerClass, choice, progress.points(), progress::rank);
+            int color = picked ? 0xFFD700 : canPick && onOption(i, mouseX, mouseY) ? playerClass.color : 0;
+            UiTheme.box(graphics, x + 6, optionY, PICK_WIDTH - 12, PICK_ROW - 4, color, picked || canPick);
+            graphics.renderItem(icon(choice), x + 10, optionY + 4);
+            graphics.drawString(font, choice.displayName(), x + 30, optionY + 4, picked ? 0xFFD700 : UiTheme.TEXT);
+            List<FormattedCharSequence> lines = font.split(choice.description(), PICK_WIDTH - 40);
+            for (int line = 0; line < Math.min(2, lines.size()); line++) {
+                graphics.drawString(font, lines.get(line), x + 30, optionY + 14 + line * 9, UiTheme.MUTED);
+            }
+            graphics.drawString(font, status(progress, playerClass, choice), x + 30, optionY + 31, UiTheme.TEXT);
+        }
+        graphics.pose().popPose();
+    }
+
+    // Whether the variant or keystone is picked, can be picked, or what it needs first
+    private static Component status(ProgressPayload progress, PlayerClass playerClass, Upgrade choice) {
+        if (progress.rank(choice) > 0) {
+            return Text.tr("skills.picked").withStyle(ChatFormatting.GREEN);
+        }
+        Component requirement = requirement(progress, playerClass, choice);
+        if (requirement != null) {
+            return requirement;
+        }
+        if (SkillTree.picked(choice, progress::rank) != null) {
+            return Text.tr("skills.switch_free").withStyle(ChatFormatting.YELLOW);
+        }
+        if (progress.points() <= 0) {
+            return Text.tr("skills.no_points").withStyle(ChatFormatting.RED);
+        }
+        return Text.tr("skills.pick_one_point").withStyle(ChatFormatting.YELLOW);
+    }
+
+    // What it takes to open the upgrade, in words, or null if it is open
+    private static Component requirement(ProgressPayload progress, PlayerClass playerClass, Upgrade upgrade) {
+        if (SkillTree.isOpen(playerClass, upgrade, progress::rank)) {
+            return null;
+        }
+        if (SkillTree.spent(playerClass, progress::rank) < SkillTree.pointsNeeded(upgrade)) {
+            return Text.tr("skills.needs_points", SkillTree.pointsNeeded(upgrade)).withStyle(ChatFormatting.RED);
+        }
+        if (upgrade.kind == Upgrade.Kind.VARIANT) {
+            return Text.tr("skills.needs_rank", Upgrade.VARIANT_RANK, upgrade.parent.displayName()).withStyle(ChatFormatting.RED);
+        }
+        return Text.tr("skills.needs_parent", upgrade.parent.displayName()).withStyle(ChatFormatting.RED);
+    }
+
     private List<Component> tooltip(ProgressPayload progress, PlayerClass playerClass, Upgrade upgrade) {
         List<Component> lines = new ArrayList<>();
         lines.add(upgrade.displayName().withStyle(ChatFormatting.GOLD));
@@ -371,13 +555,33 @@ public class SkillScreen extends Screen {
             lines.add(Text.tr("skills.high_ranks", Upgrade.UTILITY_MAX_RANK + 1, upgrade.maxRank(), Upgrade.UTILITY_MAX_RANK,
                     Math.round(Upgrade.COOLDOWN_PER_RANK * 100)).withStyle(ChatFormatting.DARK_AQUA));
         }
-        if (!SkillTree.isRowOpen(playerClass, upgrade.row, progress::rank)) {
-            lines.add(Text.tr("skills.needs_points", SkillTree.pointsForRow(upgrade.row)).withStyle(ChatFormatting.RED));
+        List<Upgrade> variants = upgrade.variants();
+        if (!variants.isEmpty()) {
+            Upgrade picked = variants.stream().filter(variant -> progress.rank(variant) > 0).findFirst().orElse(null);
+            lines.add(picked != null ? Text.tr("skills.variant", picked.displayName()).withStyle(ChatFormatting.AQUA)
+                    : Text.tr("skills.variant_at", Upgrade.VARIANT_RANK).withStyle(ChatFormatting.DARK_AQUA));
+        }
+        Component requirement = requirement(progress, playerClass, upgrade);
+        if (requirement != null) {
+            lines.add(requirement);
         } else if (upgrade.skill != null && progress.rank(upgrade) == 0) {
             lines.add(Text.tr("skills.first_point").withStyle(ChatFormatting.YELLOW));
         } else if (upgrade.skill != null) {
             lines.add(Text.tr("skills.click_to_bind").withStyle(ChatFormatting.YELLOW));
         }
+        return lines;
+    }
+
+    private List<Component> keystoneTooltip(ProgressPayload progress, PlayerClass playerClass, Box box) {
+        List<Component> lines = new ArrayList<>();
+        lines.add(Text.tr("skills.keystone").withStyle(ChatFormatting.GOLD));
+        lines.add(Text.tr("skills.keystone_info").withStyle(ChatFormatting.GRAY));
+        for (Upgrade keystone : Upgrade.keystones(playerClass)) {
+            lines.add(Component.literal("- ").append(keystone.displayName())
+                    .withStyle(progress.rank(keystone) > 0 ? ChatFormatting.GOLD : ChatFormatting.DARK_AQUA));
+        }
+        Component requirement = requirement(progress, playerClass, Upgrade.keystones(playerClass).get(0));
+        lines.add(requirement != null ? requirement : Text.tr("skills.click_to_choose").withStyle(ChatFormatting.YELLOW));
         return lines;
     }
 
@@ -398,7 +602,7 @@ public class SkillScreen extends Screen {
         return SkillKeys.SKILL_SLOTS.get(slot).getTranslatedKeyMessage().getString();
     }
 
-    // Skills use their skill bar icon, passives get one of their own
+    // Skills use their skill bar icon, everything else gets one of its own
     private static ItemStack icon(Upgrade upgrade) {
         if (upgrade.skill != null) {
             return SkillBar.icon(upgrade.skill);
@@ -410,6 +614,23 @@ public class SkillScreen extends Screen {
             case GLASS_CANNON -> Items.GLASS;
             case ARCANE_FLOW -> Items.LAPIS_LAZULI;
             case TIME_WARP -> Items.CLOCK;
+            case FIREBALL_BURN -> Items.BLAZE_POWDER;
+            case FIREBALL_SPLINTER -> Items.FIREWORK_STAR;
+            case FROST_NOVA_DEEP_FREEZE -> Items.SNOWBALL;
+            case FROST_NOVA_ICE_MANTLE -> Items.PRISMARINE_CRYSTALS;
+            case CHAIN_LIGHTNING_OVERCHARGE -> Items.GLOWSTONE_DUST;
+            case CHAIN_LIGHTNING_FORK -> Items.AMETHYST_SHARD;
+            case BLINK_ARCANE_BLAST -> Items.DRAGON_BREATH;
+            case BLINK_PHASE_SHIFT -> Items.PHANTOM_MEMBRANE;
+            case METEOR_IMPACT -> Items.ANVIL;
+            case METEOR_MOLTEN_GROUND -> Items.LAVA_BUCKET;
+            case ICE_ARMOR_ICICLES -> Items.POINTED_DRIPSTONE;
+            case ICE_ARMOR_THICK -> Items.ICE;
+            case THUNDERSTORM_ROAMING -> Items.FEATHER;
+            case THUNDERSTORM_CHAIN -> Items.CHAIN;
+            case UNSTABLE_MAGIC -> Items.TNT;
+            case ARCANE_ABUNDANCE -> Items.EXPERIENCE_BOTTLE;
+            case ARCANE_RHYTHM -> Items.NOTE_BLOCK;
             case MARKSMAN -> Items.SPECTRAL_ARROW;
             case AGILE -> Items.SUGAR;
             case PACK_LEADER -> Items.LEAD;
@@ -420,14 +641,29 @@ public class SkillScreen extends Screen {
         });
     }
 
-    // Clicking an unlocked skill picks it, clicking a key puts the picked skill on it
+    // Clicking an unlocked skill picks it, clicking a key puts the picked skill on it. While the pick window is open,
+    // clicks only go to it, and a click outside closes it
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        ProgressPayload progress = ClientProgress.get();
+        PlayerClass playerClass = progress.chosenClass();
+        if (choices != null) {
+            boolean onWindow = mouseX >= pickX() && mouseX < pickX() + PICK_WIDTH && mouseY >= pickY() && mouseY < pickY() + pickHeight();
+            if (!onWindow || playerClass == null) {
+                choices = null;
+                return true;
+            }
+            for (int i = 0; i < choices.size(); i++) {
+                Upgrade choice = choices.get(i);
+                if (onOption(i, mouseX, mouseY) && SkillTree.canRaise(playerClass, choice, progress.points(), progress::rank)) {
+                    PacketDistributor.sendToServer(new UpgradePayload(choice));
+                }
+            }
+            return true;
+        }
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        ProgressPayload progress = ClientProgress.get();
-        PlayerClass playerClass = progress.chosenClass();
         if (playerClass == null) {
             return false;
         }
@@ -438,17 +674,17 @@ public class SkillScreen extends Screen {
                 return true;
             }
         }
-        for (int row = 0; row < treeRows(); row++) {
-            List<Upgrade> upgrades = SkillTree.row(playerClass, row);
-            for (int column = 0; column < upgrades.size(); column++) {
-                Upgrade upgrade = upgrades.get(column);
-                int x = nodeX(column);
-                int y = nodeY(row);
-                if (mouseX >= x && mouseX < x + NODE_WIDTH && mouseY >= y && mouseY < y + nodeHeight()) {
-                    selected = upgrade.skill != null && progress.rank(upgrade) > 0 && upgrade.skill != selected ? upgrade.skill : null;
-                    return true;
-                }
+        for (Box box : boxes(progress, playerClass)) {
+            if (!inside(box, mouseX, mouseY)) {
+                continue;
             }
+            if (box.keystones) {
+                openPicker(null, Upgrade.keystones(playerClass));
+            } else {
+                Upgrade upgrade = box.upgrade;
+                selected = upgrade.skill != null && progress.rank(upgrade) > 0 && upgrade.skill != selected ? upgrade.skill : null;
+            }
+            return true;
         }
         selected = null;
         return false;
@@ -459,9 +695,13 @@ public class SkillScreen extends Screen {
         selected = null;
     }
 
-    // K closes the screen again, and 1-4 put the picked skill on that key
+    // K closes the screen again, and 1-4 put the picked skill on that key. Escape closes the pick window first
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (choices != null && keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            choices = null;
+            return true;
+        }
         if (SkillKeys.SKILLS.matches(keyCode, scanCode)) {
             onClose();
             return true;
