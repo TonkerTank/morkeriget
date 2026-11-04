@@ -8,6 +8,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -37,6 +38,21 @@ public final class ProgressTests {
         helper.assertTrue(swords == 1 && again == 1, "Barbaren fik " + swords + " og så " + again + " sværd, ikke 1 og 1");
         helper.assertTrue(bows == 1, "Rangeren fik " + bows + " buer, ikke 1");
         TestPlayers.remove(player);
+        helper.succeed();
+    }
+
+    // The starter weapon isn't given again after the player dies and respawns
+    @GameTest(template = "empty")
+    public static void starterWeaponNotAgainAfterDeath(GameTestHelper helper) {
+        ServerPlayer player = TestPlayers.survivor(helper, new BlockPos(2, 2, 2));
+        StarterWeapons.give(player, PlayerClass.BARBARIAN);
+        player.getInventory().clearContent();
+        player.setHealth(0);
+        ServerPlayer respawned = helper.getLevel().getServer().getPlayerList().respawn(player, false, Entity.RemovalReason.KILLED);
+        StarterWeapons.give(respawned, PlayerClass.BARBARIAN);
+        int swords = respawned.getInventory().countItem(Items.IRON_SWORD);
+        helper.assertTrue(swords == 0, "Barbaren fik sværdet igen efter døden");
+        TestPlayers.remove(respawned);
         helper.succeed();
     }
 

@@ -21,6 +21,15 @@ public final class Feedback {
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(Feedback::registerPayloads);
         NeoForge.EVENT_BUS.addListener(Feedback::onLogin);
+        NeoForge.EVENT_BUS.addListener(Feedback::onClone);
+    }
+
+    // The game makes a new player object after death and when leaving the End, without the mod's saved data, so the
+    // mark is copied over. Otherwise the window would come again the next time they join
+    private static void onClone(PlayerEvent.Clone event) {
+        if (event.getOriginal().getPersistentData().getBoolean(SHOWN_TAG)) {
+            event.getEntity().getPersistentData().putBoolean(SHOWN_TAG, true);
+        }
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
