@@ -59,6 +59,8 @@ public final class Skills {
     // Arcane Rhythm: every RHYTHM_EVERY skill costs no mana and has no cooldown
     public static final int RHYTHM_EVERY = 5;
     private static final String RHYTHM_TAG = "morkeriget_rhythm";
+    // Blood Pact: health a skill costs for each point of mana it would have cost
+    public static final float BLOOD_PACT_HEALTH = 0.2f;
     private static final double BATTLE_CRY_RADIUS = 8.0;
     private static final int BATTLE_CRY_DURATION = 6 * 20;
     private static final BlockParticleOption ICE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.PACKED_ICE.defaultBlockState());
@@ -177,9 +179,16 @@ public final class Skills {
         if (rhythm) {
             manaCost = 0;
         }
+        // Blood Pact: without the mana, the skill costs health instead, but never the last of it
+        float bloodCost = manaCost * BLOOD_PACT_HEALTH;
+        boolean bloodPaid = false;
         if (Mana.get(player) < manaCost) {
-            player.displayClientMessage(Text.tr("skill.no_mana", skill.displayName()), true);
-            return;
+            if (!skill.isPotion() && Progression.has(player, Upgrade.BLOOD_PACT) && player.getHealth() > bloodCost) {
+                bloodPaid = true;
+            } else {
+                player.displayClientMessage(Text.tr("skill.no_mana", skill.displayName()), true);
+                return;
+            }
         }
         boolean used = switch (skill) {
             case WHIRLWIND -> whirlwind(player);
@@ -225,7 +234,12 @@ public final class Skills {
             case MANA_POTION -> manaPotion(player);
         };
         if (used) {
-            Mana.spend(player, manaCost);
+            if (bloodPaid) {
+                player.setHealth(player.getHealth() - bloodCost);
+                player.serverLevel().sendParticles(SkillVisuals.BLOOD, player.getX(), player.getY() + 1, player.getZ(), 12, 0.3, 0.5, 0.3, 0);
+            } else {
+                Mana.spend(player, manaCost);
+            }
             // Not for the potions
             float cooldownScale = 1;
             if (!skill.isPotion()) {

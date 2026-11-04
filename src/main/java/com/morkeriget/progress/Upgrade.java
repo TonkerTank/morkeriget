@@ -12,7 +12,7 @@ import net.minecraft.network.chat.MutableComponent;
 // Things the player can spend skill points on. The class ones make up the class's skill tree (see SkillTree): the first
 // point in a skill unlocks it, and passives make you better at something without a key. The ones without a class are
 // for everyone and aren't part of the tree. What a rank actually does is in Skills, Passives, Mana and Progression.
-// The reworked trees (the sorcerer's so far) also have variants and keystones: one point each, and only one of a
+// The reworked trees (the sorcerer's and necromancer's so far) also have variants and keystones: one point each, and only one of a
 // skill's variants, and one of the class's keystones, can be picked at a time. Switching between them is free
 public enum Upgrade {
     // Barbarian
@@ -67,17 +67,34 @@ public enum Upgrade {
     BEAR_TRAP(Skill.BEAR_TRAP, PlayerClass.RANGER, 2),
     PACK_LEADER(null, PlayerClass.RANGER, 2),
     ARROW_HURRICANE(Skill.ARROW_HURRICANE, PlayerClass.RANGER, 3),
-    // Necromancer
-    BONE_SPEAR(Skill.BONE_SPEAR, PlayerClass.NECROMANCER, 0),
-    BONE_ARMOR(Skill.BONE_ARMOR, PlayerClass.NECROMANCER, 0),
-    GRAVE_CHILL(null, PlayerClass.NECROMANCER, 0),
-    RAISE_SKELETONS(Skill.RAISE_SKELETONS, PlayerClass.NECROMANCER, 1),
-    CURSE(Skill.CURSE, PlayerClass.NECROMANCER, 1),
-    DEATH_LORD(null, PlayerClass.NECROMANCER, 1),
-    BLOOD_NOVA(Skill.BLOOD_NOVA, PlayerClass.NECROMANCER, 2),
-    BONE_PRISON(Skill.BONE_PRISON, PlayerClass.NECROMANCER, 2),
-    SOUL_HARVEST(null, PlayerClass.NECROMANCER, 2),
-    ARMY_OF_THE_DEAD(Skill.ARMY_OF_THE_DEAD, PlayerClass.NECROMANCER, 3),
+    // Necromancer. Three branches, bone, minions and blood, like the sorcerer's
+    BONE_SPEAR(Kind.SKILL, Skill.BONE_SPEAR, PlayerClass.NECROMANCER, 0, 0, null, 0),
+    RAISE_SKELETONS(Kind.SKILL, Skill.RAISE_SKELETONS, PlayerClass.NECROMANCER, 0, 1, null, 0),
+    CURSE(Kind.SKILL, Skill.CURSE, PlayerClass.NECROMANCER, 0, 2, null, 0),
+    BONE_ARMOR(Kind.SKILL, Skill.BONE_ARMOR, PlayerClass.NECROMANCER, 1, 0, BONE_SPEAR, 4),
+    DEATH_LORD(Kind.PASSIVE, null, PlayerClass.NECROMANCER, 1, 1, RAISE_SKELETONS, 4),
+    GRAVE_CHILL(Kind.PASSIVE, null, PlayerClass.NECROMANCER, 1, 2, CURSE, 4),
+    BONE_PRISON(Kind.SKILL, Skill.BONE_PRISON, PlayerClass.NECROMANCER, 2, 0, BONE_ARMOR, 10),
+    ARMY_OF_THE_DEAD(Kind.SKILL, Skill.ARMY_OF_THE_DEAD, PlayerClass.NECROMANCER, 2, 1, DEATH_LORD, 10),
+    BLOOD_NOVA(Kind.SKILL, Skill.BLOOD_NOVA, PlayerClass.NECROMANCER, 2, 2, GRAVE_CHILL, 10),
+    SOUL_HARVEST(Kind.PASSIVE, null, PlayerClass.NECROMANCER, 3, 0, null, 20),
+    BONE_SPEAR_PIERCE(BONE_SPEAR),
+    BONE_SPEAR_MARROW(BONE_SPEAR),
+    RAISE_SKELETONS_GIANTS(RAISE_SKELETONS),
+    RAISE_SKELETONS_HORDE(RAISE_SKELETONS),
+    CURSE_WEAKEN(CURSE),
+    CURSE_DECAY(CURSE),
+    BONE_ARMOR_STORM(BONE_ARMOR),
+    BONE_ARMOR_FORTIFIED(BONE_ARMOR),
+    BONE_PRISON_CRUSH(BONE_PRISON),
+    BONE_PRISON_LARGE(BONE_PRISON),
+    ARMY_BLOOD_HARVEST(ARMY_OF_THE_DEAD),
+    ARMY_RISEN(ARMY_OF_THE_DEAD),
+    BLOOD_NOVA_THIRST(BLOOD_NOVA),
+    BLOOD_NOVA_CURSE(BLOOD_NOVA),
+    DEATH_PACT(Kind.KEYSTONE, null, PlayerClass.NECROMANCER, 3, 1, null, 20),
+    SACRIFICE(Kind.KEYSTONE, null, PlayerClass.NECROMANCER, 3, 1, null, 20),
+    BLOOD_PACT(Kind.KEYSTONE, null, PlayerClass.NECROMANCER, 3, 1, null, 20),
     // Paladin
     HOLY_HAMMER(Skill.HOLY_HAMMER, PlayerClass.PALADIN, 0),
     SHIELD_BASH(Skill.SHIELD_BASH, PlayerClass.PALADIN, 0),

@@ -1,5 +1,6 @@
 package com.morkeriget.skill;
 
+import java.util.List;
 import java.util.Map;
 
 import com.morkeriget.Morkeriget;
@@ -26,6 +27,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class PaladinTests {
     // Players need this long after they join before they can be hurt
     private static final int SPAWN_PROTECTION = 61;
+    // Long enough for every display a single skill leaves to be gone
+    private static final int DISPLAYS_GONE = 50;
 
     private PaladinTests() {
     }
@@ -77,8 +80,10 @@ public final class PaladinTests {
         helper.succeed();
     }
 
-    // Holy Light heals the paladin and other players close by, not only the one who used it
-    @GameTest(template = "empty")
+    // Holy Light heals the paladin and other players close by, not only the one who used it. The test waits for its
+    // pillars of light to go, since a display left behind when a test ends stays forever and is counted by
+    // displaysComeAndGo if that test is close by
+    @GameTest(template = "empty", timeoutTicks = 100)
     public static void holyLightHealsNearbyPlayers(GameTestHelper helper) {
         ServerPlayer player = paladin(helper, Map.of(Upgrade.HOLY_LIGHT, 1));
         ServerPlayer friend = TestPlayers.survivor(helper, new BlockPos(4, 2, 2));
@@ -89,7 +94,9 @@ public final class PaladinTests {
         helper.assertTrue(friend.getHealth() > 8, "Helligt Lys helede ikke spilleren ved siden af: " + friend.getHealth());
         TestPlayers.remove(friend);
         TestPlayers.remove(player);
-        helper.succeed();
+        helper.startSequence()
+                .thenIdle(DISPLAYS_GONE)
+                .thenSucceed();
     }
 
     // The skills show their hammer, spear, pillars and holy ground as display entities, and every one of them is gone again
@@ -111,15 +118,22 @@ public final class PaladinTests {
                         "Paladinens færdigheder viste ingen display-entities"))
                 .thenExecuteFor(240, () -> TestPlayers.tick(player))
                 .thenExecute(() -> {
-                    int left = helper.getLevel().getEntitiesOfClass(Display.class, around).size();
-                    helper.assertTrue(left == 0, left + " display-entities blev liggende efter færdighederne");
+                    // Which ones and where, so a failure says if they came from another test close by
+                    List<Display> left = helper.getLevel().getEntitiesOfClass(Display.class, around);
+                    StringBuilder which = new StringBuilder();
+                    for (Display display : left) {
+                        which.append(" [").append(display.getType().toShortString()).append(" ved ").append(helper.relativePos(display.blockPosition()))
+                                .append(", ").append(display.tickCount).append(" ticks gammel]");
+                    }
+                    helper.assertTrue(left.isEmpty(), left.size() + " display-entities blev liggende efter færdighederne:" + which);
                     TestPlayers.remove(player);
                 })
                 .thenSucceed();
     }
 
-    // The hammer spirals out and hits a monster standing two blocks away
-    @GameTest(template = "empty", timeoutTicks = 100)
+    // The hammer spirals out and hits a monster standing two blocks away. It also waits for the hammer to go, like
+    // holyLightHealsNearbyPlayers
+    @GameTest(template = "empty", timeoutTicks = 150)
     public static void holyHammerHitsAround(GameTestHelper helper) {
         ServerPlayer player = paladin(helper, Map.of(Upgrade.HOLY_HAMMER, 1));
         Husk husk = husk(helper, new BlockPos(4, 2, 2));
@@ -130,6 +144,7 @@ public final class PaladinTests {
                     helper.assertTrue(husk.getHealth() < husk.getMaxHealth(), "Hellig Hammer ramte ikke monsteret");
                     TestPlayers.remove(player);
                 })
+                .thenIdle(DISPLAYS_GONE)
                 .thenSucceed();
     }
 }

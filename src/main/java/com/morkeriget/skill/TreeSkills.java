@@ -95,6 +95,13 @@ final class TreeSkills {
     private static final int THICK_ICE_LEVEL = 3;
     // Chain Storm: each bolt jumps on to one more monster this close
     private static final double CHAIN_STORM_RANGE = 5.0;
+    // The necromancer's variants of Bone Prison, Army of the Dead and Blood Nova.
+    // Large Prison: this times the radius. Crushing Prison: this times your attack damage as it closes
+    private static final double LARGE_PRISON = 1.5;
+    private static final double CRUSH_DAMAGE = 2.0;
+    // Blood Harvest: this part of your health back for each arm that grabs something. Risen Army: skeletons it raises
+    static final float BLOOD_HARVEST_HEAL = 0.01f;
+    private static final int RISEN_SKELETONS = 2;
 
     // Doom Slam: you jump up, and when you land three shockwaves roll out, each further than the last
     private static final double DOOM_SLAM_JUMP = 0.9;
@@ -402,11 +409,18 @@ final class TreeSkills {
         // Each Blood Nova rank adds 20% damage
         float damage = attackDamage(player, 1.4, Upgrade.BLOOD_NOVA, 0.2);
         List<LivingEntity> targets = ClassSkills.enemies(level, player.position(), BLOOD_NOVA_RADIUS);
+        // Blood Curse: everyone it hits is cursed, before the damage so the curse already counts
+        if (Progression.has(player, Upgrade.BLOOD_NOVA_CURSE)) {
+            for (LivingEntity target : targets) {
+                NecroSkills.applyCurse(level, target, player, NecroSkills.curseBonus(player));
+            }
+        }
         for (LivingEntity target : targets) {
             target.hurt(player.damageSources().playerAttack(player), damage);
         }
-        // 3% of your max health for each, at most 30%
-        player.heal(player.getMaxHealth() * Math.min(0.3f, 0.03f * targets.size()));
+        // 3% of your max health for each, at most 30%. Bloodthirst doubles both
+        float thirst = Progression.has(player, Upgrade.BLOOD_NOVA_THIRST) ? 2 : 1;
+        player.heal(player.getMaxHealth() * Math.min(0.3f * thirst, 0.03f * thirst * targets.size()));
         for (int i = 0; i < 40; i++) {
             double angle = Math.PI * 2 * i / 40;
             level.sendParticles(BLOOD, player.getX() + Math.cos(angle) * 2, player.getY() + 1, player.getZ() + Math.sin(angle) * 2,
@@ -436,8 +450,16 @@ final class TreeSkills {
         // Each Bone Prison rank holds them 0.3 seconds longer
         int duration = BONE_PRISON_DURATION + 6 * Upgrade.utility(Progression.rank(player, Upgrade.BONE_PRISON));
         boolean cage = LegendaryPower.has(player, LegendaryPower.DEATHS_CAGE);
-        for (LivingEntity target : ClassSkills.enemies(level, center, BONE_PRISON_RADIUS)) {
+        // Large Prison: a wider circle. Crushing Prison: hurts them as it closes
+        double radius = Progression.has(player, Upgrade.BONE_PRISON_LARGE) ? BONE_PRISON_RADIUS * LARGE_PRISON : BONE_PRISON_RADIUS;
+        boolean crush = Progression.has(player, Upgrade.BONE_PRISON_CRUSH);
+        float crushDamage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * CRUSH_DAMAGE);
+        for (LivingEntity target : ClassSkills.enemies(level, center, radius)) {
             hold(target, duration);
+            if (crush) {
+                target.hurt(player.damageSources().playerAttack(player), crushDamage);
+                level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + target.getBbHeight() / 2, target.getZ(), 8, 0.3, 0.3, 0.3, 0.2);
+            }
             // Death's Cage: the same curse as the Curse skill
             if (cage) {
                 NecroSkills.applyCurse(level, target, player, NecroSkills.curseBonus(player));
@@ -451,9 +473,9 @@ final class TreeSkills {
             SkillVisuals.ring(level, target.position(), target.getBbHeight() + 0.2, 0.5, 8, SkillVisuals.BONE_DUST);
             level.sendParticles(ParticleTypes.WHITE_ASH, target.getX(), target.getY() + 0.1, target.getZ(), 6, 0.5, 0.05, 0.5, 0.02);
         }
-        circle(level, center, BONE_PRISON_RADIUS, BONE);
-        SkillVisuals.ring(level, center, 0.1, BONE_PRISON_RADIUS, 24, SkillVisuals.BONE_DUST);
-        SkillVisuals.implode(level, center, 0.3, BONE_PRISON_RADIUS, 16, 0.25, ParticleTypes.SOUL);
+        circle(level, center, radius, BONE);
+        SkillVisuals.ring(level, center, 0.1, radius, 24, SkillVisuals.BONE_DUST);
+        SkillVisuals.implode(level, center, 0.3, radius, 16, 0.25, ParticleTypes.SOUL);
         level.sendParticles(ParticleTypes.SCULK_SOUL, center.x, center.y + 0.5, center.z, 8, 1.0, 0.3, 1.0, 0.02);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.BONE_BLOCK_PLACE, SoundSource.PLAYERS, 1.5f, 0.5f);
         level.playSound(null, center.x, center.y, center.z, SoundEvents.SKELETON_AMBIENT, SoundSource.PLAYERS, 1.0f, 0.6f);
@@ -720,6 +742,10 @@ final class TreeSkills {
         float damage = attackDamage(player, 1.2, Upgrade.ARMY_OF_THE_DEAD, 0.2);
         int arms = ARMY_ARMS + Upgrade.utility(rank) / 2;
         add(player, new Effect(Kind.ARMY_OF_THE_DEAD, center, damage, arms, level.getGameTime() + 10, 0));
+        // Risen Army: two skeletons climb up next to you as well
+        if (Progression.has(player, Upgrade.ARMY_RISEN)) {
+            NecroSkills.raise(player, RISEN_SKELETONS);
+        }
         SkillVisuals.ring(level, center, 0.1, ARMY_RADIUS, 48, SkillVisuals.SHADOW);
         SkillVisuals.ring(level, center, 0.1, ARMY_RADIUS - 0.5, 32, ParticleTypes.SOUL);
         level.sendParticles(ParticleTypes.SCULK_SOUL, center.x, center.y + 0.3, center.z, 30, ARMY_RADIUS / 2, 0.2, ARMY_RADIUS / 2, 0.02);
@@ -741,10 +767,16 @@ final class TreeSkills {
             double distance = random.nextDouble() * ARMY_RADIUS;
             spot = effect.center.add(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
         }
-        for (LivingEntity target : ClassSkills.enemies(level, spot, ARMY_HIT_RADIUS)) {
+        List<LivingEntity> grabbed = ClassSkills.enemies(level, spot, ARMY_HIT_RADIUS);
+        for (LivingEntity target : grabbed) {
             target.invulnerableTime = 0;
             target.hurt(player.damageSources().playerAttack(player), effect.damage);
             hold(target, 15);
+        }
+        // Blood Harvest: an arm that grabs something heals you a little
+        if (!grabbed.isEmpty() && Progression.has(player, Upgrade.ARMY_BLOOD_HARVEST)) {
+            player.heal(player.getMaxHealth() * BLOOD_HARVEST_HEAL);
+            SkillVisuals.line(level, spot.add(0, 1, 0), player.position().add(0, 1, 0), 0.8, BLOOD);
         }
         // A column of bone shooting up, with grasping fingers spread out at the top and souls rising from the hole
         for (double y = 0; y < 2.2; y += 0.25) {

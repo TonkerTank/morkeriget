@@ -58,6 +58,10 @@ public final class Progression {
     private static final ResourceLocation UNSTABLE_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "keystone_unstable_health");
     public static final double UNSTABLE_DAMAGE = 0.4;
     public static final double UNSTABLE_HEALTH = 0.3;
+    private static final ResourceLocation SACRIFICE_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "keystone_sacrifice_damage");
+    private static final ResourceLocation DEATH_PACT_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "keystone_death_pact_damage");
+    public static final double SACRIFICE_DAMAGE = 0.4;
+    public static final double DEATH_PACT_DAMAGE = 0.3;
     private static final ResourceLocation PARAGON_DAMAGE_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_damage");
     private static final ResourceLocation PARAGON_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_health");
     private static final ResourceLocation PARAGON_SPEED_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "paragon_speed");
@@ -380,6 +384,11 @@ public final class Progression {
             // Every skill's damage comes from this, so Unstable Magic's 40% goes on all of them
             damage.addOrUpdateTransientModifier(new AttributeModifier(UNSTABLE_DAMAGE_ID,
                     rank(player, Upgrade.UNSTABLE_MAGIC) * UNSTABLE_DAMAGE, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            // The necromancer's keystones: Sacrifice gives 40% for having no skeletons, Death Pact takes 30% for stronger ones
+            damage.addOrUpdateTransientModifier(new AttributeModifier(SACRIFICE_DAMAGE_ID,
+                    rank(player, Upgrade.SACRIFICE) * SACRIFICE_DAMAGE, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+            damage.addOrUpdateTransientModifier(new AttributeModifier(DEATH_PACT_DAMAGE_ID,
+                    rank(player, Upgrade.DEATH_PACT) * -DEATH_PACT_DAMAGE, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
         }
         // Each Zeal rank makes you swing 4% faster
         AttributeInstance attackSpeed = player.getAttribute(Attributes.ATTACK_SPEED);

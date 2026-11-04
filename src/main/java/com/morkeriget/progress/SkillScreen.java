@@ -637,6 +637,23 @@ public class SkillScreen extends Screen {
             case GRAVE_CHILL -> Items.SOUL_LANTERN;
             case DEATH_LORD -> Items.SKELETON_SKULL;
             case SOUL_HARVEST -> Items.SCULK;
+            case BONE_SPEAR_PIERCE -> Items.ARROW;
+            case BONE_SPEAR_MARROW -> Items.BONE_MEAL;
+            case RAISE_SKELETONS_GIANTS -> Items.WITHER_SKELETON_SKULL;
+            case RAISE_SKELETONS_HORDE -> Items.BONE;
+            case CURSE_WEAKEN -> Items.FERMENTED_SPIDER_EYE;
+            case CURSE_DECAY -> Items.ROTTEN_FLESH;
+            case BONE_ARMOR_STORM -> Items.BONE_BLOCK;
+            case BONE_ARMOR_FORTIFIED -> Items.IRON_CHESTPLATE;
+            case BONE_PRISON_CRUSH -> Items.PISTON;
+            case BONE_PRISON_LARGE -> Items.IRON_BARS;
+            case ARMY_BLOOD_HARVEST -> Items.REDSTONE;
+            case ARMY_RISEN -> Items.ZOMBIE_HEAD;
+            case BLOOD_NOVA_THIRST -> Items.BEETROOT;
+            case BLOOD_NOVA_CURSE -> Items.WITHER_ROSE;
+            case DEATH_PACT -> Items.TOTEM_OF_UNDYING;
+            case SACRIFICE -> Items.NETHERITE_SWORD;
+            case BLOOD_PACT -> Items.NETHER_WART;
             default -> Items.BOOK;
         });
     }
