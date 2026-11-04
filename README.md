@@ -6,7 +6,7 @@
 
 ## Features
 
-- **5 classes**: Barbarian, Sorcerer, Ranger, Necromancer and Paladin, each with its own skills and a skill tree with upgrades.
+- **5 classes**: Barbarian, Sorcerer, Ranger, Necromancer and Paladin, each with its own skills and a skill tree of three branches. Every skill has two variants to pick from, and each class has three keystones that change how you play. New characters start with a weapon for their class.
 - **Skills on keys 1-4**, with mana, cooldowns, a dodge roll (V) and health and mana potions (R and G).
 - **Loot like in Diablo**: common, magic, rare, legendary, set and mythic items with random bonuses, item levels and item power. Legendary powers, set bonuses and 6 mythic items.
 - **Smithy**: salvage items into essence, re-roll bonuses, masterwork, repair, socket gems, and extract legendary powers into a codex to imprint them on other items.
