@@ -57,7 +57,11 @@ final class SorcererSkills {
             for (int i = 0; i < SPLINTERS; i++) {
                 double angle = start + Math.PI * 2 * i / SPLINTERS;
                 Vec3 spot = impact.add(Math.cos(angle) * SPLINTER_DISTANCE, 0, Math.sin(angle) * SPLINTER_DISTANCE);
+                // Only the ones the big ball didn't hit, so one monster isn't hit four times
                 for (LivingEntity target : ClassSkills.enemies(level, spot, SPLINTER_RADIUS)) {
+                    if (hit.contains(target)) {
+                        continue;
+                    }
                     target.invulnerableTime = 0;
                     target.hurt(player.damageSources().playerAttack(player), damage * SPLINTER_DAMAGE);
                 }

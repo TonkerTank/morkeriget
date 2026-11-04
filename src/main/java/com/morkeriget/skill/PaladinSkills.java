@@ -179,10 +179,10 @@ final class PaladinSkills {
         target.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, duration, 2));
     }
 
-    // The player and the other players close by, for the healing and the aura
-    // How far the skills reach with their variants: Big Hammer, Long Thrust, Wide Aura and Radiant Light
-    private static double hammerReach(ServerPlayer player) {
-        return Progression.has(player, Upgrade.HOLY_HAMMER_BIG) ? HAMMER_REACH * WIDER : HAMMER_REACH;
+    // How far the skills reach with their variants: Big Hammer hits a wider area as it passes, and Long Thrust, Wide
+    // Aura and Radiant Light reach further
+    private static double hammerHit(ServerPlayer player) {
+        return Progression.has(player, Upgrade.HOLY_HAMMER_BIG) ? HAMMER_HIT * WIDER : HAMMER_HIT;
     }
 
     private static double bashRange(ServerPlayer player) {
@@ -197,6 +197,7 @@ final class PaladinSkills {
         return Progression.has(player, Upgrade.HOLY_LIGHT_RADIANT) ? LIGHT_HIT_RADIUS * WIDER : LIGHT_HIT_RADIUS;
     }
 
+    // The player and the other players close by, for the healing and the aura
     private static List<ServerPlayer> allies(ServerPlayer player, double radius) {
         return player.serverLevel().getEntitiesOfClass(ServerPlayer.class, player.getBoundingBox().inflate(radius),
                 other -> other.isAlive() && !other.isSpectator() && other.distanceTo(player) <= radius);
@@ -219,11 +220,11 @@ final class PaladinSkills {
 
     private static void hammerTick(ServerLevel level, ServerPlayer player, Effect effect) {
         double progress = (double) effect.step / HAMMER_TICKS;
-        double radius = HAMMER_START + (hammerReach(player) - HAMMER_START) * progress;
+        double radius = HAMMER_START + (HAMMER_REACH - HAMMER_START) * progress;
         double angle = effect.extra + Math.PI * 2 * HAMMER_TURNS * progress;
         // It follows you, so you can walk with it
         Vec3 spot = player.position().add(Math.cos(angle) * radius, 1.0, Math.sin(angle) * radius);
-        for (LivingEntity target : ClassSkills.enemies(level, spot.subtract(0, 1, 0), HAMMER_HIT)) {
+        for (LivingEntity target : ClassSkills.enemies(level, spot.subtract(0, 1, 0), hammerHit(player))) {
             Integer last = effect.lastHit.get(target.getId());
             if (last == null || effect.step - last >= HAMMER_REHIT) {
                 effect.lastHit.put(target.getId(), effect.step);

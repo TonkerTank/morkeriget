@@ -56,9 +56,9 @@ public final class Skills {
     // Overcharge: how much harder each jump hits than the one before
     static final float CHAIN_OVERCHARGE = 0.15f;
     // Arcane Abundance: mana comes back twice as fast, but cooldowns are this much longer
-    public static final float ABUNDANCE_COOLDOWN = 1.25f;
+    public static final float ABUNDANCE_COOLDOWN = 1.4f;
     // Arcane Rhythm: every RHYTHM_EVERY skill costs no mana and has no cooldown
-    public static final int RHYTHM_EVERY = 5;
+    public static final int RHYTHM_EVERY = 3;
     private static final String RHYTHM_TAG = "morkeriget_rhythm";
     // Blood Pact: health a skill costs for each point of mana it would have cost
     public static final float BLOOD_PACT_HEALTH = 0.2f;
@@ -186,7 +186,7 @@ public final class Skills {
         if (crown) {
             manaCost *= 0.75f;
         }
-        // Arcane Rhythm: the fifth skill in a row is free and ready again at once
+        // Arcane Rhythm: every third skill in a row is free and ready again at once
         boolean rhythm = !skill.isPotion() && Progression.has(player, Upgrade.ARCANE_RHYTHM)
                 && player.getPersistentData().getInt(RHYTHM_TAG) >= RHYTHM_EVERY - 1;
         if (rhythm) {

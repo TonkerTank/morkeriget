@@ -99,7 +99,11 @@ public final class BalanceTests {
     private static final int FULL_DRAW = 20;
 
     // basic is whether the player also swings their weapon or shoots their bow when nothing else is used
-    private record Scenario(PlayerClass playerClass, String name, String id, List<Skill> skills, boolean basic) {
+    // extra is the variants and keystones the player has on top of the skills
+    private record Scenario(PlayerClass playerClass, String name, String id, List<Skill> skills, boolean basic, List<Upgrade> extra) {
+        Scenario(PlayerClass playerClass, String name, String id, List<Skill> skills, boolean basic) {
+            this(playerClass, name, id, skills, basic, List.of());
+        }
     }
 
     private record Result(PlayerClass playerClass, String name, double single, double group) {
@@ -133,10 +137,20 @@ public final class BalanceTests {
         List<Scenario> scenarios = new ArrayList<>();
         for (PlayerClass playerClass : PlayerClass.values()) {
             for (Skill skill : DAMAGE_SKILLS.get(playerClass)) {
-                scenarios.add(new Scenario(playerClass, skill.displayName().getString(), skill.name(), List.of(skill), false));
+                scenarios.add(new Scenario(playerClass, skill.name(), skill.name(), List.of(skill), false));
+                // And with each of its variants, to see what they add
+                for (Upgrade variant : Upgrade.forSkill(skill).variants()) {
+                    scenarios.add(new Scenario(playerClass, "  + " + variant.name(), variant.name(), List.of(skill), false, List.of(variant)));
+                }
             }
             scenarios.add(new Scenario(playerClass, BASIC, "basic", List.of(), true));
             scenarios.add(new Scenario(playerClass, BUILD, "build", BUILDS.get(playerClass), true));
+            // The build with each keystone. Only measured, not checked against the build limits, since some only
+            // count at low health, which the player here never has
+            for (Upgrade keystone : Upgrade.keystones(playerClass)) {
+                scenarios.add(new Scenario(playerClass, "  + " + keystone.name(), "keystone_" + keystone.name(), BUILDS.get(playerClass), true,
+                        List.of(keystone)));
+            }
         }
         // The ranger also with the wolves, since a pet and Multishot together are the strongest against one
         scenarios.add(new Scenario(PlayerClass.RANGER, "Ulve-sæt + skud", "build_wolves",
@@ -162,6 +176,9 @@ public final class BalanceTests {
             if (upgrade.playerClass == scenario.playerClass && upgrade.skill != null) {
                 ranks.put(upgrade, RANK);
             }
+        }
+        for (Upgrade upgrade : scenario.extra) {
+            ranks.put(upgrade, 1);
         }
         Progression.setForTests(player, LEVEL, scenario.playerClass, ranks);
         player.setItemInHand(InteractionHand.MAIN_HAND, weapon(scenario.playerClass, level.getRandom()));
@@ -287,7 +304,7 @@ public final class BalanceTests {
     }
 
     private static String line(Result result) {
-        return String.format("%-12s %-16s %8.1f %8.1f", result.playerClass.name(), result.name, result.single, result.group);
+        return String.format("%-12s %-32s %8.1f %8.1f", result.playerClass.name(), result.name, result.single, result.group);
     }
 
     // The whole table, by class and then the most damage against the group first
@@ -295,7 +312,7 @@ public final class BalanceTests {
     public static void table(ServerLevel level) {
         List<Result> results = new ArrayList<>(RESULTS);
         results.sort(Comparator.comparing((Result result) -> result.playerClass).thenComparing(result -> -result.group));
-        Morkeriget.LOGGER.info("BALANCE {}", String.format("%-12s %-16s %8s %8s", "Klasse", "Færdighed", "1 fjende", "5 fjender"));
+        Morkeriget.LOGGER.info("BALANCE {}", String.format("%-12s %-32s %8s %8s", "Klasse", "Færdighed", "1 fjende", "5 fjender"));
         for (Result result : results) {
             Morkeriget.LOGGER.info("BALANCE {}", line(result));
         }

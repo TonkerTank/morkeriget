@@ -86,7 +86,7 @@ final class TreeSkills {
     // Impact: the monsters it hits are thrown up and held for a moment
     private static final int IMPACT_HOLD = 2 * 20;
     // Molten Ground: burning ground where it came down, hurting with this part of the meteor's damage every MOLTEN_TIME
-    static final float MOLTEN_DAMAGE = 0.15f;
+    static final float MOLTEN_DAMAGE = 0.06f;
     static final int MOLTEN_PULSES = 8;
     private static final int MOLTEN_TIME = 10;
     // Icicles: whoever hits you through Ice Armor takes this times your attack damage
@@ -100,6 +100,7 @@ final class TreeSkills {
     private static final int TRAMPLE_STUN = 20;
     private static final double WIDE_CRACK = 1.5;
     static final float ECHO_DAMAGE = 0.5f;
+    static final float QUAKE_DAMAGE = 0.5f;
     // The ranger's variants of Explosive Arrow, Bear Trap and Arrow Hurricane
     private static final double BIG_BLAST = 1.5;
     private static final int BLAST_STUN = 20;
@@ -112,7 +113,7 @@ final class TreeSkills {
     private static final double CRUSH_DAMAGE = 2.0;
     // Blood Harvest: this part of your health back for each arm that grabs something. Risen Army: skeletons it raises
     static final float BLOOD_HARVEST_HEAL = 0.01f;
-    private static final int RISEN_SKELETONS = 2;
+    private static final int RISEN_SKELETONS = 1;
 
     // Doom Slam: you jump up, and when you land three shockwaves roll out, each further than the last
     private static final double DOOM_SLAM_JUMP = 0.9;
@@ -785,7 +786,7 @@ final class TreeSkills {
         float damage = attackDamage(player, 1.2, Upgrade.ARMY_OF_THE_DEAD, 0.2);
         int arms = ARMY_ARMS + Upgrade.utility(rank) / 2;
         add(player, new Effect(Kind.ARMY_OF_THE_DEAD, center, damage, arms, level.getGameTime() + 10, 0));
-        // Risen Army: two skeletons climb up next to you as well
+        // Risen Army: a skeleton climbs up next to you as well
         if (Progression.has(player, Upgrade.ARMY_RISEN)) {
             NecroSkills.raise(player, RISEN_SKELETONS);
         }
@@ -855,7 +856,9 @@ final class TreeSkills {
             return;
         }
         iceArmorGlow(player);
-        List<Effect> effects = EFFECTS.get(player.getUUID());
+        // Taken out while it runs, since an effect can start a new one, like a meteor leaving Molten Ground. Those go in
+        // a new list through add(), and are put together with the rest at the end
+        List<Effect> effects = EFFECTS.remove(player.getUUID());
         if (effects == null) {
             return;
         }
@@ -899,9 +902,9 @@ final class TreeSkills {
                         if (Progression.has(player, Upgrade.DOOM_SLAM_ECHO)) {
                             next.add(new Effect(Kind.DOOM_SLAM_WAVE, player.position(), effect.damage * ECHO_DAMAGE, DOOM_SLAM_WAVES, now + 20, 0));
                         }
-                        // Aftershock Slam: an Earthquake where you landed
+                        // Aftershock Slam: an Earthquake where you landed, at half the damage
                         if (Progression.has(player, Upgrade.DOOM_SLAM_QUAKE)) {
-                            next.add(new Effect(Kind.EARTHQUAKE, player.position(), attackDamage(player, 1.0, Upgrade.EARTHQUAKE, 0.2),
+                            next.add(new Effect(Kind.EARTHQUAKE, player.position(), attackDamage(player, 1.0, Upgrade.EARTHQUAKE, 0.2) * QUAKE_DAMAGE,
                                     EARTHQUAKE_PULSES, now + 10, 0));
                         }
                     } else {
@@ -938,8 +941,13 @@ final class TreeSkills {
             }
         }
         effects.addAll(next);
-        if (effects.isEmpty()) {
-            EFFECTS.remove(player.getUUID());
+        List<Effect> started = EFFECTS.remove(player.getUUID());
+        if (started != null) {
+            effects.addAll(started);
+        }
+        // Not if the player died from something along the way, see forget
+        if (!effects.isEmpty() && player.isAlive()) {
+            EFFECTS.put(player.getUUID(), effects);
         }
     }
 

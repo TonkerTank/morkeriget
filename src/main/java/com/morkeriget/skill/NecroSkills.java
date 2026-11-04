@@ -53,10 +53,10 @@ final class NecroSkills {
     static final float MARROW_HEAL = 0.02f;
     // Giants: fewer skeletons, but stronger. Horde: more, but weaker. Death Pact makes them stronger still
     static final int GIANTS_MAX = 4;
-    static final double GIANTS_STRENGTH = 2.0;
+    static final double GIANTS_STRENGTH = 1.6;
     static final int HORDE_MAX = 12;
-    static final double HORDE_STRENGTH = 0.7;
-    static final double DEATH_PACT_STRENGTH = 1.5;
+    static final double HORDE_STRENGTH = 0.85;
+    static final double DEATH_PACT_STRENGTH = 1.25;
     // Weaken: cursed enemies do this much less damage. Decay: they lose this part of their max health every second
     static final float WEAKEN = 0.3f;
     static final float DECAY_PER_SECOND = 0.02f;
