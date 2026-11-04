@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
@@ -25,6 +26,7 @@ import com.morkeriget.smithy.Smithy;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -32,6 +34,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.tags.BiomeTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.ContainerHelper;
@@ -45,6 +48,7 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
@@ -75,6 +79,10 @@ public final class Helltide {
     private static final int MIN_DISTANCE = 100;
     private static final int MAX_DISTANCE = 160;
     private static final int RADIUS = 64;
+    // How many spots are tried for the middle, and how many points at the edge (WATER_CHECK_RADIUS out) are checked for water
+    private static final int CENTER_TRIES = 20;
+    private static final int WATER_CHECKS = 8;
+    private static final int WATER_CHECK_RADIUS = 48;
     private static final int CHESTS = 3;
     public static final int CHEST_COST = 50;
     // Extra monsters are spawned until there are this many helltide monsters close to each player in the area
@@ -103,6 +111,40 @@ public final class Helltide {
         NeoForge.EVENT_BUS.addListener(Helltide::onDamagePre);
     }
 
+    // Where the helltide goes: MIN_DISTANCE to MAX_DISTANCE from the player, at a spot where neither the middle nor any
+    // of WATER_CHECKS points at the edge is water. null if no such spot was found in CENTER_TRIES tries. water is
+    // given in, so the tests can say where the water is
+    static BlockPos findCenter(RandomSource random, BlockPos player, Predicate<BlockPos> water) {
+        for (int attempt = 0; attempt < CENTER_TRIES; attempt++) {
+            double angle = random.nextDouble() * Math.PI * 2;
+            int distance = MIN_DISTANCE + random.nextInt(MAX_DISTANCE - MIN_DISTANCE + 1);
+            BlockPos center = new BlockPos((int) (player.getX() + Math.cos(angle) * distance), 64, (int) (player.getZ() + Math.sin(angle) * distance));
+            if (isDry(center, water)) {
+                return center;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isDry(BlockPos center, Predicate<BlockPos> water) {
+        if (water.test(center)) {
+            return false;
+        }
+        for (int i = 0; i < WATER_CHECKS; i++) {
+            double angle = Math.PI * 2 * i / WATER_CHECKS;
+            if (water.test(center.offset((int) (Math.cos(angle) * WATER_CHECK_RADIUS), 0, (int) (Math.sin(angle) * WATER_CHECK_RADIUS)))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Oceans and rivers. The biome is known before the chunk is loaded, which it usually isn't this far from players
+    private static boolean isWater(ServerLevel level, BlockPos pos) {
+        Holder<Biome> biome = level.getBiome(pos);
+        return biome.is(BiomeTags.IS_OCEAN) || biome.is(BiomeTags.IS_DEEP_OCEAN) || biome.is(BiomeTags.IS_RIVER);
+    }
+
     // Also counts arrows and potions, since the source entity is the monster that shot or threw them
     private static void onDamagePre(LivingDamageEvent.Pre event) {
         Entity attacker = event.getSource().getEntity();
@@ -124,7 +166,11 @@ public final class Helltide {
         boolean night = isNight(level);
         if (active == null && night && !level.players().isEmpty()) {
             ServerPlayer player = level.players().get(level.getRandom().nextInt(level.players().size()));
-            active = new Active(level, player);
+            // Only on land. If there is none around that player, it tries again a second later
+            BlockPos center = findCenter(level.getRandom(), player.blockPosition(), pos -> isWater(level, pos));
+            if (center != null) {
+                active = new Active(level, center);
+            }
         } else if (active != null && (!night || active.level != level)) {
             active.end(Text.tr("helltide.over"));
             active = null;
@@ -197,12 +243,9 @@ public final class Helltide {
         // One for each player, since it says how far and which way it is for them
         private final PlayerBars bars = new PlayerBars(BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
 
-        Active(ServerLevel level, ServerPlayer player) {
+        Active(ServerLevel level, BlockPos center) {
             this.level = level;
-            RandomSource random = level.getRandom();
-            double angle = random.nextDouble() * Math.PI * 2;
-            int distance = MIN_DISTANCE + random.nextInt(MAX_DISTANCE - MIN_DISTANCE + 1);
-            this.center = new BlockPos((int) (player.getX() + Math.cos(angle) * distance), 64, (int) (player.getZ() + Math.sin(angle) * distance));
+            this.center = center;
             for (ServerPlayer other : level.players()) {
                 other.sendSystemMessage(Text.tr("helltide.started").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD)
                         .append(Text.tr("helltide.started.info")
