@@ -1,8 +1,11 @@
 package com.morkeriget.ui;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 // The look of every screen in the mod, so they all match: dark panels with a bronze and gold frame like in Diablo,
 // sunken slots, bars and titles. Everything is drawn with rectangles, so no textures are needed. Client only
@@ -118,6 +121,29 @@ public final class UiTheme {
 
     public static void title(GuiGraphics graphics, Font font, String text, int centerX, int y, int color) {
         title(graphics, font, Component.literal(text), centerX, y, color);
+    }
+
+    // A button: dark bronze with a frame that turns gold under the mouse, and grey when it can't be clicked. Used by
+    // ThemedButton and by the title screen's buttons. alpha is for buttons that fade in
+    public static void button(GuiGraphics graphics, AbstractButton button, float alpha) {
+        int x = button.getX();
+        int y = button.getY();
+        int right = x + button.getWidth();
+        int bottom = y + button.getHeight();
+        boolean active = button.active;
+        boolean hover = active && button.isHoveredOrFocused();
+        int frame = !active ? 0xFF3A342E : hover ? 0xFFE8C46A : 0xFF8C6E3A;
+        int top = !active ? 0xFF262224 : hover ? 0xFF5A4428 : 0xFF3A2D1E;
+        int low = !active ? 0xFF1A1719 : hover ? 0xFF33250F : 0xFF21180F;
+        graphics.setColor(1, 1, 1, alpha);
+        graphics.fill(x, y, right, bottom, 0xFF000000);
+        graphics.fill(x + 1, y + 1, right - 1, bottom - 1, frame);
+        graphics.fillGradient(x + 2, y + 2, right - 2, bottom - 2, top, low);
+        // Light along the top inside edge
+        graphics.fill(x + 2, y + 2, right - 2, y + 3, active ? 0x30FFFFFF : 0x10FFFFFF);
+        graphics.setColor(1, 1, 1, 1);
+        int color = !active ? 0x7A7064 : hover ? 0xFFF0C0 : 0xE6D3A3;
+        button.renderString(graphics, Minecraft.getInstance().font, color | Mth.ceil(alpha * 255) << 24);
     }
 
     // A thin gold line that fades out at both ends, to split a panel into parts

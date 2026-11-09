@@ -11,6 +11,10 @@
     "ItemDisplayAccessor",
     "ItemStackMixin"
   ],
+  "client": [
+    "AbstractButtonMixin",
+    "TitleScreenMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }
