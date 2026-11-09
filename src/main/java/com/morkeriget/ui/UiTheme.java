@@ -48,6 +48,24 @@ public final class UiTheme {
         corner(graphics, right - 1, bottom - 1);
     }
 
+    // Like panel, but see-through, so what is behind still shows a little. Used behind the title screen's buttons
+    public static void glassPanel(GuiGraphics graphics, int x, int y, int width, int height) {
+        int right = x + width;
+        int bottom = y + height;
+        graphics.fill(x - 2, y - 2, right + 2, bottom + 2, 0x80000000);
+        // A thin bronze frame, lit on the top and left
+        graphics.fill(x - 1, y - 1, right + 1, y, 0xC08C6E3A);
+        graphics.fill(x - 1, y, x, bottom + 1, 0xC08C6E3A);
+        graphics.fill(right, y, right + 1, bottom + 1, 0xC04A3818);
+        graphics.fill(x, bottom, right, bottom + 1, 0xC04A3818);
+        graphics.fillGradient(x, y, right, bottom, 0x70221B26, 0xA80C090E);
+        graphics.fill(x, y, right, y + 1, 0x18FFFFFF);
+        corner(graphics, x - 2, y - 2);
+        corner(graphics, right - 1, y - 2);
+        corner(graphics, x - 2, bottom - 1);
+        corner(graphics, right - 1, bottom - 1);
+    }
+
     // A small gold diamond on a corner of a frame
     private static void corner(GuiGraphics graphics, int x, int y) {
         graphics.fill(x - 1, y, x + 4, y + 3, SHADOW);
@@ -136,11 +154,29 @@ public final class UiTheme {
         int top = !active ? 0xFF262224 : hover ? 0xFF5A4428 : 0xFF3A2D1E;
         int low = !active ? 0xFF1A1719 : hover ? 0xFF33250F : 0xFF21180F;
         graphics.setColor(1, 1, 1, alpha);
+        if (hover) {
+            // A faint gold glow just outside the button under the mouse
+            graphics.fill(x - 2, y - 1, right + 2, bottom + 1, 0x30E8C46A);
+            graphics.fill(x - 1, y - 2, right + 1, bottom + 2, 0x30E8C46A);
+        }
         graphics.fill(x, y, right, bottom, 0xFF000000);
         graphics.fill(x + 1, y + 1, right - 1, bottom - 1, frame);
         graphics.fillGradient(x + 2, y + 2, right - 2, bottom - 2, top, low);
-        // Light along the top inside edge
+        // Light along the top inside edge, and shade along the bottom
         graphics.fill(x + 2, y + 2, right - 2, y + 3, active ? 0x30FFFFFF : 0x10FFFFFF);
+        graphics.fill(x + 2, bottom - 3, right - 2, bottom - 2, 0x40000000);
+        if (active && button.getWidth() >= 40) {
+            // Small marks in the corners of the frame, gold under the mouse
+            int mark = hover ? 0xFFFFF0C0 : 0xFFC9A05A;
+            graphics.fill(x + 1, y + 1, x + 3, y + 2, mark);
+            graphics.fill(x + 1, y + 1, x + 2, y + 3, mark);
+            graphics.fill(right - 3, y + 1, right - 1, y + 2, mark);
+            graphics.fill(right - 2, y + 1, right - 1, y + 3, mark);
+            graphics.fill(x + 1, bottom - 2, x + 3, bottom - 1, mark);
+            graphics.fill(x + 1, bottom - 3, x + 2, bottom - 1, mark);
+            graphics.fill(right - 3, bottom - 2, right - 1, bottom - 1, mark);
+            graphics.fill(right - 2, bottom - 3, right - 1, bottom - 1, mark);
+        }
         graphics.setColor(1, 1, 1, 1);
         int color = !active ? 0x7A7064 : hover ? 0xFFF0C0 : 0xE6D3A3;
         button.renderString(graphics, Minecraft.getInstance().font, color | Mth.ceil(alpha * 255) << 24);

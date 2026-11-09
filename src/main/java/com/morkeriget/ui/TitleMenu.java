@@ -1,17 +1,24 @@
 package com.morkeriget.ui;
 
+import java.util.List;
+
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.morkeriget.Morkeriget;
 
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.PlainTextButton;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 // The mod's own look on Minecraft's title screen: the panorama is darkened with a red tint and a dark vignette,
 // embers rise from the bottom, a red glow pulses behind the gold "Realm of Darkness" logo, which replaces the
-// Minecraft logo. Drawn from TitleScreenMixin. Client only
+// Minecraft logo and now and then has a band of light sweeping across it. A see-through panel sits behind the buttons.
+// Drawn from TitleScreenMixin. Client only
 public final class TitleMenu {
     private static final ResourceLocation LOGO = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "textures/gui/title_logo.png");
     private static final ResourceLocation GLOW = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "textures/gui/title_glow.png");
@@ -85,21 +92,81 @@ public final class TitleMenu {
         smooth(LOGO);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
+        int left = width / 2 - logoWidth / 2;
         graphics.setColor(1, 1, 1, alpha);
-        graphics.blit(LOGO, width / 2 - logoWidth / 2, top, logoWidth, logoHeight, 0, 0,
+        graphics.blit(LOGO, left, top, logoWidth, logoHeight, 0, 0,
                 LOGO_TEXTURE_WIDTH, LOGO_TEXTURE_HEIGHT, LOGO_TEXTURE_WIDTH, LOGO_TEXTURE_HEIGHT);
+        shine(graphics, left, top, logoWidth, logoHeight, alpha);
         graphics.setColor(1, 1, 1, 1);
         RenderSystem.disableBlend();
+    }
+
+    // Every few seconds a slanted band of light sweeps across the logo from left to right. The logo is drawn once more
+    // with light added on top, cut to the band in thin rows that are shifted a bit each, which makes the band slant
+    private static void shine(GuiGraphics graphics, int left, int top, int logoWidth, int logoHeight, float alpha) {
+        float period = 7f;
+        float sweep = 1.4f;
+        float t = (Util.getMillis() / 1000f) % period;
+        if (t > sweep) {
+            return;
+        }
+        float progress = t / sweep;
+        int slant = logoHeight / 2;
+        int center = (int) (left - slant - 20 + progress * (logoWidth + slant + 40));
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        int rows = 12;
+        for (int pass = 0; pass < 2; pass++) {
+            // A wide faint band and a narrow bright one in the middle of it
+            int half = pass == 0 ? 14 : 5;
+            float strength = (pass == 0 ? 0.45f : 0.8f) * alpha * Mth.sin(progress * Mth.PI);
+            graphics.setColor(1f, 0.92f, 0.75f, strength);
+            for (int row = 0; row < rows; row++) {
+                int y0 = top + row * logoHeight / rows;
+                int y1 = top + (row + 1) * logoHeight / rows;
+                // Lower rows are further left, so the band leans to the right
+                int shift = slant * (rows - 1 - row) / rows - slant / 2;
+                int x0 = Math.max(left, center + shift - half);
+                int x1 = Math.min(left + logoWidth, center + shift + half);
+                if (x1 <= x0) {
+                    continue;
+                }
+                graphics.enableScissor(x0, y0, x1, y1);
+                graphics.blit(LOGO, left, top, logoWidth, logoHeight, 0, 0,
+                        LOGO_TEXTURE_WIDTH, LOGO_TEXTURE_HEIGHT, LOGO_TEXTURE_WIDTH, LOGO_TEXTURE_HEIGHT);
+                graphics.disableScissor();
+            }
+        }
+        RenderSystem.defaultBlendFunc();
+    }
+
+    // A see-through framed panel behind the title screen's buttons, sized to fit around all of them
+    public static void buttonPanel(GuiGraphics graphics, List<? extends GuiEventListener> children) {
+        int x0 = Integer.MAX_VALUE;
+        int y0 = Integer.MAX_VALUE;
+        int x1 = Integer.MIN_VALUE;
+        int y1 = Integer.MIN_VALUE;
+        for (GuiEventListener child : children) {
+            // The copyright text in the corner is a button too, but it should stay outside the panel
+            if (child instanceof AbstractWidget widget && widget.visible && !(child instanceof PlainTextButton)) {
+                x0 = Math.min(x0, widget.getX());
+                y0 = Math.min(y0, widget.getY());
+                x1 = Math.max(x1, widget.getX() + widget.getWidth());
+                y1 = Math.max(y1, widget.getY() + widget.getHeight());
+            }
+        }
+        if (x0 < x1 && y0 < y1) {
+            UiTheme.glassPanel(graphics, x0 - 12, y0 - 5, x1 - x0 + 24, y1 - y0 + 12);
+        }
     }
 
     // The buttons start at a quarter of the height plus 48, so the logo sits just above them, and gets smaller on
     // short windows
     private static int logoHeight(int height) {
-        return Mth.clamp(height / 4 + 48 - 22, 30, 72);
+        return Mth.clamp(height / 4 + 48 - 30, 30, 72);
     }
 
     private static int logoTop(int height) {
-        return Math.max(4, height / 4 + 48 - 10 - logoHeight(height));
+        return Math.max(4, height / 4 + 48 - 18 - logoHeight(height));
     }
 
     // A soft texture stretched over an area, faded by alpha

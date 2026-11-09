@@ -28,6 +28,7 @@ public abstract class TitleScreenMixin extends Screen {
     @Inject(method = "renderBackground", at = @At("HEAD"))
     private void morkeriget$background(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo info) {
         TitleMenu.background(graphics, width, height);
+        TitleMenu.buttonPanel(graphics, children());
     }
 
     @Redirect(method = "render", at = @At(value = "INVOKE",

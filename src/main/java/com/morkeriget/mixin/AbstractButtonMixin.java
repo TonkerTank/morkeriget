@@ -12,13 +12,14 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.client.gui.widget.ModsButton;
 
 // On the title screen, the normal text buttons (Singleplayer, Multiplayer, Options and so on) get the mod's bronze
-// and gold look, and so does NeoForge's Mods button. Only these are changed, so icon buttons and other mods' own buttons
-// look as they did.
+// and gold look, and so do NeoForge's Mods button and the icon buttons for language and accessibility. Only these are
+// changed, so other mods' own buttons look as they did.
 // Client only
 @Mixin(AbstractButton.class)
 public abstract class AbstractButtonMixin extends AbstractWidget {
@@ -30,7 +31,7 @@ public abstract class AbstractButtonMixin extends AbstractWidget {
     private void morkeriget$themed(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo info) {
         Object self = this;
         Class<?> type = self.getClass();
-        if ((type == Button.class || type == ModsButton.class) && Minecraft.getInstance().screen instanceof TitleScreen) {
+        if ((type == Button.class || type == ModsButton.class || type == SpriteIconButton.CenteredIcon.class) && Minecraft.getInstance().screen instanceof TitleScreen) {
             UiTheme.button(graphics, (Button) self, alpha);
             info.cancel();
         }
