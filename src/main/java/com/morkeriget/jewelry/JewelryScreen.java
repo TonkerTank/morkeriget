@@ -21,7 +21,10 @@ import net.minecraft.world.inventory.Slot;
 // The equipment screen. There is no texture, so the panel and the slots are drawn with plain rectangles. Client only
 public class JewelryScreen extends AbstractContainerScreen<JewelryMenu> {
     // The stats panel to the right, like the character sheet in Diablo 4
-    private static final int STATS_WIDTH = 132;
+    // Wide enough for the longest name ("Shorter cooldowns"), the value and the change after it
+    private static final int STATS_WIDTH = 168;
+    // The room kept at the right for the change, e.g. "+0.15"
+    private static final int CHANGE_WIDTH = 30;
     private static final int STATS_GAP = 4;
     private static final int LINE = 9;
 
@@ -88,25 +91,39 @@ public class JewelryScreen extends AbstractContainerScreen<JewelryMenu> {
         int x = leftPos + imageWidth + STATS_GAP;
         UiTheme.panel(graphics, x, topPos, STATS_WIDTH, imageHeight);
         UiTheme.title(graphics, font, Text.tr("stats.title").getString(), x + STATS_WIDTH / 2, topPos + 6);
-        int y = topPos + 18;
+        int y = topPos + 20;
+        // With many bonuses the lines move a little closer, so they all stay inside the panel
+        long groups = latest.stream().map(EquipmentStats.Line::group).distinct().count();
+        int needed = 20 + latest.size() * LINE + (int) groups * (LINE + 2) + (int) Math.max(0, groups - 1) * 3 + 4;
+        int spacing = needed > imageHeight ? LINE - 1 : LINE;
         String group = null;
+        int row = 0;
         for (EquipmentStats.Line line : latest) {
             if (!line.group().equals(group)) {
                 group = line.group();
-                y += group.equals(latest.get(0).group()) ? 0 : 2;
+                if (!group.equals(latest.get(0).group())) {
+                    // A thin line between the groups
+                    y += 3;
+                    UiTheme.divider(graphics, x + 6, y - 2, STATS_WIDTH - 12);
+                }
                 graphics.drawString(font, Text.tr("stats.group." + group), x + 8, y, UiTheme.TITLE, false);
-                y += LINE + 1;
+                y += spacing + 2;
+                row = 0;
+            }
+            // Every other line a little lighter, so the eye can follow a name over to its value
+            if (row++ % 2 == 0) {
+                graphics.fill(x + 6, y - 1, x + STATS_WIDTH - 6, y + spacing - 1, 0x0CFFFFFF);
             }
             graphics.drawString(font, Text.tr("stats." + line.name()), x + 10, y, UiTheme.MUTED, false);
             String value = format(line.value(), line.decimals()) + line.unit();
-            int valueRight = x + STATS_WIDTH - 30;
+            int valueRight = x + STATS_WIDTH - 8 - CHANGE_WIDTH;
             graphics.drawString(font, value, valueRight - font.width(value), y, UiTheme.TEXT, false);
             float change = line.value() - before(line);
             if (Math.abs(change) >= Math.pow(10, -line.decimals()) / 2) {
                 String text = (change > 0 ? "+" : "") + format(change, line.decimals());
                 graphics.drawString(font, text, valueRight + 4, y, change > 0 ? UiTheme.GOOD : UiTheme.BAD, false);
             }
-            y += LINE;
+            y += spacing;
         }
         if (latest.isEmpty()) {
             graphics.drawString(font, "...", x + 10, y, UiTheme.DIM, false);

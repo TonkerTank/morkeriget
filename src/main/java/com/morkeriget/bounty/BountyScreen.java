@@ -21,7 +21,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class BountyScreen extends Screen {
     private static final int WIDTH = 260;
     private static final int ROW_HEIGHT = 34;
-    private static final int BUTTON_WIDTH = 60;
+    private static final int BUTTON_WIDTH = 66;
     // What the server last sent
     private static BountiesPayload bounties = new BountiesPayload(List.of(), false, false);
 
@@ -73,10 +73,10 @@ public class BountyScreen extends Screen {
         bonus.active = bounties.allClaimed() && !bounties.bonusClaimed();
         addRenderableWidget(bonus);
         addRenderableWidget(Button.builder(Text.tr("button.back"), pressed -> minecraft.setScreen(new SkillScreen()))
-                .bounds(width / 2 - 84, bottom + 40, 80, 18)
+                .bounds(width / 2 - 100, bottom + 40, 96, 18)
                 .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Text.tr("journey.title"), pressed -> PacketDistributor.sendToServer(new JourneyPayload.Open()))
-                .bounds(width / 2 + 4, bottom + 40, 80, 18)
+                .bounds(width / 2 + 4, bottom + 40, 96, 18)
                 .build(ThemedButton::new));
     }
 

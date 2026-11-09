@@ -203,9 +203,9 @@ public class SmithyScreen extends AbstractContainerScreen<SmithyMenu> {
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         // Both panels are 1 pixel in from the edges, so their frames don't run into each other in the gap
         UiTheme.panel(graphics, leftPos + 1, topPos + 1, MAIN_WIDTH - 2, imageHeight - 2);
-        // The codex panel stops a little below the Apply button
-        UiTheme.panel(graphics, leftPos + CODEX_X + 1, topPos + 1, CODEX_WIDTH - 2, 140);
-        UiTheme.panel(graphics, leftPos + CODEX_X + 1, topPos + REPAIR_Y, CODEX_WIDTH - 2, 28);
+        // The codex and the repair button share one panel, with a line between them
+        UiTheme.panel(graphics, leftPos + CODEX_X + 1, topPos + 1, CODEX_WIDTH - 2, REPAIR_Y + 28 - 1);
+        UiTheme.divider(graphics, leftPos + CODEX_X + 6, topPos + REPAIR_Y - 1, CODEX_WIDTH - 12);
         for (Slot slot : menu.slots) {
             UiTheme.slot(graphics, leftPos + slot.x, topPos + slot.y);
         }

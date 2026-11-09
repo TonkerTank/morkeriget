@@ -47,8 +47,8 @@ public class SmithyMenu extends AbstractContainerMenu {
     public static final int UNSOCKET_COST = 3;
     private static final String FAVORITE_MESSAGE = "smithy.favorite_kept";
     // Where the slots are drawn, used by SmithyScreen too
-    static final int ITEM_X = 62;
-    static final int GEM_X = 98;
+    static final int ITEM_X = 36;
+    static final int GEM_X = 86;
     static final int SLOT_Y = 20;
     static final int INVENTORY_Y = 156;
 

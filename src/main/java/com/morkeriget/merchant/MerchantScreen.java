@@ -103,11 +103,11 @@ public class MerchantScreen extends AbstractContainerScreen<MerchantMenu> {
         UiTheme.divider(graphics, 7, inventoryLabelY - 4, imageWidth - 14);
         graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, UiTheme.MUTED, false);
         // On the same line as the "Inventory" label, but at the right edge
-        String essence = "Essens: " + essence();
+        String essence = Text.tr("smithy.essence", essence()).getString();
         graphics.drawString(font, essence, imageWidth - 8 - font.width(essence), inventoryLabelY, 0xC080FF, false);
         // In the empty place next to the last ware, if there is one. The buttons' tooltip has the chances too
         if (Ware.values().length % 2 == 1) {
-            String chance = percent(Merchant.LEGENDARY_CHANCE) + " legendarisk";
+            String chance = Text.tr("merchant.legendary_chance", percent(Merchant.LEGENDARY_CHANCE)).getString();
             int row = (Ware.values().length - 1) / 2;
             graphics.drawString(font, chance, 90 + (78 - font.width(chance)) / 2, BUTTON_Y + row * ROW + 5, 0xFF8800, false);
         }
