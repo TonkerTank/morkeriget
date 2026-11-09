@@ -12,7 +12,7 @@ import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.util.FormattedCharSequence;
 
-// The window that asks for feedback the first time you join a world, with a button to the GitHub issues. Client only
+// The window that asks for feedback the first time you join a world, with buttons to the GitHub issues and the CurseForge comments. Client only
 public class FeedbackScreen extends Screen {
     private static final int WIDTH = 260;
     private static final int TEXT_WIDTH = WIDTH - 24;
@@ -35,11 +35,18 @@ public class FeedbackScreen extends Screen {
     protected void init() {
         lines = font.split(Text.tr("feedback.text"), TEXT_WIDTH);
         int buttonY = top() + panelHeight() - 28;
-        addRenderableWidget(Button.builder(Text.tr("feedback.give"), pressed -> ConfirmLinkScreen.confirmLinkNow(this, Feedback.ISSUES_URL))
-                .bounds(width / 2 - 104, buttonY, 100, 18)
+        // Three buttons side by side: GitHub, CurseForge comments and Close
+        int buttonWidth = 76;
+        int gap = 6;
+        int left = width / 2 - (3 * buttonWidth + 2 * gap) / 2;
+        addRenderableWidget(Button.builder(Text.tr("feedback.github"), pressed -> ConfirmLinkScreen.confirmLinkNow(this, Feedback.ISSUES_URL))
+                .bounds(left, buttonY, buttonWidth, 18)
+                .build(ThemedButton::new));
+        addRenderableWidget(Button.builder(Text.tr("feedback.curseforge"), pressed -> ConfirmLinkScreen.confirmLinkNow(this, Feedback.CURSEFORGE_URL))
+                .bounds(left + buttonWidth + gap, buttonY, buttonWidth, 18)
                 .build(ThemedButton::new));
         addRenderableWidget(Button.builder(Text.tr("feedback.close"), pressed -> onClose())
-                .bounds(width / 2 + 4, buttonY, 100, 18)
+                .bounds(left + 2 * (buttonWidth + gap), buttonY, buttonWidth, 18)
                 .build(ThemedButton::new));
     }
 

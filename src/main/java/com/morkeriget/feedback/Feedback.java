@@ -9,10 +9,11 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
-// The first time a player joins a world with the mod, a window asks for feedback, with a link to GitHub. It is shown
+// The first time a player joins a world with the mod, a window asks for feedback, with links to GitHub and CurseForge. It is shown
 // once per player and world
 public final class Feedback {
     public static final String ISSUES_URL = "https://github.com/TonkerTank/morkeriget/issues";
+    public static final String CURSEFORGE_URL = "https://www.curseforge.com/minecraft/mc-mods/realm-of-darkness/comments";
     private static final String SHOWN_TAG = Morkeriget.MODID + "_feedback_shown";
 
     private Feedback() {

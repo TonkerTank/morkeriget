@@ -957,6 +957,7 @@
   "morkeriget.smithy.sockets": "%s/%s sokler",
   "morkeriget.feedback.title": "Tak fordi du spiller Realm of Darkness!",
   "morkeriget.feedback.text": "Modden er stadig i beta, så feedback vil blive virkelig værdsat! Fejl, balance, idéer eller bare hvad du synes. Du kan skrive på GitHub eller i kommentarerne på CurseForge eller Modrinth.",
-  "morkeriget.feedback.give": "Giv feedback",
+  "morkeriget.feedback.github": "GitHub",
+  "morkeriget.feedback.curseforge": "CurseForge",
   "morkeriget.feedback.close": "Luk"
 }
