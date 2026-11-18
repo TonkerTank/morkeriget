@@ -16,6 +16,7 @@ import com.morkeriget.loot.LootBeams;
 import com.morkeriget.loot.LootTooltips;
 import com.morkeriget.merchant.Merchant;
 import com.morkeriget.merchant.MerchantScreen;
+import com.morkeriget.music.ClientMenuMusic;
 import com.morkeriget.progress.XpBar;
 import com.morkeriget.smithy.Gem;
 import com.morkeriget.smithy.Smithy;
@@ -86,6 +87,8 @@ public class MorkerigetClient {
                 event.register((stack, tintIndex) -> tintIndex == 0 ? 0xFF000000 | gem.color : -1, Smithy.GEMS.get(gem).get());
             }
         });
+        // The mod's own music in the main menu instead of Minecraft's
+        NeoForge.EVENT_BUS.addListener(ClientMenuMusic::onSelectMusic);
         // Loot tooltips compare the item with what you are wearing
         NeoForge.EVENT_BUS.addListener(LootTooltips::onTooltip);
         // Alt+click marks loot as a favorite, and favorites have a star on their slot

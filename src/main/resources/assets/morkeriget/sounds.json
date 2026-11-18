@@ -1,0 +1,11 @@
+{
+  "menu_music": {
+    "category": "music",
+    "sounds": [
+      {
+        "name": "morkeriget:music/morkeriget_menu",
+        "stream": true
+      }
+    ]
+  }
+}

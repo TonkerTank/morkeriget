@@ -16,6 +16,7 @@ import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.merchant.Merchant;
+import com.morkeriget.music.MenuMusic;
 import com.morkeriget.portal.TownPortal;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.rift.Rifts;
@@ -81,5 +82,7 @@ public class Morkeriget {
         Guide.register(modEventBus);
         // After the guide, a window asks for feedback
         Feedback.register(modEventBus);
+        // The mod's own music in the main menu
+        MenuMusic.register(modEventBus);
     }
 }
