@@ -11,6 +11,8 @@ import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.Text;
 import com.morkeriget.dungeon.Dungeons;
+import com.morkeriget.guide.Guide;
+import com.morkeriget.guide.GuideStep;
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.skill.Minions;
@@ -285,6 +287,7 @@ public final class Progression {
         applyPassives(player);
         player.playNotifySound(SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.PLAYERS, 0.6f, 1.2f);
         sync(player);
+        Guide.done(player, GuideStep.PICK_SKILL);
     }
 
     // Picking a class, or changing to another one, gives back every skill point
@@ -306,6 +309,7 @@ public final class Progression {
         }
         player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0f, 1.2f);
         sync(player);
+        Guide.done(player, GuideStep.CHOOSE_CLASS);
     }
 
     // Only skills the player has unlocked can go on a key

@@ -18,11 +18,11 @@ public final class FeedbackTests {
     private FeedbackTests() {
     }
 
-    // Joining the world sends the feedback window, and after that it doesn't come again
+    // A new player gets the guide first, so joining doesn't send the feedback window. It comes once, later
     @GameTest(template = "empty")
-    public static void feedbackShownOnce(GameTestHelper helper) {
+    public static void feedbackWaitsForGuide(GameTestHelper helper) {
         ServerPlayer player = TestPlayers.survivor(helper, new BlockPos(2, 2, 2));
-        helper.assertFalse(Feedback.firstTime(player), "Feedback-vinduet blev ikke sendt, da spilleren kom ind");
+        helper.assertTrue(Feedback.firstTime(player), "Feedback-vinduet kom, før guiden var klaret");
         helper.assertFalse(Feedback.firstTime(player), "Feedback-vinduet kom igen");
         TestPlayers.remove(player);
         helper.succeed();

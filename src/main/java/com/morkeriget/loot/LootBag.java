@@ -4,6 +4,7 @@ import java.util.function.Supplier;
 
 import com.morkeriget.Morkeriget;
 import com.morkeriget.Text;
+import com.morkeriget.guide.Guide;
 import com.morkeriget.journey.Journey;
 
 import net.minecraft.ChatFormatting;
@@ -107,6 +108,7 @@ public final class LootBag {
         }
         // It counts for the season journey like any other find
         Journey.found(player, stack);
+        Guide.found(player, stack);
         int count = stack.getCount();
         bag.setItem(free, stack.copy());
         player.take(entity, count);

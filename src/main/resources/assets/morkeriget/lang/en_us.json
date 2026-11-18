@@ -961,5 +961,24 @@
   "morkeriget.feedback.text": "The mod is still in beta, so feedback will be really appreciated! Bugs, balance, ideas or just what you think of it. You can write on GitHub or in the comments on CurseForge or Modrinth.",
   "morkeriget.feedback.github": "GitHub",
   "morkeriget.feedback.curseforge": "CurseForge",
-  "morkeriget.feedback.close": "Close"
+  "morkeriget.feedback.close": "Close",
+  "morkeriget.guide.title": "Guide (%s/%s)",
+  "morkeriget.guide.count": "(%s/%s)",
+  "morkeriget.guide.step.choose_class": "Press %s and pick a class. You get a weapon for it.",
+  "morkeriget.guide.step.pick_skill": "Spend your skill point on a skill in %s. Your first skill goes on %s.",
+  "morkeriget.guide.step.use_skill": "Use your skill with %s. It costs mana, which comes back by itself.",
+  "morkeriget.guide.step.kill": "Kill monsters. They give XP and drop loot.",
+  "morkeriget.guide.step.loot": "Pick up a blue (magic) item or better. Loot goes into your loot bag: open it with %s and hover over an item to compare it with what you wear.",
+  "morkeriget.guide.step.salvage": "Open the smithy from %s and salvage an item you don't need into essence.",
+  "morkeriget.guide.welcome": "Welcome to Realm of Darkness! A short guide in the top left shows you the basics. ",
+  "morkeriget.guide.skip_button": "[Skip guide]",
+  "morkeriget.guide.skip_hover": "You can start it again with /morkeriget guide restart",
+  "morkeriget.guide.skipped": "The guide is skipped. Start it again with /morkeriget guide restart",
+  "morkeriget.guide.step_done": "✔ Guide step %s/%s done!",
+  "morkeriget.guide.essence": " +%s essence",
+  "morkeriget.guide.finished": "✔ Guide done!",
+  "morkeriget.guide.finished_reward": "✔ Guide done! Here is a rare item for your class.",
+  "morkeriget.guide.next": "Next up: rifts, dungeons, Helltide at night, daily bounties and the season journey. You find them all in %s.",
+  "morkeriget.pause.character": "Character",
+  "morkeriget.pause.feedback": "Mod Feedback"
 }

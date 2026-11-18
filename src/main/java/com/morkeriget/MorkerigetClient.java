@@ -5,6 +5,7 @@ import java.util.List;
 import com.morkeriget.combat.DamageNumbers;
 import com.morkeriget.combat.TargetFrame;
 import com.morkeriget.feedback.ClientFeedback;
+import com.morkeriget.guide.GuideHud;
 import com.morkeriget.jewelry.Jewelry;
 import com.morkeriget.jewelry.JewelryScreen;
 import com.morkeriget.loot.FavoriteClicks;
@@ -23,6 +24,7 @@ import com.morkeriget.skill.SkillBar;
 import com.morkeriget.skill.SkillEntities;
 import com.morkeriget.skill.StormBoltRenderer;
 import com.morkeriget.skill.SkillKeys;
+import com.morkeriget.ui.PauseMenu;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -54,8 +56,13 @@ public class MorkerigetClient {
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
             XpBar.reset();
             ClientFeedback.reset();
+            GuideHud.reset();
             LootTooltips.setWornJewelry(List.of());
         });
+        // The guide's box in the top left
+        modEventBus.addListener(GuideHud::register);
+        // Buttons to the character screen and the feedback window on the pause menu. Its look is in PauseScreenMixin
+        NeoForge.EVENT_BUS.addListener(PauseMenu::onInit);
         // The feedback window, opened once the world has loaded
         NeoForge.EVENT_BUS.addListener(ClientFeedback::onClientTick);
         // Skill icons with keys and cooldowns next to the mana bar

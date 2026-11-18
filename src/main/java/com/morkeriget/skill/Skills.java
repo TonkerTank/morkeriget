@@ -6,6 +6,8 @@ import java.util.Locale;
 
 import com.morkeriget.Config;
 import com.morkeriget.Text;
+import com.morkeriget.guide.Guide;
+import com.morkeriget.guide.GuideStep;
 import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.MythicItem;
@@ -247,6 +249,9 @@ public final class Skills {
             case MANA_POTION -> manaPotion(player);
         };
         if (used) {
+            if (!skill.isPotion()) {
+                Guide.done(player, GuideStep.USE_SKILL);
+            }
             if (bloodPaid) {
                 player.setHealth(player.getHealth() - bloodCost);
                 player.serverLevel().sendParticles(SkillVisuals.BLOOD, player.getX(), player.getY() + 1, player.getZ(), 12, 0.3, 0.5, 0.3, 0);

@@ -3,6 +3,8 @@ package com.morkeriget.smithy;
 import java.util.List;
 
 import com.morkeriget.Text;
+import com.morkeriget.guide.Guide;
+import com.morkeriget.guide.GuideStep;
 import com.morkeriget.loot.Favorites;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
@@ -198,6 +200,7 @@ public class SmithyMenu extends AbstractContainerMenu {
         input.setItem(0, ItemStack.EMPTY);
         player.getInventory().placeItemBackInInventory(new ItemStack(Smithy.ESSENCE.get(), Smithy.salvageValue(rarity)));
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 1.0f);
+        Guide.done(player, GuideStep.SALVAGE);
         return true;
     }
 
@@ -301,6 +304,7 @@ public class SmithyMenu extends AbstractContainerMenu {
         Smithy.essence(essence).forEach(player.getInventory()::placeItemBackInInventory);
         player.displayClientMessage(Text.tr("smithy.salvaged", count, essence), true);
         player.playNotifySound(SoundEvents.GRINDSTONE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
+        Guide.done(player, GuideStep.SALVAGE);
         return true;
     }
 

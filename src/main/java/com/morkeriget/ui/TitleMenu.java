@@ -33,14 +33,18 @@ public final class TitleMenu {
 
     // Behind the buttons and the logo, on top of the panorama
     public static void background(GuiGraphics graphics, int width, int height) {
+        backdrop(graphics, width, height, logoTop(height) + logoHeight(height) / 2, 420, 170);
+    }
+
+    // The dark red tint, the glow behind the logo (centred at logoCenterY), the embers and the vignette. Also used by
+    // the pause menu, see PauseMenu
+    public static void backdrop(GuiGraphics graphics, int width, int height, int logoCenterY, int glowMaxWidth, int glowHeight) {
         float time = Util.getMillis() / 1000f;
         // A dark red tint over the panorama, darker at the bottom
         graphics.fillGradient(0, 0, width, height, 0xA0140608, 0xD8060204);
         // A red glow behind the logo that slowly pulses
         float pulse = 0.75f + 0.25f * Mth.sin(time * 1.3f);
-        int glowWidth = Math.min(width, 420);
-        int glowHeight = 170;
-        int logoCenterY = logoTop(height) + logoHeight(height) / 2;
+        int glowWidth = Math.min(width, glowMaxWidth);
         soft(graphics, GLOW, width / 2 - glowWidth / 2, logoCenterY - glowHeight / 2, glowWidth, glowHeight, 0.55f * pulse);
         // A faint glow rising from the bottom, like a fire below
         graphics.fillGradient(0, height - 70, width, height, 0x00000000, (int) (0x50 * pulse) << 24 | 0x8A1E08);
@@ -82,13 +86,19 @@ public final class TitleMenu {
 
     // The gold logo where Minecraft's logo would be. alpha follows the title screen's own fade in
     public static void logo(GuiGraphics graphics, int width, int height, float alpha) {
-        int logoHeight = logoHeight(height);
+        logoAt(graphics, width, logoTop(height), logoHeight(height), alpha);
+    }
+
+    // The logo centred on the screen, at most maxHeight high and inside the screen's width, in the middle of the
+    // area from top down maxHeight
+    public static void logoAt(GuiGraphics graphics, int width, int areaTop, int maxHeight, float alpha) {
+        int logoHeight = maxHeight;
         int logoWidth = logoHeight * LOGO_TEXTURE_WIDTH / LOGO_TEXTURE_HEIGHT;
         if (logoWidth > width - 16) {
             logoWidth = width - 16;
             logoHeight = logoWidth * LOGO_TEXTURE_HEIGHT / LOGO_TEXTURE_WIDTH;
         }
-        int top = logoTop(height) + (logoHeight(height) - logoHeight) / 2;
+        int top = areaTop + (maxHeight - logoHeight) / 2;
         smooth(LOGO);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();

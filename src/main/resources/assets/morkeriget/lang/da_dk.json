@@ -961,5 +961,24 @@
   "morkeriget.feedback.text": "Modden er stadig i beta, så feedback vil blive virkelig værdsat! Fejl, balance, idéer eller bare hvad du synes. Du kan skrive på GitHub eller i kommentarerne på CurseForge eller Modrinth.",
   "morkeriget.feedback.github": "GitHub",
   "morkeriget.feedback.curseforge": "CurseForge",
-  "morkeriget.feedback.close": "Luk"
+  "morkeriget.feedback.close": "Luk",
+  "morkeriget.guide.title": "Guide (%s/%s)",
+  "morkeriget.guide.count": "(%s/%s)",
+  "morkeriget.guide.step.choose_class": "Tryk på %s og vælg en klasse. Du får et våben til den.",
+  "morkeriget.guide.step.pick_skill": "Brug dit skill-point på en skill i %s. Din første skill kommer på %s.",
+  "morkeriget.guide.step.use_skill": "Brug din skill med %s. Den koster mana, som kommer igen af sig selv.",
+  "morkeriget.guide.step.kill": "Dræb monstre. De giver XP og taber loot.",
+  "morkeriget.guide.step.loot": "Saml en blå (magisk) ting eller bedre op. Loot havner i din loot-taske: åbn den med %s og hold musen over en ting for at sammenligne med det, du har på.",
+  "morkeriget.guide.step.salvage": "Åbn smedjen fra %s og smelt en ting, du ikke skal bruge, om til essens.",
+  "morkeriget.guide.welcome": "Velkommen til Realm of Darkness! En kort guide øverst til venstre viser dig det grundlæggende. ",
+  "morkeriget.guide.skip_button": "[Spring guiden over]",
+  "morkeriget.guide.skip_hover": "Du kan starte den igen med /morkeriget guide restart",
+  "morkeriget.guide.skipped": "Guiden er sprunget over. Start den igen med /morkeriget guide restart",
+  "morkeriget.guide.step_done": "✔ Guide-trin %s/%s klaret!",
+  "morkeriget.guide.essence": " +%s essens",
+  "morkeriget.guide.finished": "✔ Guiden er klaret!",
+  "morkeriget.guide.finished_reward": "✔ Guiden er klaret! Her er en sjælden ting til din klasse.",
+  "morkeriget.guide.next": "Næste skridt: rifts, dungeons, Helltide om natten, daglige bounties og sæsonrejsen. Du finder det hele i %s.",
+  "morkeriget.pause.character": "Karakter",
+  "morkeriget.pause.feedback": "Feedback på modden"
 }

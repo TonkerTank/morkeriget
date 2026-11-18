@@ -9,7 +9,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
-// The first time a player joins a world with the mod, a window asks for feedback, with links to GitHub and CurseForge. It is shown
+// Once a new player has finished the guide (see Guide), a window asks for feedback, with links to GitHub and CurseForge. It is shown
 // once per player and world
 public final class Feedback {
     public static final String ISSUES_URL = "https://github.com/TonkerTank/morkeriget/issues";
@@ -21,7 +21,6 @@ public final class Feedback {
 
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(Feedback::registerPayloads);
-        NeoForge.EVENT_BUS.addListener(Feedback::onLogin);
         NeoForge.EVENT_BUS.addListener(Feedback::onClone);
     }
 
@@ -38,8 +37,9 @@ public final class Feedback {
         event.registrar("1").playToClient(FeedbackPayload.TYPE, FeedbackPayload.STREAM_CODEC, (payload, context) -> ClientFeedback.show());
     }
 
-    private static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player && firstTime(player)) {
+    // Shows the window if the player hasn't seen it. Called by Guide when the guide is over, or at join if it already is
+    public static void offer(ServerPlayer player) {
+        if (firstTime(player)) {
             PacketDistributor.sendToPlayer(player, new FeedbackPayload());
         }
     }

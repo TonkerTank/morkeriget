@@ -105,6 +105,7 @@ public final class Config {
     public static final ModConfigSpec.IntValue MONSTER_LEVEL_SPREAD;
     public static final ModConfigSpec.DoubleValue HEALTH_PER_LEVEL;
     public static final ModConfigSpec.DoubleValue DAMAGE_PER_LEVEL;
+    public static final ModConfigSpec.BooleanValue GUIDE;
 
     static {
         BUILDER.push("loot");
@@ -252,6 +253,11 @@ public final class Config {
                 .defineInRange("healthPerLevel", 0.08, 0, 10);
         DAMAGE_PER_LEVEL = BUILDER.comment("Extra damage per level above 1 (0.07 = +7%)")
                 .defineInRange("damagePerLevel", 0.07, 0, 10);
+        BUILDER.pop();
+
+        BUILDER.push("guide");
+        GUIDE = BUILDER.comment("Whether new players get a short guide to the basics in the top left corner")
+                .define("enabled", true);
         BUILDER.pop();
     }
 
