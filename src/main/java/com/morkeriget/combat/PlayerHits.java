@@ -45,6 +45,7 @@ public final class PlayerHits {
 
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(DamageNumberPayload::register);
+        Juice.register(modEventBus);
         NeoForge.EVENT_BUS.addListener(PlayerHits::onDamagePre);
         NeoForge.EVENT_BUS.addListener(PlayerHits::onDamagePost);
         LegendaryEffects.register();

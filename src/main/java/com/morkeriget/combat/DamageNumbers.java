@@ -11,6 +11,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
@@ -22,6 +25,7 @@ public final class DamageNumbers {
     private static final int LIFETIME = 25;
     private static final int NORMAL_COLOR = 0xFFFFFF;
     private static final int CRUSHING_COLOR = 0xFF5522;
+    private static final float POP_TICKS = 4;
 
     private record Number(Vec3 position, String text, int color, float size, int[] age) {
     }
@@ -46,9 +50,23 @@ public final class DamageNumbers {
         String text = payload.amount() >= 10 ? String.valueOf(Math.round(payload.amount())) : String.format("%.1f", payload.amount());
         if (payload.crushing()) {
             NUMBERS.add(new Number(position, text + "!", CRUSHING_COLOR, 1.6f, new int[1]));
+            crushingHit(minecraft, entity);
         } else {
             NUMBERS.add(new Number(position, text, NORMAL_COLOR, 1.0f, new int[1]));
         }
+    }
+
+    // A crushing blow gets a heavy crack, a burst of crit sparks and a small shake, so it feels different from a
+    // normal hit
+    private static void crushingHit(Minecraft minecraft, Entity entity) {
+        double y = entity.getY() + entity.getBbHeight() * 0.6;
+        minecraft.level.playLocalSound(entity.getX(), y, entity.getZ(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 1.0f, 0.8f, false);
+        minecraft.level.playLocalSound(entity.getX(), y, entity.getZ(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.25f, 1.6f, false);
+        for (int i = 0; i < 14; i++) {
+            minecraft.level.addParticle(ParticleTypes.CRIT, entity.getX(), y, entity.getZ(),
+                    (entity.getRandom().nextDouble() - 0.5) * 0.8, entity.getRandom().nextDouble() * 0.5, (entity.getRandom().nextDouble() - 0.5) * 0.8);
+        }
+        CameraShake.add(0.18f);
     }
 
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -89,7 +107,9 @@ public final class DamageNumbers {
             pose.translate(number.position.x - cameraPosition.x, number.position.y + rise - cameraPosition.y, number.position.z - cameraPosition.z);
             // Always face the camera, like name tags
             pose.mulPose(camera.rotation());
-            float scale = 0.03f * number.size;
+            // Crushing blows pop in big and settle to their size in the first few ticks
+            float pop = number.size > 1 ? 1 + 0.8f * Math.max(0, 1 - age / POP_TICKS) : 1;
+            float scale = 0.03f * number.size * pop;
             pose.scale(scale, -scale, scale);
             float x = -font.width(number.text) / 2f;
             font.drawInBatch(number.text, x, 0, (alpha << 24) | number.color, true, pose.last().pose(), buffers,

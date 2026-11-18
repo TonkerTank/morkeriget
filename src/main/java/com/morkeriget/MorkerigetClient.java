@@ -2,6 +2,7 @@ package com.morkeriget;
 
 import java.util.List;
 
+import com.morkeriget.combat.CameraShake;
 import com.morkeriget.combat.DamageNumbers;
 import com.morkeriget.combat.TargetFrame;
 import com.morkeriget.feedback.ClientFeedback;
@@ -57,6 +58,8 @@ public class MorkerigetClient {
             XpBar.reset();
             ClientFeedback.reset();
             GuideHud.reset();
+            CameraShake.reset();
+            LootBeams.reset();
             LootTooltips.setWornJewelry(List.of());
         });
         // The guide's box in the top left
@@ -71,6 +74,8 @@ public class MorkerigetClient {
         // Damage numbers that float up from monsters you hit
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onClientTick);
         NeoForge.EVENT_BUS.addListener(DamageNumbers::onRenderLevel);
+        // The camera shakes a little on big hits, slams and kills
+        NeoForge.EVENT_BUS.addListener(CameraShake::onCameraAngles);
         // Name, level and health of the monster you look at, at the top of the screen
         modEventBus.addListener(TargetFrame::register);
         NeoForge.EVENT_BUS.addListener(TargetFrame::onRenderGuiPre);
