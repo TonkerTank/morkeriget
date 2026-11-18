@@ -18,6 +18,8 @@ import net.minecraft.world.entity.monster.Enemy;
 import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.neoforge.client.event.RenderNameTagEvent;
+import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 
 // The bar at the top of the screen with the name, level and health of the monster you look at or just hit, like in Diablo.
@@ -42,6 +44,14 @@ public final class TargetFrame {
 
     public static void register(RegisterGuiLayersEvent event) {
         event.registerAbove(VanillaGuiLayers.BOSS_OVERLAY, ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "target_frame"), TargetFrame::render);
+    }
+
+    // Monsters don't get a name tag over their head, because the frame shows the name when you look at one. This also
+    // takes the tags off elites saved before they stopped having them always shown
+    public static void onRenderNameTag(RenderNameTagEvent event) {
+        if (event.getEntity() instanceof LivingEntity && event.getEntity() instanceof Enemy) {
+            event.setCanRender(TriState.FALSE);
+        }
     }
 
     public static void onRenderGuiPre(RenderGuiEvent.Pre event) {

@@ -7,7 +7,6 @@ import java.util.Map;
 
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
-import com.morkeriget.Text;
 import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.LootFilter;
 import com.morkeriget.loot.Rarity;
@@ -247,8 +246,8 @@ public final class ElitePacks {
         }
         name.append(member.getType().getDescription().copy().withStyle(ChatFormatting.BLUE));
         member.setHealth(member.getMaxHealth());
+        // The name shows in the target frame, not over its head
         member.setCustomName(name);
-        member.setCustomNameVisible(true);
     }
 
     // Shielding: the leader and its pack take far less damage for a moment, with a blue ring on each
@@ -300,9 +299,6 @@ public final class ElitePacks {
                     4, 0.3, 0.2, 0.3, 0);
         }
         level.playSound(null, leader.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 1.0f, 1.3f);
-        for (ServerPlayer player : level.getEntitiesOfClass(ServerPlayer.class, leader.getBoundingBox().inflate(PACK_RANGE * 2))) {
-            player.displayClientMessage(Text.tr("pack.leader_fallen").withStyle(ChatFormatting.RED), true);
-        }
     }
 
     // The last one of a pack to die drops a bonus for the whole pack
@@ -331,7 +327,6 @@ public final class ElitePacks {
         for (ItemStack stack : bonus) {
             event.getDrops().add(new ItemEntity(level, monster.getX(), monster.getY(), monster.getZ(), stack));
         }
-        player.displayClientMessage(Text.tr("pack.defeated").withStyle(ChatFormatting.GOLD), true);
         level.playSound(null, monster.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.4f);
         level.sendParticles(ParticleTypes.TOTEM_OF_UNDYING, monster.getX(), monster.getY() + 1, monster.getZ(), 30, 0.4, 0.6, 0.4, 0.3);
     }

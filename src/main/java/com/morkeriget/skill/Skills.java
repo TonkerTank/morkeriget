@@ -158,6 +158,11 @@ public final class Skills {
         return MythicItem.has(player, MythicItem.JESTERS_CROWN) ? scale * 0.75f : scale;
     }
 
+    // A pressed skill that can't be used yet, on cooldown or without the mana. Only the player hears it
+    private static void notReady(ServerPlayer player) {
+        player.playNotifySound(SoundEvents.NOTE_BLOCK_BASS.value(), SoundSource.PLAYERS, 0.4f, 0.6f);
+    }
+
     public static void use(ServerPlayer player, Skill skill) {
         // Nothing from the death screen or in spectator mode
         if (!player.isAlive() || player.isSpectator()) {
@@ -178,8 +183,8 @@ public final class Skills {
         String readyTag = "morkeriget_" + skill.name().toLowerCase(Locale.ROOT) + "_ready";
         long ready = player.getPersistentData().getLong(readyTag);
         if (now < ready) {
-            long seconds = (ready - now + 19) / 20;
-            player.displayClientMessage(Text.tr("skill.ready_in", skill.displayName(), seconds), true);
+            // The skill bar already shows the seconds left, so a dull click is enough to say the key did nothing
+            notReady(player);
             return;
         }
         // Each Arcane Flow rank makes skills 5% cheaper
@@ -202,7 +207,8 @@ public final class Skills {
             if (!skill.isPotion() && Progression.has(player, Upgrade.BLOOD_PACT) && player.getHealth() > bloodCost) {
                 bloodPaid = true;
             } else {
-                player.displayClientMessage(Text.tr("skill.no_mana", skill.displayName()), true);
+                // The skill bar tints the icon blue when there isn't enough mana
+                notReady(player);
                 return;
             }
         }
@@ -278,7 +284,6 @@ public final class Skills {
                 player.getPersistentData().putInt(RHYTHM_TAG, rhythm ? 0 : player.getPersistentData().getInt(RHYTHM_TAG) + 1);
                 if (rhythm) {
                     cooldownScale = 0;
-                    player.displayClientMessage(Text.tr("skill.arcane_rhythm").withStyle(ChatFormatting.LIGHT_PURPLE), true);
                     player.serverLevel().sendParticles(SkillVisuals.ARCANE, player.getX(), player.getY() + 1, player.getZ(), 20, 0.4, 0.6, 0.4, 0);
                     player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.5f);
                 }

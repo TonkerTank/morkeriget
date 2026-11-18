@@ -14,6 +14,7 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue MYTHIC_CHANCE_BOSS;
     public static final ModConfigSpec.DoubleValue MYTHIC_CHANCE_RIFT;
     public static final ModConfigSpec.DoubleValue ELITE_CHANCE;
+    public static final ModConfigSpec.DoubleValue SURFACE_ELITE_MULTIPLIER;
     public static final ModConfigSpec.DoubleValue SECOND_MODIFIER_CHANCE;
     public static final ModConfigSpec.DoubleValue ELITE_HEALTH;
     public static final ModConfigSpec.DoubleValue ELITE_DAMAGE;
@@ -129,6 +130,9 @@ public final class Config {
         BUILDER.push("elites");
         ELITE_CHANCE = BUILDER.comment("Chance that a monster spawns as an elite (0.05 = 5%)")
                 .defineInRange("eliteChance", 0.05, 0, 1);
+        SURFACE_ELITE_MULTIPLIER = BUILDER.comment("How many times the elite chance is for monsters that spawn on the surface of the overworld.",
+                        "Far fewer monsters spawn up there than in the caves, so without it almost every elite is underground")
+                .defineInRange("surfaceEliteMultiplier", 2.0, 0, 20);
         SECOND_MODIFIER_CHANCE = BUILDER.comment("Chance that an elite gets two modifiers instead of one")
                 .defineInRange("secondModifierChance", 0.3, 0, 1);
         ELITE_HEALTH = BUILDER.comment("How many times more health an elite has than a normal monster")

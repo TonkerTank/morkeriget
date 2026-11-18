@@ -8,6 +8,7 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.Text;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -24,6 +25,8 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
@@ -67,7 +70,7 @@ public final class Elites {
         markChecked(monster);
         float roll = monster.getRandom().nextFloat();
         boolean boss = roll < Config.BOSS_CHANCE.get() && Bosses.canBeBoss(monster);
-        boolean elite = !boss && roll < Config.ELITE_CHANCE.get();
+        boolean elite = !boss && roll < eliteChance(monster);
         // The level goes on first, since the elite and boss boosts set the health to full afterwards
         if (Config.MONSTER_LEVELS.get()) {
             MonsterLevels.apply(monster, MonsterLevels.roll(monster, boss ? 2 : elite ? 1 : 0));
@@ -79,6 +82,18 @@ public final class Elites {
             // Elites out in the world lead a pack of their own kind
             ElitePacks.makeLeader(monster);
         }
+    }
+
+    // Higher on the surface of the overworld, where much fewer monsters spawn than in the caves. Surface means at or
+    // above the highest block that isn't leaves, so a monster under a tree counts too
+    static double eliteChance(Monster monster) {
+        double chance = Config.ELITE_CHANCE.get();
+        BlockPos pos = monster.blockPosition();
+        if (monster.level().dimension() == Level.OVERWORLD
+                && pos.getY() >= monster.level().getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ())) {
+            chance *= Config.SURFACE_ELITE_MULTIPLIER.get();
+        }
+        return Math.min(1, chance);
     }
 
     // Makes sure the monster never rolls to become an elite, e.g. a boss's minions
@@ -111,8 +126,8 @@ public final class Elites {
         name.append(Text.tr("elite.name", monster.getType().getDescription()).withStyle(ChatFormatting.GOLD));
 
         monster.setHealth(monster.getMaxHealth());
+        // The name shows in the target frame, not over its head
         monster.setCustomName(name);
-        monster.setCustomNameVisible(true);
         monster.addEffect(new MobEffectInstance(MobEffects.GLOWING, MobEffectInstance.INFINITE_DURATION, 0, false, false));
         return chosen;
     }

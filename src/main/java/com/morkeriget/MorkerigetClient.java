@@ -82,6 +82,7 @@ public class MorkerigetClient {
         modEventBus.addListener(TargetFrame::register);
         NeoForge.EVENT_BUS.addListener(TargetFrame::onRenderGuiPre);
         NeoForge.EVENT_BUS.addListener(TargetFrame::onBossBar);
+        NeoForge.EVENT_BUS.addListener(TargetFrame::onRenderNameTag);
         // The gems are the same white picture coloured differently
         modEventBus.addListener((RegisterColorHandlersEvent.Item event) -> {
             for (Gem gem : Gem.values()) {
