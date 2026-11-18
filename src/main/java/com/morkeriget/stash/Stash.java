@@ -52,6 +52,14 @@ public final class Stash {
     }
 
     private static void open(ServerPlayer player) {
+        if (!player.isAlive() || player.isSpectator()) {
+            return;
+        }
+        // A stash that is already open must be saved before the file is read again. Otherwise what was taken out would
+        // still be in the file, and the old menu's save would then be overwritten by the new one, copying items
+        if (player.containerMenu != player.inventoryMenu) {
+            player.closeContainer();
+        }
         HolderLookup.Provider registries = player.registryAccess();
         SimpleContainer container = new SimpleContainer(ROWS * 9);
         UUID uuid = player.getUUID();
@@ -68,6 +76,12 @@ public final class Stash {
                 super.removed(closing);
                 save(uuid, container, registries);
                 player.server.getPlayerList().saveAll();
+            }
+
+            // Closed when the player dies, so it is saved while the items taken out are still theirs
+            @Override
+            public boolean stillValid(Player checking) {
+                return checking.isAlive();
             }
         }, Text.tr("stash.title")));
         player.playNotifySound(SoundEvents.ENDER_CHEST_OPEN, SoundSource.PLAYERS, 0.6f, 1.0f);

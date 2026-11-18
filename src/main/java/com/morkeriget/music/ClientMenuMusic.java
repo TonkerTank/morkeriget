@@ -22,8 +22,22 @@ public final class ClientMenuMusic {
     private ClientMenuMusic() {
     }
 
+    // Minecraft lets a track play to the end when the game's own music comes back, so the fight track is stopped here
+    // when the fight is over. Going from one fight to another needs nothing, since the new track replaces the old one
     public static void setMode(CombatMusic.Mode newMode) {
+        CombatMusic.Mode old = mode;
         mode = newMode;
+        if (old != newMode && newMode == CombatMusic.Mode.NONE) {
+            Music playing = switch (old) {
+                case BOSS -> boss;
+                case RIFT -> rift;
+                case DUNGEON -> dungeon;
+                case NONE -> null;
+            };
+            if (playing != null) {
+                Minecraft.getInstance().getMusicManager().stopPlaying(playing);
+            }
+        }
     }
 
     public static void reset() {

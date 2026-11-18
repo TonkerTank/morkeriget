@@ -42,6 +42,10 @@ final class EliteAttacks {
     // Electrified: the chance that a hit sends a spark back, and how far it reaches
     private static final float SPARK_CHANCE = 0.4f;
     private static final double SPARK_RANGE = 8;
+    // At most one spark a second, so damage over time and auras don't set off a storm of them. Game time, saved on
+    // the elite
+    private static final int SPARK_COOLDOWN = 20;
+    private static final String SPARK_TAG = "morkeriget_spark_ready";
     // How close the target has to be for the elite to use these
     private static final double FIGHT_RANGE = 20;
 
@@ -113,7 +117,8 @@ final class EliteAttacks {
         if (data.contains(MORTAR_TAG)) {
             CompoundTag blast = data.getCompound(MORTAR_TAG);
             Vec3 spot = new Vec3(blast.getDouble("x"), blast.getDouble("y"), blast.getDouble("z"));
-            if (monster.tickCount >= blast.getInt("due")) {
+            // Game time, not the elite's tickCount, which starts over when the elite is loaded again
+            if (level.getGameTime() >= blast.getLong("due")) {
                 data.remove(MORTAR_TAG);
                 explode(level, monster, spot);
             } else {
@@ -126,7 +131,7 @@ final class EliteAttacks {
             blast.putDouble("x", target.getX());
             blast.putDouble("y", target.getY());
             blast.putDouble("z", target.getZ());
-            blast.putInt("due", monster.tickCount + MORTAR_DELAY);
+            blast.putLong("due", level.getGameTime() + MORTAR_DELAY);
             data.put(MORTAR_TAG, blast);
             level.playSound(null, monster.blockPosition(), SoundEvents.FIRECHARGE_USE, SoundSource.HOSTILE, 1.0f, 0.6f);
             level.sendParticles(ParticleTypes.LARGE_SMOKE, monster.getX(), monster.getY() + monster.getBbHeight(), monster.getZ(), 8, 0.2, 0.2, 0.2, 0.05);
@@ -171,9 +176,11 @@ final class EliteAttacks {
     static void onHurt(LivingDamageEvent.Post event) {
         if (!(event.getEntity() instanceof Monster monster) || !(monster.level() instanceof ServerLevel level)
                 || !EliteModifier.ELECTRIFIED.isOn(monster) || !(event.getSource().getEntity() instanceof ServerPlayer player)
-                || player.distanceTo(monster) > SPARK_RANGE || monster.getRandom().nextFloat() >= SPARK_CHANCE) {
+                || player.distanceTo(monster) > SPARK_RANGE || level.getGameTime() < monster.getPersistentData().getLong(SPARK_TAG)
+                || monster.getRandom().nextFloat() >= SPARK_CHANCE) {
             return;
         }
+        monster.getPersistentData().putLong(SPARK_TAG, level.getGameTime() + SPARK_COOLDOWN);
         Vec3 from = monster.position().add(0, monster.getBbHeight() / 2, 0);
         Vec3 to = player.position().add(0, 1, 0);
         int steps = (int) Math.ceil(from.distanceTo(to) * 3);
