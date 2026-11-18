@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.gametest.TestMonsters;
 import com.morkeriget.gametest.TestPlayers;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
@@ -80,7 +81,7 @@ public final class RangerTests {
     @GameTest(template = "empty")
     public static void hunterInstinctDoublesEveryFourth(GameTestHelper helper) {
         ServerPlayer player = ranger(helper, Map.of(Upgrade.HUNTER_INSTINCT, 1));
-        Husk husk = helper.spawn(EntityType.HUSK, new BlockPos(4, 2, 2));
+        Husk husk = TestMonsters.husk(helper, new BlockPos(4, 2, 2));
         husk.setNoAi(true);
         float[] losses = new float[RangerSkills.HUNTER_EVERY];
         for (int i = 0; i < RangerSkills.HUNTER_EVERY; i++) {

@@ -171,10 +171,10 @@ public final class ElitePacks {
         int max = Config.PACK_MAX_SIZE.get();
         int min = Math.min(Config.PACK_MIN_SIZE.get(), max);
         int size = min + random.nextInt(max - min + 1);
-        // Shielding and Healing stay with the leader, since only it protects the pack
+        // Some modifiers stay with the leader, see EliteModifier.sharedWithPack
         List<EliteModifier> modifiers = new ArrayList<>();
         for (EliteModifier modifier : EliteModifier.values()) {
-            if (modifier.isOn(leader) && modifier != EliteModifier.SHIELDING && modifier != EliteModifier.HEALING) {
+            if (modifier.isOn(leader) && modifier.sharedWithPack()) {
                 modifiers.add(modifier);
             }
         }

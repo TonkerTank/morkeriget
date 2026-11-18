@@ -2,11 +2,17 @@ package com.morkeriget.combat;
 
 import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
+import com.morkeriget.progress.PlayerClass;
+import com.morkeriget.progress.Progression;
 import com.morkeriget.skill.Skill;
 
+import org.joml.Vector3f;
+
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
@@ -59,7 +65,37 @@ public final class Juice {
     }
 
     public static void skillUsed(ServerPlayer player, Skill skill) {
+        if (skill.isPotion()) {
+            return;
+        }
         shake(player, skillShake(skill));
+        castFlash(player);
+    }
+
+    // Every skill starts with a ring of light in the class colour around the feet and a short sound for the class, on
+    // top of the skill's own sounds and effects, so using a skill always feels like something happened
+    private static void castFlash(ServerPlayer player) {
+        PlayerClass playerClass = Progression.playerClass(player);
+        if (playerClass == null) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        int color = playerClass.color;
+        DustParticleOptions dust = new DustParticleOptions(
+                new Vector3f(((color >> 16) & 0xFF) / 255f, ((color >> 8) & 0xFF) / 255f, (color & 0xFF) / 255f), 1.1f);
+        for (int i = 0; i < 18; i++) {
+            double angle = Math.PI * 2 * i / 18;
+            level.sendParticles(dust, player.getX() + Math.cos(angle) * 0.9, player.getY() + 0.1, player.getZ() + Math.sin(angle) * 0.9, 1, 0, 0, 0, 0);
+        }
+        level.sendParticles(dust, player.getX(), player.getY() + 1, player.getZ(), 6, 0.3, 0.5, 0.3, 0);
+        SoundEvent sound = switch (playerClass) {
+            case BARBARIAN -> SoundEvents.PLAYER_ATTACK_KNOCKBACK;
+            case SORCERER -> SoundEvents.ILLUSIONER_CAST_SPELL;
+            case RANGER -> SoundEvents.ARROW_SHOOT;
+            case NECROMANCER -> SoundEvents.EVOKER_CAST_SPELL;
+            case PALADIN -> SoundEvents.AMETHYST_BLOCK_CHIME;
+        };
+        level.playSound(null, player.blockPosition(), sound, SoundSource.PLAYERS, 0.35f, 1.3f);
     }
 
     // A burst of soul fire and smoke and a deep thud where an elite dies, and a bigger one with an explosion for a boss.

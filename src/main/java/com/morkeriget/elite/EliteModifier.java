@@ -12,11 +12,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 // Extra powers an elite can spawn with, like in Diablo. What they do when the elite hits or ticks is in Elites
 public enum EliteModifier {
@@ -29,7 +33,15 @@ public enum EliteModifier {
     ARMORED(ChatFormatting.GRAY),
     // These two are for the leader's whole pack, see ElitePacks. Without a pack they only work on the elite itself
     SHIELDING(ChatFormatting.BLUE),
-    HEALING(ChatFormatting.GREEN);
+    HEALING(ChatFormatting.GREEN),
+    // Two beams that sweep around the elite while it fights
+    ARCANE(ChatFormatting.DARK_PURPLE),
+    // Lobs a blast at players who keep their distance. The spot glows first, so there is time to move
+    MORTAR(ChatFormatting.GOLD),
+    // Leaves pools of poison behind it
+    PLAGUED(ChatFormatting.DARK_GREEN),
+    // Hitting it can send a spark of lightning back at you
+    ELECTRIFIED(ChatFormatting.WHITE);
 
     public final ChatFormatting color;
     private final String tag;
@@ -37,6 +49,15 @@ public enum EliteModifier {
     EliteModifier(ChatFormatting color) {
         this.color = color;
         this.tag = "morkeriget_elite_" + name().toLowerCase(Locale.ROOT);
+    }
+
+    // Whether the monsters in the elite's pack get it too. Shielding and Healing protect the pack from the leader, and
+    // a pack full of beams, blasts, pools or sparks would be too much, so those stay with the leader alone
+    public boolean sharedWithPack() {
+        return switch (this) {
+            case SHIELDING, HEALING, ARCANE, MORTAR, PLAGUED, ELECTRIFIED -> false;
+            default -> true;
+        };
     }
 
     public MutableComponent displayName() {
@@ -55,10 +76,27 @@ public enum EliteModifier {
             case FAST -> boost(monster, Attributes.MOVEMENT_SPEED, 0.4, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
             case ARMORED -> {
                 boost(monster, Attributes.ARMOR, 5, AttributeModifier.Operation.ADD_VALUE);
+                wearArmor(monster);
                 boost(monster, Attributes.KNOCKBACK_RESISTANCE, 0.8, AttributeModifier.Operation.ADD_VALUE);
             }
             default -> {
             }
+        }
+    }
+
+    // Armored elites wear a full set of iron armour, so you can see it, in the slots that are still empty. It never drops,
+    // so they can't be farmed for it
+    private static void wearArmor(Monster monster) {
+        wear(monster, EquipmentSlot.HEAD, Items.IRON_HELMET);
+        wear(monster, EquipmentSlot.CHEST, Items.IRON_CHESTPLATE);
+        wear(monster, EquipmentSlot.LEGS, Items.IRON_LEGGINGS);
+        wear(monster, EquipmentSlot.FEET, Items.IRON_BOOTS);
+    }
+
+    private static void wear(Monster monster, EquipmentSlot slot, Item item) {
+        if (monster.getItemBySlot(slot).isEmpty()) {
+            monster.setItemSlot(slot, new ItemStack(item));
+            monster.setDropChance(slot, 0);
         }
     }
 

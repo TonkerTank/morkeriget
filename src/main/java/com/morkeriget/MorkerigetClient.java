@@ -60,6 +60,7 @@ public class MorkerigetClient {
             ClientFeedback.reset();
             GuideHud.reset();
             CameraShake.reset();
+            ClientMenuMusic.reset();
             LootBeams.reset();
             LootTooltips.setWornJewelry(List.of());
         });

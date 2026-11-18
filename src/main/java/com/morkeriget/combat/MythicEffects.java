@@ -14,6 +14,7 @@ import com.morkeriget.skill.Skills;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -21,6 +22,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -48,6 +51,14 @@ public final class MythicEffects {
     private static final float ARCHANGEL_HEAL = 0.01f;
     private static final float AMULET_DAMAGE = 1.4f;
     private static final ResourceLocation AMULET_HEALTH_ID = ResourceLocation.fromNamespaceAndPath(Morkeriget.MODID, "mythic_ancestors_amulet");
+    private static final double WINTER_RADIUS = 4.0;
+    private static final float WINTER_DAMAGE = 0.02f;
+    private static final float WINTER_BOSS_DAMAGE = 0.005f;
+    private static final double STRIDE_RANGE = 7.0;
+    private static final double STRIDE_MIN_MOVE = 1.5;
+    private static final float STRIDE_DAMAGE = 1.0f;
+    private static final String STRIDE_X_TAG = "morkeriget_stride_x";
+    private static final String STRIDE_Z_TAG = "morkeriget_stride_z";
     // True while a mythic power hurts monsters itself, so that damage doesn't set the power off again
     private static boolean striking;
     // What the player last swung their weapon at. Skills hurt monsters as the player too, so this is how Doombringer
@@ -179,6 +190,12 @@ public final class MythicEffects {
         if (!(event.getEntity() instanceof ServerPlayer player) || player.tickCount % 20 != 0) {
             return;
         }
+        if (MythicItem.has(player, MythicItem.WINTERS_GRASP)) {
+            wintersGrasp(player);
+        }
+        if (MythicItem.has(player, MythicItem.STORMSTRIDERS)) {
+            stormstriders(player);
+        }
         if (MythicItem.has(player, MythicItem.ARCHANGELS_MAIL) && player.getHealth() < player.getMaxHealth()) {
             player.heal(player.getMaxHealth() * ARCHANGEL_HEAL);
         }
@@ -192,6 +209,61 @@ public final class MythicEffects {
             } else {
                 health.removeModifier(AMULET_HEALTH_ID);
             }
+        }
+    }
+
+    // Winter's Grasp: enemies close by are slowed and lose a little of their health every second. Bosses lose less
+    private static void wintersGrasp(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        List<LivingEntity> enemies = level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(WINTER_RADIUS),
+                entity -> Minions.isEnemy(entity) && entity.distanceTo(player) <= WINTER_RADIUS);
+        for (int i = 0; i < 12; i++) {
+            double angle = Math.PI * 2 * i / 12 + player.tickCount * 0.05;
+            level.sendParticles(ParticleTypes.SNOWFLAKE, player.getX() + Math.cos(angle) * WINTER_RADIUS, player.getY() + 0.3,
+                    player.getZ() + Math.sin(angle) * WINTER_RADIUS, 1, 0, 0.05, 0, 0.01);
+        }
+        striking = true;
+        try {
+            for (LivingEntity enemy : enemies) {
+                enemy.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 30, 1));
+                float share = Bosses.isBoss(enemy) ? WINTER_BOSS_DAMAGE : WINTER_DAMAGE;
+                enemy.hurt(player.damageSources().indirectMagic(player, player), enemy.getMaxHealth() * share);
+            }
+        } finally {
+            striking = false;
+        }
+    }
+
+    // Stormstriders: while you are on the move, lightning jumps from you to the nearest enemy every second
+    private static void stormstriders(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        double moved = Math.hypot(player.getX() - data.getDouble(STRIDE_X_TAG), player.getZ() - data.getDouble(STRIDE_Z_TAG));
+        data.putDouble(STRIDE_X_TAG, player.getX());
+        data.putDouble(STRIDE_Z_TAG, player.getZ());
+        if (moved < STRIDE_MIN_MOVE) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        LivingEntity target = level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(STRIDE_RANGE),
+                        entity -> Minions.isEnemy(entity) && entity.distanceTo(player) <= STRIDE_RANGE).stream()
+                .min(Comparator.comparingDouble(entity -> entity.distanceToSqr(player)))
+                .orElse(null);
+        if (target == null) {
+            return;
+        }
+        Vec3 from = player.position().add(0, 1, 0);
+        Vec3 to = target.position().add(0, target.getBbHeight() / 2, 0);
+        for (double t = 0; t <= 1; t += 0.08) {
+            Vec3 point = from.lerp(to, t);
+            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x, point.y, point.z, 2, 0.06, 0.06, 0.06, 0);
+        }
+        level.playSound(null, target.blockPosition(), SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.35f, 1.9f);
+        float damage = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * STRIDE_DAMAGE;
+        striking = true;
+        try {
+            target.hurt(player.damageSources().indirectMagic(player, player), damage);
+        } finally {
+            striking = false;
         }
     }
 }

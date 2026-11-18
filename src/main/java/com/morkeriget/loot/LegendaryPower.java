@@ -37,7 +37,13 @@ public enum LegendaryPower {
     CHEAT_DEATH(null),
     SOUL_EATER(null),
     THUNDERSTRIKE(null),
-    BLOODLUST(null);
+    BLOODLUST(null),
+    // Added in 0.5.0. New powers go last, since the codex is sent as one bit per power in this order
+    EXECUTIONER(null),
+    GIANTSLAYER(null),
+    SECOND_WIND(null),
+    FROZEN_HEART(null),
+    CHAIN_REACTION(null);
 
     private static final String POWER_TAG = "morkeriget_legendary_power";
     // How often a legendary gets a power for the class of the one who found it, or one for everyone

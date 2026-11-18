@@ -7,5 +7,32 @@
         "stream": true
       }
     ]
+  },
+  "boss_music": {
+    "category": "music",
+    "sounds": [
+      {
+        "name": "morkeriget:music/boss",
+        "stream": true
+      }
+    ]
+  },
+  "rift_music": {
+    "category": "music",
+    "sounds": [
+      {
+        "name": "morkeriget:music/rift",
+        "stream": true
+      }
+    ]
+  },
+  "dungeon_music": {
+    "category": "music",
+    "sounds": [
+      {
+        "name": "morkeriget:music/dungeon",
+        "stream": true
+      }
+    ]
   }
 }

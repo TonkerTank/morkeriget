@@ -28,7 +28,9 @@ public enum MythicItem {
     JESTERS_CROWN(() -> Items.NETHERITE_HELMET, null),
     ARCHANGELS_MAIL(() -> Items.NETHERITE_CHESTPLATE, null),
     STARLESS_RING(Jewelry.RING::get, null),
-    ANCESTORS_AMULET(Jewelry.AMULET::get, null);
+    ANCESTORS_AMULET(Jewelry.AMULET::get, null),
+    WINTERS_GRASP(() -> Items.NETHERITE_LEGGINGS, null),
+    STORMSTRIDERS(() -> Items.NETHERITE_BOOTS, null);
 
     private static final String MYTHIC_TAG = "morkeriget_mythic";
     // How often a mythic is one the finder's class can use, if there are any only for that class

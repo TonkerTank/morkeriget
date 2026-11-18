@@ -9,7 +9,8 @@
     "DisplayAccessor",
     "GameTestServerMixin",
     "ItemDisplayAccessor",
-    "ItemStackMixin"
+    "ItemStackMixin",
+    "MobReachMixin"
   ],
   "client": [
     "AbstractButtonMixin",

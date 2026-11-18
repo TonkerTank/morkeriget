@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.gametest.TestMonsters;
 import com.morkeriget.gametest.TestPlayers;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
@@ -41,7 +42,7 @@ public final class PaladinTests {
     }
 
     private static Husk husk(GameTestHelper helper, BlockPos pos) {
-        Husk husk = helper.spawn(EntityType.HUSK, pos);
+        Husk husk = TestMonsters.husk(helper, pos);
         husk.setNoAi(true);
         return husk;
     }

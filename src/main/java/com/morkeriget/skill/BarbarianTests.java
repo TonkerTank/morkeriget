@@ -4,6 +4,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.gametest.TestMonsters;
 import com.morkeriget.gametest.TestPlayers;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
@@ -60,7 +61,7 @@ public final class BarbarianTests {
     @GameTest(template = "empty")
     public static void berserkerRageBelowHalfHealth(GameTestHelper helper) {
         ServerPlayer player = barbarian(helper, Map.of(Upgrade.BERSERKER_RAGE, 1));
-        Husk husk = helper.spawn(EntityType.HUSK, new BlockPos(4, 2, 2));
+        Husk husk = TestMonsters.husk(helper, new BlockPos(4, 2, 2));
         husk.setNoAi(true);
         husk.hurt(player.damageSources().playerAttack(player), 4);
         float full = husk.getMaxHealth() - husk.getHealth();
@@ -110,7 +111,7 @@ public final class BarbarianTests {
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void whirlwindBleeds(GameTestHelper helper) {
         ServerPlayer player = barbarian(helper, Map.of(Upgrade.WHIRLWIND, 1, Upgrade.WHIRLWIND_BLEED, 1));
-        Husk husk = helper.spawn(EntityType.HUSK, new BlockPos(4, 2, 2));
+        Husk husk = TestMonsters.husk(helper, new BlockPos(4, 2, 2));
         husk.setNoAi(true);
         float[] afterHit = new float[1];
         helper.startSequence()

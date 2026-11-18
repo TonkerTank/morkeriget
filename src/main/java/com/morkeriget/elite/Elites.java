@@ -45,6 +45,7 @@ public final class Elites {
     public static void register(IEventBus modEventBus) {
         NeoForge.EVENT_BUS.addListener(Elites::onJoinLevel);
         NeoForge.EVENT_BUS.addListener(Elites::onDamagePost);
+        NeoForge.EVENT_BUS.addListener(EliteAttacks::onHurt);
         NeoForge.EVENT_BUS.addListener(Elites::onEntityTick);
         Bosses.register();
         WorldBoss.register();
@@ -147,6 +148,7 @@ public final class Elites {
         if (EliteModifier.BURNING.isOn(monster)) {
             aura(level, monster, ParticleTypes.FLAME);
         }
+        EliteAttacks.tick(level, monster);
         if (EliteModifier.FROST.isOn(monster)) {
             aura(level, monster, ParticleTypes.SNOWFLAKE);
         }

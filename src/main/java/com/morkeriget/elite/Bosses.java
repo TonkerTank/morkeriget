@@ -138,6 +138,16 @@ public final class Bosses {
         }
     }
 
+    // Whether the player is in a fight with a boss right now, i.e. one of the boss bars is shown to them
+    public static boolean inBossFight(ServerPlayer player) {
+        for (ServerBossEvent bar : BARS.values()) {
+            if (bar.getPlayers().contains(player)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean isBoss(Entity entity) {
         return entity.getPersistentData().getBoolean(BOSS_TAG);
     }

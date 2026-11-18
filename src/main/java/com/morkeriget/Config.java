@@ -106,6 +106,7 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue HEALTH_PER_LEVEL;
     public static final ModConfigSpec.DoubleValue DAMAGE_PER_LEVEL;
     public static final ModConfigSpec.BooleanValue GUIDE;
+    public static final ModConfigSpec.DoubleValue MONSTER_REACH;
 
     static {
         BUILDER.push("loot");
@@ -253,6 +254,11 @@ public final class Config {
                 .defineInRange("healthPerLevel", 0.08, 0, 10);
         DAMAGE_PER_LEVEL = BUILDER.comment("Extra damage per level above 1 (0.07 = +7%)")
                 .defineInRange("damagePerLevel", 0.07, 0, 10);
+        BUILDER.pop();
+
+        BUILDER.push("monsters");
+        MONSTER_REACH = BUILDER.comment("How far hostile monsters reach past their own body when they hit you, in blocks. Minecraft uses 0.83")
+                .defineInRange("meleeReach", 0.45, 0, 3);
         BUILDER.pop();
 
         BUILDER.push("guide");
