@@ -13,6 +13,7 @@ import com.morkeriget.skill.Minions;
 import com.morkeriget.skill.Skills;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -29,14 +30,18 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingShieldBlockEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+
+import org.joml.Vector3f;
 
 // What the mythic items do, see MythicItem. Server only
 public final class MythicEffects {
@@ -59,6 +64,21 @@ public final class MythicEffects {
     private static final float STRIDE_DAMAGE = 1.0f;
     private static final String STRIDE_X_TAG = "morkeriget_stride_x";
     private static final String STRIDE_Z_TAG = "morkeriget_stride_z";
+    private static final int FURY_MAX = 10;
+    private static final float FURY_DAMAGE = 0.06f;
+    private static final int FURY_TICKS = 5 * 20;
+    private static final String FURY_TAG = "morkeriget_fury";
+    private static final String FURY_UNTIL_TAG = "morkeriget_fury_until";
+    private static final double TEMPEST_RANGE = 12.0;
+    private static final float TEMPEST_DAMAGE = 1.5f;
+    public static final int GRAVECALLER_SKELETONS = 4;
+    private static final float GRAVECALLER_DAMAGE = 1.5f;
+    private static final float DAWNGUARD_DAMAGE = 2.0f;
+    private static final float DAWNGUARD_HEAL = 0.05f;
+    // At most once a second, so a pack of skeleton archers doesn't make it go off all the time
+    private static final int DAWNGUARD_COOLDOWN = 20;
+    private static final String DAWNGUARD_READY_TAG = "morkeriget_dawnguard_ready";
+    private static final DustParticleOptions FURY_DUST = new DustParticleOptions(new Vector3f(0.9f, 0.12f, 0.08f), 1.2f);
     // True while a mythic power hurts monsters itself, so that damage doesn't set the power off again
     private static boolean striking;
     // What the player last swung their weapon at. Skills hurt monsters as the player too, so this is how Doombringer
@@ -72,6 +92,7 @@ public final class MythicEffects {
         NeoForge.EVENT_BUS.addListener(MythicEffects::onDamagePre);
         NeoForge.EVENT_BUS.addListener(MythicEffects::onDeath);
         NeoForge.EVENT_BUS.addListener(MythicEffects::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(MythicEffects::onShieldBlock);
         // Only the server's own swing, since in singleplayer the client runs in the same game and swings too
         NeoForge.EVENT_BUS.addListener((AttackEntityEvent event) -> {
             if (!event.getEntity().level().isClientSide()) {
@@ -89,6 +110,17 @@ public final class MythicEffects {
         // Like Bloodlust it works on all damage from the player, also from skills
         if (attacker instanceof ServerPlayer player && player != event.getEntity() && MythicItem.has(player, MythicItem.ANCESTORS_AMULET)) {
             event.setNewDamage(event.getNewDamage() * AMULET_DAMAGE);
+        }
+        // Bloodreaver: more damage for each stack of Fury, from every kind of hit
+        if (attacker instanceof ServerPlayer player && player != event.getEntity() && MythicItem.has(player, MythicItem.BLOODREAVER)) {
+            event.setNewDamage(event.getNewDamage() * (1 + FURY_DAMAGE * fury(player)));
+        }
+        // Gravecaller: the owner's skeletons, wolves and other minions hit harder
+        if (attacker != null && Minions.isAlly(attacker) && attacker.level() instanceof ServerLevel level) {
+            ServerPlayer owner = Minions.owner(level, attacker);
+            if (owner != null && MythicItem.has(owner, MythicItem.GRAVECALLER)) {
+                event.setNewDamage(event.getNewDamage() * GRAVECALLER_DAMAGE);
+            }
         }
     }
 
@@ -173,11 +205,17 @@ public final class MythicEffects {
         }
     }
 
-    // Starless Ring: all skills are ready again when an elite or a boss dies
     private static void onDeath(LivingDeathEvent event) {
         LivingEntity dead = event.getEntity();
-        if (!(Bosses.isBoss(dead) || Elites.isElite(dead)) || !(dead.getKillCredit() instanceof ServerPlayer player)
-                || !MythicItem.has(player, MythicItem.STARLESS_RING)) {
+        // Minions.isEnemy() wants it alive, and it isn't any more
+        if (!(dead.getKillCredit() instanceof ServerPlayer player) || !(dead instanceof Enemy) || Minions.isAlly(dead)) {
+            return;
+        }
+        if (MythicItem.has(player, MythicItem.BLOODREAVER)) {
+            addFury(player);
+        }
+        // Starless Ring: all skills are ready again when an elite or a boss dies
+        if (!(Bosses.isBoss(dead) || Elites.isElite(dead)) || !MythicItem.has(player, MythicItem.STARLESS_RING)) {
             return;
         }
         Skills.resetCooldowns(player);
@@ -265,5 +303,70 @@ public final class MythicEffects {
         } finally {
             striking = false;
         }
+    }
+
+    // How many stacks of Fury the player has right now. They all run out together, 5 seconds after the last kill
+    public static int fury(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        return player.serverLevel().getGameTime() < data.getLong(FURY_UNTIL_TAG) ? data.getInt(FURY_TAG) : 0;
+    }
+
+    private static void addFury(ServerPlayer player) {
+        int stacks = Math.min(FURY_MAX, fury(player) + 1);
+        CompoundTag data = player.getPersistentData();
+        data.putInt(FURY_TAG, stacks);
+        data.putLong(FURY_UNTIL_TAG, player.serverLevel().getGameTime() + FURY_TICKS);
+        player.serverLevel().sendParticles(FURY_DUST, player.getX(), player.getY() + 1, player.getZ(), 4 + stacks, 0.35, 0.5, 0.35, 0);
+        if (stacks == FURY_MAX) {
+            player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 0.4f, 1.4f);
+        }
+    }
+
+    // Called by Skills after a class skill was used. Eye of the Tempest: lightning strikes the nearest enemy
+    public static void skillUsed(ServerPlayer player) {
+        if (!MythicItem.has(player, MythicItem.EYE_OF_THE_TEMPEST)) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        LivingEntity target = level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(TEMPEST_RANGE),
+                        entity -> Minions.isEnemy(entity) && entity.distanceTo(player) <= TEMPEST_RANGE).stream()
+                .min(Comparator.comparingDouble(entity -> entity.distanceToSqr(player)))
+                .orElse(null);
+        if (target == null) {
+            return;
+        }
+        // A bolt from the sky down to the target
+        Vec3 to = target.position().add(0, target.getBbHeight() / 2, 0);
+        Vec3 from = to.add(0, 8, 0);
+        for (double t = 0; t <= 1; t += 0.05) {
+            Vec3 point = from.lerp(to, t);
+            level.sendParticles(ParticleTypes.ELECTRIC_SPARK, point.x + (level.random.nextDouble() - 0.5) * 0.3, point.y,
+                    point.z + (level.random.nextDouble() - 0.5) * 0.3, 2, 0.05, 0.05, 0.05, 0);
+        }
+        level.sendParticles(ParticleTypes.FLASH, to.x, to.y, to.z, 1, 0, 0, 0, 0);
+        level.playSound(null, target.blockPosition(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.6f, 1.4f);
+        hurtAll(player, List.of(target), (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * TEMPEST_DAMAGE);
+    }
+
+    // Dawnguard: blocking a hit sends holy light down on the one who made it and heals the player
+    private static void onShieldBlock(LivingShieldBlockEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !event.getBlocked() || !MythicItem.has(player, MythicItem.DAWNGUARD)) {
+            return;
+        }
+        long now = player.serverLevel().getGameTime();
+        if (now < player.getPersistentData().getLong(DAWNGUARD_READY_TAG)) {
+            return;
+        }
+        player.getPersistentData().putLong(DAWNGUARD_READY_TAG, now + DAWNGUARD_COOLDOWN);
+        player.heal(player.getMaxHealth() * DAWNGUARD_HEAL);
+        if (!(event.getDamageSource().getEntity() instanceof LivingEntity attacker) || !Minions.isEnemy(attacker)) {
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        for (double y = 0; y < 4; y += 0.25) {
+            level.sendParticles(ParticleTypes.END_ROD, attacker.getX(), attacker.getY() + y, attacker.getZ(), 1, 0.15, 0, 0.15, 0);
+        }
+        level.playSound(null, attacker.blockPosition(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8f, 1.6f);
+        hurtAll(player, List.of(attacker), (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * DAWNGUARD_DAMAGE);
     }
 }

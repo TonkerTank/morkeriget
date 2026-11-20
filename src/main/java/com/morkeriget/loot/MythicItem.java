@@ -30,7 +30,12 @@ public enum MythicItem {
     STARLESS_RING(Jewelry.RING::get, null),
     ANCESTORS_AMULET(Jewelry.AMULET::get, null),
     WINTERS_GRASP(() -> Items.NETHERITE_LEGGINGS, null),
-    STORMSTRIDERS(() -> Items.NETHERITE_BOOTS, null);
+    STORMSTRIDERS(() -> Items.NETHERITE_BOOTS, null),
+    // One for each class that didn't have its own yet
+    BLOODREAVER(() -> Items.NETHERITE_AXE, PlayerClass.BARBARIAN),
+    EYE_OF_THE_TEMPEST(Staffs.STAR::get, PlayerClass.SORCERER),
+    GRAVECALLER(Staffs.STAR::get, PlayerClass.NECROMANCER),
+    DAWNGUARD(() -> Items.SHIELD, PlayerClass.PALADIN);
 
     private static final String MYTHIC_TAG = "morkeriget_mythic";
     // How often a mythic is one the finder's class can use, if there are any only for that class

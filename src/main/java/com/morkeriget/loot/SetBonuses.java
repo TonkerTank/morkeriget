@@ -95,8 +95,10 @@ public final class SetBonuses {
             legendary.then(Commands.literal(power.name().toLowerCase(Locale.ROOT)).executes(context -> {
                 ServerPlayer player = context.getSource().getPlayerOrException();
                 ItemStack stack = Loot.createLegendary(player.getRandom(), Progression.level(player), power);
+                // The name before the stack goes into the inventory, which empties it
+                Component name = stack.getHoverName();
                 player.getInventory().placeItemBackInInventory(stack);
-                context.getSource().sendSuccess(() -> Text.tr("command.got", stack.getHoverName()), false);
+                context.getSource().sendSuccess(() -> Text.tr("command.got", name), false);
                 return 1;
             }));
         }
@@ -116,8 +118,10 @@ public final class SetBonuses {
             mythic.then(Commands.literal(item.name().toLowerCase(Locale.ROOT)).executes(context -> {
                 ServerPlayer player = context.getSource().getPlayerOrException();
                 ItemStack stack = Loot.createMythic(player.getRandom(), Progression.level(player), item);
+                // The name before the stack goes into the inventory, which empties it
+                Component name = stack.getHoverName();
                 player.getInventory().placeItemBackInInventory(stack);
-                context.getSource().sendSuccess(() -> Text.tr("command.got", stack.getHoverName()), false);
+                context.getSource().sendSuccess(() -> Text.tr("command.got", name), false);
                 return 1;
             }));
         }
@@ -127,8 +131,10 @@ public final class SetBonuses {
     private static int giveLoot(CommandSourceStack source, Rarity rarity, int level, Item item) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         ItemStack stack = item != null ? Loot.create(player.getRandom(), rarity, level, item) : Loot.create(player.getRandom(), rarity, level);
+        // The name before the stack goes into the inventory, which empties it
+        Component name = stack.getHoverName();
         player.getInventory().placeItemBackInInventory(stack);
-        source.sendSuccess(() -> Text.tr("command.got", stack.getHoverName()), false);
+        source.sendSuccess(() -> Text.tr("command.got", name), false);
         return 1;
     }
 

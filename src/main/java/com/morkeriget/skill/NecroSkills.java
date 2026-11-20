@@ -7,7 +7,9 @@ import java.util.List;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.Text;
 import com.morkeriget.elite.Elites;
+import com.morkeriget.combat.MythicEffects;
 import com.morkeriget.loot.LegendaryPower;
+import com.morkeriget.loot.MythicItem;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
@@ -154,8 +156,10 @@ final class NecroSkills {
 
     // How many skeletons the player can have at once: fewer with Giants, more with Horde
     static int maxSkeletons(ServerPlayer player) {
-        return Progression.has(player, Upgrade.RAISE_SKELETONS_GIANTS) ? GIANTS_MAX
+        int max = Progression.has(player, Upgrade.RAISE_SKELETONS_GIANTS) ? GIANTS_MAX
                 : Progression.has(player, Upgrade.RAISE_SKELETONS_HORDE) ? HORDE_MAX : MAX_SKELETONS;
+        // Gravecaller: room for more skeletons whatever the tree says
+        return MythicItem.has(player, MythicItem.GRAVECALLER) ? max + MythicEffects.GRAVECALLER_SKELETONS : max;
     }
 
     // Raises count skeletons next to the player, also used by Army of the Dead's Risen Army. Nothing with Sacrifice
