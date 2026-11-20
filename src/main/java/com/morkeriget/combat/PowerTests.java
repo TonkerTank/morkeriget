@@ -146,6 +146,19 @@ public final class PowerTests {
         helper.succeed();
     }
 
+    // Dagger: the opening strike on a monster at full health hits harder than the next one
+    @GameTest(template = "empty")
+    public static void daggerOpeningStrike(GameTestHelper helper) {
+        ServerPlayer player = TestPlayers.survivor(helper, new BlockPos(1, 2, 1));
+        Husk husk = husk(helper, 3.5, 1.5);
+        helper.assertTrue(WeaponEffects.unaware(player, husk), "Et monster med fuldt liv talte ikke som uopmærksomt");
+        husk.setHealth(husk.getMaxHealth() - 1);
+        husk.setTarget(player);
+        helper.assertTrue(!WeaponEffects.unaware(player, husk), "Et såret monster, der går efter spilleren, talte som uopmærksomt");
+        TestPlayers.remove(player);
+        helper.succeed();
+    }
+
     // Riftwalkers: a kill takes half a second off a skill that is cooling down
     @GameTest(template = "empty")
     public static void riftwalkersShortenCooldowns(GameTestHelper helper) {

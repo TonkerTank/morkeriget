@@ -51,6 +51,7 @@ public final class PlayerHits {
         LegendaryEffects.register();
         MythicEffects.register();
         UniqueEffects.register();
+        WeaponEffects.register();
     }
 
     private static void onDamagePre(LivingDamageEvent.Pre event) {

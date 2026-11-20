@@ -66,6 +66,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.ItemAttributeModifierEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
+import net.neoforged.neoforge.registries.DeferredItem;
 
 // Monsters you kill can drop weapons, armour, shields and jewelry with a rarity, an item power and random bonuses (affixes)
 public final class Loot {
@@ -102,10 +103,30 @@ public final class Loot {
 
     // An item that can drop, and the item levels it drops at. Better base items only drop from higher level monsters.
     // The item is a supplier because rings and amulets are our own items, which don't exist until they are registered
-    private record LootItem(Supplier<Item> item, int minLevel, int maxLevel) {
+    // weight is how often it is picked compared to the others: 2 for most, 1 for the extra kinds of weapon, so armour
+    // and jewelry don't get rare just because there are many kinds of weapon
+    private record LootItem(Supplier<Item> item, int minLevel, int maxLevel, int weight) {
+        LootItem(Supplier<Item> item, int minLevel, int maxLevel) {
+            this(item, minLevel, maxLevel, 2);
+        }
+
         static LootItem of(Item item, int minLevel, int maxLevel) {
             return new LootItem(() -> item, minLevel, maxLevel);
         }
+    }
+
+    // The extra weapons: each tier at the same levels as swords of that tier, and the mace from level 15
+    private static List<LootItem> extraWeapons() {
+        List<LootItem> items = new ArrayList<>();
+        int[][] levels = {{1, 9}, {3, ANY_LEVEL}, {10, ANY_LEVEL}, {20, ANY_LEVEL}};
+        for (Weapons.Kind kind : Weapons.Kind.values()) {
+            List<DeferredItem<Item>> tiers = Weapons.tiers(kind);
+            for (int i = 0; i < tiers.size(); i++) {
+                items.add(new LootItem(tiers.get(i)::get, levels[i][0], levels[i][1], 1));
+            }
+        }
+        items.add(new LootItem(() -> Items.MACE, 15, ANY_LEVEL, 1));
+        return items;
     }
 
     private static final int ANY_LEVEL = Integer.MAX_VALUE;
@@ -145,6 +166,7 @@ public final class Loot {
             LootItem.of(Items.NETHERITE_BOOTS, 20, ANY_LEVEL),
             new LootItem(Jewelry.RING::get, 1, ANY_LEVEL),
             new LootItem(Jewelry.AMULET::get, 1, ANY_LEVEL));
+    private static final List<LootItem> ALL_LOOT_ITEMS = java.util.stream.Stream.concat(LOOT_ITEMS.stream(), extraWeapons().stream()).toList();
 
     private static final Set<ItemKind> ALL = EnumSet.allOf(ItemKind.class);
     private static final Set<ItemKind> MELEE = EnumSet.of(ItemKind.MELEE, ItemKind.JEWELRY);
@@ -197,6 +219,7 @@ public final class Loot {
 
     public static void register(IEventBus modEventBus) {
         Staffs.register(modEventBus);
+        Weapons.register(modEventBus);
         LootFilter.register(modEventBus);
         LootBag.register(modEventBus);
         Favorites.register(modEventBus);
@@ -400,12 +423,22 @@ public final class Loot {
     // A random base item that can drop at this level and is the kind asked for, e.g. only helmets.
     // null if there is none
     private static Item randomItem(RandomSource random, int itemLevel, Predicate<Item> kind) {
-        List<Item> possible = LOOT_ITEMS.stream()
+        List<LootItem> possible = ALL_LOOT_ITEMS.stream()
                 .filter(loot -> itemLevel >= loot.minLevel && itemLevel <= loot.maxLevel)
-                .map(loot -> loot.item.get())
-                .filter(kind)
+                .filter(loot -> kind.test(loot.item.get()))
                 .toList();
-        return possible.isEmpty() ? null : possible.get(random.nextInt(possible.size()));
+        int total = possible.stream().mapToInt(LootItem::weight).sum();
+        if (total == 0) {
+            return null;
+        }
+        int pick = random.nextInt(total);
+        for (LootItem loot : possible) {
+            pick -= loot.weight;
+            if (pick < 0) {
+                return loot.item.get();
+            }
+        }
+        return null;
     }
 
     public static ItemStack create(RandomSource random, Rarity rarity, int itemLevel) {
@@ -441,15 +474,18 @@ public final class Loot {
                         Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS,
                         Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS,
                         Staffs.OAK.get(), Staffs.BLAZE.get(), Staffs.STORM.get())
-                .contains(item);
+                .contains(item) || Weapons.tier(item) >= 0 && Weapons.tier(item) < 3;
     }
 
     private enum WeaponType {
-        MELEE, STAFF, BOW, CROSSBOW
+        MELEE, STAFF, BOW, CROSSBOW, DAGGER, SCYTHE, BATTLE_STAFF, MACE
     }
 
     // null for armor, shields and jewelry
     private static WeaponType weaponType(ItemStack stack) {
+        if (Weapons.kind(stack) != null) {
+            return WeaponType.valueOf(Weapons.kind(stack).name());
+        }
         if (Staffs.isStaff(stack)) {
             return WeaponType.STAFF;
         }
@@ -683,6 +719,13 @@ public final class Loot {
             int mana = STAFF_MANA_MIN + random.nextInt(STAFF_MANA_MAX - STAFF_MANA_MIN + 1);
             CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(STAFF_MANA_TAG, mana));
             affixLore.add(Text.tr("lore.staff_mana", mana).withStyle(ChatFormatting.AQUA));
+        }
+        Weapons.Kind weaponKind = Weapons.kind(stack);
+        if (weaponKind != null) {
+            Weapons.Innate innate = weaponKind.innate;
+            int value = innate.min() + random.nextInt(innate.max() - innate.min() + 1);
+            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(innate.tag(), value));
+            affixLore.add(Text.tr("lore." + innate.lore(), value).withStyle(ChatFormatting.AQUA));
         }
         double totalQuality = 0;
         // Which of the bonuses are sure to be greater ones

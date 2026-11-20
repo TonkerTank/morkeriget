@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "morkeriget:item/battle_staff_netherite"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "morkeriget:item/dagger_netherite"
+  }
+}

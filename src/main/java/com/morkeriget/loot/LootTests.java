@@ -1,6 +1,7 @@
 package com.morkeriget.loot;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -20,6 +21,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
@@ -237,6 +239,28 @@ public final class LootTests {
         }
         // 50% plus an eighth of the rest, about 225 of 400
         helper.assertTrue(own > 180 && own < 270, own + " af 400 sætdele var Benherrens");
+        helper.succeed();
+    }
+
+    // Each new kind of weapon always gets its own bonus, within its range
+    @GameTest(template = "empty")
+    public static void weaponsGetTheirInnateBonus(GameTestHelper helper) {
+        RandomSource random = RandomSource.create(13);
+        for (Weapons.Kind kind : Weapons.Kind.values()) {
+            Item item = kind == Weapons.Kind.MACE ? Items.MACE : Weapons.tiers(kind).get(3).get();
+            ItemStack stack = Loot.create(random, Rarity.RARE, 25, item);
+            int value = Loot.affix(stack, kind.innate.tag());
+            helper.assertTrue(value >= kind.innate.min() && value <= kind.innate.max(), kind + " fik " + value + " i sin egen bonus");
+        }
+        // They drop too: among many items at level 25 there are daggers, scythes, battle staffs and maces
+        java.util.Set<Weapons.Kind> seen = EnumSet.noneOf(Weapons.Kind.class);
+        for (int i = 0; i < 2000; i++) {
+            Weapons.Kind kind = Weapons.kind(Loot.create(random, Rarity.COMMON, 25));
+            if (kind != null) {
+                seen.add(kind);
+            }
+        }
+        helper.assertTrue(seen.size() == Weapons.Kind.values().length, "Kun disse våben droppede: " + seen);
         helper.succeed();
     }
 }

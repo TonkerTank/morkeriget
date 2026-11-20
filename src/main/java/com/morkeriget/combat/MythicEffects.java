@@ -131,10 +131,11 @@ public final class MythicEffects {
             return;
         }
         MythicItem mythic = MythicItem.of(weapon);
-        boolean swing = source.getDirectEntity() == player && target == swingTarget;
+        boolean swing = isSwing(player, target, source);
         if (swing) {
             swingTarget = null;
         }
+        WeaponEffects.afterHit(player, target, weapon, damage, swing);
         if (mythic == MythicItem.DOOMBRINGER && swing) {
             int hits = player.getPersistentData().getInt(DOOMBRINGER_HITS_TAG) + 1;
             player.getPersistentData().putInt(DOOMBRINGER_HITS_TAG, hits % DOOMBRINGER_HITS);
@@ -144,6 +145,11 @@ public final class MythicEffects {
         } else if (mythic == MythicItem.STARFALL && source.getDirectEntity() instanceof AbstractArrow) {
             starfall(player, target, damage * STARFALL_DAMAGE);
         }
+    }
+
+    // Whether the damage is the player's own swing at the target, not a skill. Until afterHit, which is after the damage
+    static boolean isSwing(ServerPlayer player, Entity target, DamageSource source) {
+        return source.getDirectEntity() == player && target == swingTarget;
     }
 
     // Doombringer: a ring of shadow around the player that hurts every monster in it except the one that was hit

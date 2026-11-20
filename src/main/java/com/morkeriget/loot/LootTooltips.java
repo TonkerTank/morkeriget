@@ -49,7 +49,11 @@ public final class LootTooltips {
             new Special(Loot.ARROW_DAMAGE_TAG, "arrow_damage"),
             new Special(Loot.THORNS_TAG, "thorns"),
             new Special(Gems.MANA_REGEN_TAG, "mana"),
-            new Special(Loot.STAFF_MANA_TAG, "staff_mana"));
+            new Special(Loot.STAFF_MANA_TAG, "staff_mana"),
+            new Special(Weapons.BACKSTAB_TAG, "backstab"),
+            new Special(Weapons.REAP_TAG, "reap"),
+            new Special(Weapons.ARCANE_STRIKE_TAG, "arcane_strike"),
+            new Special(Weapons.STUN_TAG, "stun"));
 
     private LootTooltips() {
     }
