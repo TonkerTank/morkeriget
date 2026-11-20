@@ -585,6 +585,21 @@ public final class Skills {
     }
 
     // Makes every skill ready to use again, but not the potions. Used by the Starless Ring
+    // Takes ticks off every skill that is cooling down
+    public static void reduceCooldowns(ServerPlayer player, int ticks) {
+        long now = player.serverLevel().getGameTime();
+        for (Skill skill : Skill.values()) {
+            String readyTag = "morkeriget_" + skill.name().toLowerCase(Locale.ROOT) + "_ready";
+            long ready = player.getPersistentData().getLong(readyTag);
+            if (skill.isPotion() || ready <= now) {
+                continue;
+            }
+            long sooner = Math.max(now, ready - ticks);
+            player.getPersistentData().putLong(readyTag, sooner);
+            PacketDistributor.sendToPlayer(player, new CooldownPayload(skill, (int) (sooner - now)));
+        }
+    }
+
     public static void resetCooldowns(ServerPlayer player) {
         for (Skill skill : Skill.values()) {
             if (!skill.isPotion()) {

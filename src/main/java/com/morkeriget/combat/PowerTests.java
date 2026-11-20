@@ -4,13 +4,17 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.gametest.TestPlayers;
 import com.morkeriget.loot.LegendaryPower;
+import com.morkeriget.loot.Loot;
 import com.morkeriget.loot.MythicItem;
+import com.morkeriget.loot.Rarity;
+import com.morkeriget.loot.UniqueItem;
 import com.morkeriget.loot.Staffs;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.monster.Husk;
@@ -125,6 +129,34 @@ public final class PowerTests {
         Husk husk = husk(helper, 5.5, 1.5);
         MythicEffects.skillUsed(player);
         helper.assertTrue(husk.getHealth() < husk.getMaxHealth(), "Stormens Øje ramte ikke monsteret");
+        TestPlayers.remove(player);
+        helper.succeed();
+    }
+
+    // A unique is its own rarity, has its name, and always the same bonuses
+    @GameTest(template = "empty")
+    public static void uniqueHasFixedBonuses(GameTestHelper helper) {
+        RandomSource random = RandomSource.create(3);
+        for (int i = 0; i < 5; i++) {
+            ItemStack plate = Loot.createUnique(random, 30, UniqueItem.COLOSSUS_PLATE);
+            helper.assertTrue(Loot.getRarity(plate) == Rarity.UNIQUE, "Kolossens Panser var ikke unik");
+            helper.assertTrue(UniqueItem.of(plate) == UniqueItem.COLOSSUS_PLATE, "Kolossens Panser var ikke mærket");
+            helper.assertTrue(Loot.affix(plate, Loot.THORNS_TAG) > 0, "Kolossens Panser fik ikke torne");
+        }
+        helper.succeed();
+    }
+
+    // Riftwalkers: a kill takes half a second off a skill that is cooling down
+    @GameTest(template = "empty")
+    public static void riftwalkersShortenCooldowns(GameTestHelper helper) {
+        ServerPlayer player = TestPlayers.survivor(helper, new BlockPos(1, 2, 1));
+        wear(player, EquipmentSlot.FEET, Loot.createUnique(RandomSource.create(5), 10, UniqueItem.RIFTWALKERS));
+        long ready = helper.getLevel().getGameTime() + 100;
+        player.getPersistentData().putLong("morkeriget_whirlwind_ready", ready);
+        Husk husk = husk(helper, 3.5, 1.5);
+        husk.hurt(player.damageSources().playerAttack(player), 1000);
+        long after = player.getPersistentData().getLong("morkeriget_whirlwind_ready");
+        helper.assertTrue(after == ready - 10, "Riftvandrerne gjorde ikke cooldown kortere: " + (ready - after) + " ticks");
         TestPlayers.remove(player);
         helper.succeed();
     }

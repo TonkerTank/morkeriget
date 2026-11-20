@@ -11,6 +11,7 @@ import com.morkeriget.Text;
 import com.morkeriget.journey.Achievement;
 import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.UniqueItem;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.smithy.Gems;
@@ -298,6 +299,7 @@ public final class WorldBoss {
                     rewards.add(mythic);
                     Loot.announceMythic(player, mythic);
                 }
+                Loot.maybeUnique(player, random, itemLevel, UniqueItem.Source.WORLD_BOSS, Loot.UNIQUE_CHANCE_WORLD_BOSS, rewards);
                 rewards.add(new ItemStack(Smithy.ESSENCE.get(), 25 + random.nextInt(16)));
                 rewards.add(Gems.random(random, itemLevel, 1));
                 rewards.add(Gems.random(random, itemLevel, 1));

@@ -15,6 +15,7 @@ import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.glyph.Glyphs;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.UniqueItem;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.portal.TownPortal;
 import com.morkeriget.progress.PlayerClass;
@@ -795,6 +796,7 @@ final class Dungeon {
                 rewards.add(mythic);
                 Loot.announceMythic(player, mythic);
             }
+            Loot.maybeUnique(player, random, itemLevel, UniqueItem.Source.DUNGEON, Loot.UNIQUE_CHANCE_DUNGEON * tier * affixBonus, rewards);
             rewards.addAll(Smithy.essence((int) Math.round((5 + tier * 3 + random.nextInt(5)) * affixBonus)));
             for (int i = 0; i < 1 + tier / 3; i++) {
                 rewards.add(Gems.random(random, monsterLevel, tier / 4));
@@ -837,6 +839,7 @@ final class Dungeon {
                 rewards.add(mythic);
                 Loot.announceMythic(player, mythic);
             }
+            Loot.maybeUnique(player, random, itemLevel, UniqueItem.Source.LORD_OF_DARKNESS, Loot.UNIQUE_CHANCE_LORD, rewards);
             rewards.addAll(Smithy.essence(80 + random.nextInt(41)));
             for (int i = 0; i < 3; i++) {
                 rewards.add(Gems.random(random, monsterLevel, 3));

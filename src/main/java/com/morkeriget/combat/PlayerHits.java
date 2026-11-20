@@ -50,6 +50,7 @@ public final class PlayerHits {
         NeoForge.EVENT_BUS.addListener(PlayerHits::onDamagePost);
         LegendaryEffects.register();
         MythicEffects.register();
+        UniqueEffects.register();
     }
 
     private static void onDamagePre(LivingDamageEvent.Pre event) {

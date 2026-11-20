@@ -126,6 +126,29 @@ public final class SetBonuses {
             }));
         }
         event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(mythic));
+
+        // "/morkeriget unique colossus_plate" gives that unique at your level. Without a name it lists them
+        LiteralArgumentBuilder<CommandSourceStack> unique = Commands.literal("unique").requires(source -> source.hasPermission(2))
+                .executes(context -> {
+                    context.getSource().sendSuccess(() -> Text.tr("command.unique_list").withStyle(ChatFormatting.RED), false);
+                    for (UniqueItem item : UniqueItem.values()) {
+                        context.getSource().sendSuccess(() -> Component.literal(item.name().toLowerCase(Locale.ROOT)).withStyle(ChatFormatting.RED)
+                                .append(Component.literal(" - ").append(item.displayName()).append(": ").append(item.description()).withStyle(ChatFormatting.GRAY)), false);
+                    }
+                    return 1;
+                });
+        for (UniqueItem item : UniqueItem.values()) {
+            unique.then(Commands.literal(item.name().toLowerCase(Locale.ROOT)).executes(context -> {
+                ServerPlayer player = context.getSource().getPlayerOrException();
+                ItemStack stack = Loot.createUnique(player.getRandom(), Progression.level(player), item);
+                // The name before the stack goes into the inventory, which empties it
+                Component name = stack.getHoverName();
+                player.getInventory().placeItemBackInInventory(stack);
+                context.getSource().sendSuccess(() -> Text.tr("command.got", name), false);
+                return 1;
+            }));
+        }
+        event.getDispatcher().register(Commands.literal(Morkeriget.MODID).then(unique));
     }
 
     private static int giveLoot(CommandSourceStack source, Rarity rarity, int level, Item item) throws CommandSyntaxException {

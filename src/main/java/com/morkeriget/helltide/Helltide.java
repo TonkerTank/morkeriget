@@ -17,6 +17,7 @@ import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.journey.Achievement;
 import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.UniqueItem;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.rift.Rifts;
@@ -382,6 +383,7 @@ public final class Helltide {
                 Rarity rarity = random.nextDouble() < 0.3 ? Rarity.LEGENDARY : Rarity.roll(random, Rarity.RARE);
                 rewards.add(Loot.create(random, rarity, itemLevel, Progression.playerClass(player)));
             }
+            Loot.maybeUnique(player, random, itemLevel, UniqueItem.Source.HELLTIDE, Loot.UNIQUE_CHANCE_HELLTIDE, rewards);
             rewards.add(new ItemStack(Smithy.ESSENCE.get(), 10 + random.nextInt(11)));
             rewards.add(Gems.random(random, itemLevel, 0));
             return rewards;

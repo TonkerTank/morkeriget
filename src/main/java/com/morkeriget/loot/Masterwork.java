@@ -63,6 +63,7 @@ public final class Masterwork {
             case COMMON, MAGIC -> 1;
             case RARE -> 2;
             case LEGENDARY, SET -> 3;
+            case UNIQUE -> 4;
             case MYTHIC -> 5;
         };
         return (rank(stack) + 1) * perRank;

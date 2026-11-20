@@ -18,6 +18,7 @@ import com.morkeriget.elite.EliteModifier;
 import com.morkeriget.glyph.Glyph;
 import com.morkeriget.journey.Achievement;
 import com.morkeriget.loot.ItemSet;
+import com.morkeriget.loot.UniqueItem;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.MythicItem;
 import com.morkeriget.loot.Rarity;
@@ -56,6 +57,13 @@ public final class TranslationTests {
         for (MythicItem mythic : MythicItem.values()) {
             texts.add(mythic.displayName());
             texts.add(mythic.description());
+        }
+        for (UniqueItem unique : UniqueItem.values()) {
+            texts.add(unique.displayName());
+            texts.add(unique.description());
+        }
+        for (UniqueItem.Source source : UniqueItem.Source.values()) {
+            texts.add(source.displayName());
         }
         for (Rarity rarity : Rarity.values()) {
             texts.add(rarity.displayName());

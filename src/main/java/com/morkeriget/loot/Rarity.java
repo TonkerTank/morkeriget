@@ -16,6 +16,9 @@ public enum Rarity {
     LEGENDARY(ChatFormatting.GOLD, 4, 5, 0xFF8800),
     // Set items are never rolled at random (weight 0). They drop on purpose, see Loot.createSet
     SET(ChatFormatting.GREEN, 3, 0, 0x33FF55),
+    // Uniques are never rolled at random: each one drops from its own place, see UniqueItem and Loot.createUnique.
+    // Before MYTHIC, since the order is how rare they are
+    UNIQUE(ChatFormatting.RED, 4, 0, 0xFF3344),
     // Mythic items are never rolled at random either. They are the rarest drops, see Loot.createMythic
     MYTHIC(ChatFormatting.LIGHT_PURPLE, 4, 0, 0xCC55FF);
 

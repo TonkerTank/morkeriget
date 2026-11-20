@@ -23,6 +23,7 @@ import com.morkeriget.elite.Elites;
 import com.morkeriget.elite.MonsterLevels;
 import com.morkeriget.journey.Journey;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.UniqueItem;
 import com.morkeriget.loot.Rarity;
 import com.morkeriget.portal.TownPortal;
 import com.morkeriget.progress.Progression;
@@ -658,6 +659,7 @@ public final class Rifts {
                 rewards.add(mythic);
                 Loot.announceMythic(player, mythic);
             }
+            Loot.maybeUnique(player, random, monsterLevel, UniqueItem.Source.RIFT, Loot.UNIQUE_CHANCE_RIFT * tier * affixBonus, rewards);
             Rarity minimum = tier >= 5 ? Rarity.RARE : Rarity.MAGIC;
             for (int i = 0; i < 1 + (tier - 1) / 3 + affixes.size(); i++) {
                 rewards.add(Loot.create(random, Rarity.roll(random, minimum), monsterLevel, Progression.playerClass(player)));

@@ -40,9 +40,13 @@ public final class SkillBar {
     private SkillBar() {
     }
 
+    // A shorter time on a running cooldown (Riftwalkers) keeps the total, so the dark part of the icon shrinks
     public static void set(CooldownPayload payload) {
-        remaining[payload.skill().ordinal()] = payload.ticks();
-        total[payload.skill().ordinal()] = payload.ticks();
+        int i = payload.skill().ordinal();
+        if (payload.ticks() > remaining[i] || payload.ticks() == 0) {
+            total[i] = payload.ticks();
+        }
+        remaining[i] = payload.ticks();
     }
 
     public static void register(RegisterGuiLayersEvent event) {

@@ -552,6 +552,33 @@ public final class Loot {
         return roll(new ItemStack(mythic.baseItem()), random, Rarity.MYTHIC, itemLevel, null, null, null, mythic);
     }
 
+    // How often each place drops its unique. Dungeons and rifts are per tier, so tier X is ten times as likely
+    public static final double UNIQUE_CHANCE_WORLD_BOSS = 0.15;
+    public static final double UNIQUE_CHANCE_LORD = 0.35;
+    public static final double UNIQUE_CHANCE_HELLTIDE = 0.03;
+    public static final double UNIQUE_CHANCE_DUNGEON = 0.015;
+    public static final double UNIQUE_CHANCE_RIFT = 0.015;
+
+    // A unique item, see UniqueItem
+    public static ItemStack createUnique(RandomSource random, int itemLevel, UniqueItem unique) {
+        return roll(new ItemStack(unique.baseItem()), random, Rarity.UNIQUE, itemLevel, null, null, null, null, Quality.normal(Rarity.UNIQUE), unique);
+    }
+
+    // Maybe a unique from this source, added to the rewards and announced. chance is between 0 and 1
+    public static void maybeUnique(ServerPlayer player, RandomSource random, int itemLevel, UniqueItem.Source source, double chance,
+                                   List<ItemStack> rewards) {
+        List<UniqueItem> uniques = UniqueItem.from(source);
+        if (uniques.isEmpty() || random.nextDouble() >= chance) {
+            return;
+        }
+        ItemStack stack = createUnique(random, itemLevel, uniques.get(random.nextInt(uniques.size())));
+        rewards.add(stack);
+        Component message = Component.literal("✦ ").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+                .append(Text.tr("chat.unique_found", player.getDisplayName().copy().withStyle(ChatFormatting.WHITE), stack.getHoverName())
+                        .withStyle(ChatFormatting.RED));
+        player.server.getPlayerList().broadcastSystemMessage(message, false);
+    }
+
     // The same base item with the same rarity, level, set, legendary power and mythic, but new bonuses. Used by the smithy.
     // Legendaries from before powers existed get one
     public static ItemStack reroll(ItemStack old, RandomSource random) {
@@ -566,7 +593,8 @@ public final class Loot {
         double strength = affix(old, STRENGTH_TAG) / 100.0;
         Quality quality = new Quality(floor(old), Quality.normal(rarity).greaterChance(), greater(old).size(),
                 Math.max(0, affixCount(old) - rarity.affixCount), Math.max(1, strength), strength > 1);
-        ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power, MythicItem.of(old), quality);
+        ItemStack rerolled = roll(stack, random, rarity, itemLevel(old), ItemSet.of(old), ItemSet.piece(old), power, MythicItem.of(old), quality,
+                UniqueItem.of(old));
         // The sockets and gems stay as they were, and it is still the same find for the season journey
         Gems.copy(old, rerolled);
         Journey.copyFound(old, rerolled);
@@ -629,6 +657,12 @@ public final class Loot {
 
     private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece,
                                   LegendaryPower power, MythicItem mythic, Quality rollQuality) {
+        return roll(stack, random, rarity, itemLevel, set, piece, power, mythic, rollQuality, null);
+    }
+
+    // unique is null for items that aren't unique. A unique gets its own fixed bonuses instead of random ones
+    private static ItemStack roll(ItemStack stack, RandomSource random, Rarity rarity, int itemLevel, ItemSet set, ItemSet.Piece piece,
+                                  LegendaryPower power, MythicItem mythic, Quality rollQuality, UniqueItem unique) {
         // Flat affixes get stronger with the item level, see Scaling
         double fullScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1);
         double halfScale = 1 + Config.AFFIX_PER_LEVEL.get() * (itemLevel - 1) / 2;
@@ -640,6 +674,9 @@ public final class Loot {
         // Pick different affixes that fit this kind of item and roll how strong each one is
         List<Affix> available = new ArrayList<>(AFFIXES.stream().filter(affix -> affix.kinds.contains(kind))
                 .filter(affix -> !rollQuality.noFiller() || affix.attribute != Attributes.LUCK && affix.attribute != Attributes.ATTACK_KNOCKBACK).toList());
+        if (unique != null) {
+            available = new ArrayList<>(AFFIXES.stream().filter(affix -> unique.hasBonus(affix.attribute, affix.tag)).toList());
+        }
         ItemAttributeModifiers modifiers = baseModifiers(stack);
         List<Component> affixLore = new ArrayList<>();
         if (Staffs.isStaff(stack)) {
@@ -649,7 +686,7 @@ public final class Loot {
         }
         double totalQuality = 0;
         // Which of the bonuses are sure to be greater ones
-        int affixCount = Math.min(rarity.affixCount + rollQuality.extraAffixes(), available.size());
+        int affixCount = unique != null ? available.size() : Math.min(rarity.affixCount + rollQuality.extraAffixes(), available.size());
         List<Integer> sureGreater = new ArrayList<>();
         for (int i = 0; i < affixCount; i++) {
             sureGreater.add(i);
@@ -659,9 +696,10 @@ public final class Loot {
         }
         ListTag greater = new ListTag();
         for (int i = 0; i < affixCount; i++) {
-            Affix affix = available.remove(random.nextInt(available.size()));
-            // Mythic bonuses always roll in the top 40%, and some rewards have a floor of their own
-            double floor = Math.max(rollQuality.floor(), mythic != null ? 0.6 : 0);
+            // A unique's bonuses are always the same, so they are taken in order
+            Affix affix = available.remove(unique != null ? 0 : random.nextInt(available.size()));
+            // Mythic bonuses always roll in the top 40% and unique ones in the top half, and some rewards have a floor of their own
+            double floor = Math.max(rollQuality.floor(), mythic != null ? 0.6 : unique != null ? 0.5 : 0);
             double quality = floor + (1 - floor) * random.nextDouble();
             totalQuality += quality;
             double scale = switch (affix.scaling) {
@@ -703,6 +741,8 @@ public final class Loot {
         Component name;
         if (mythic != null) {
             name = mythic.displayName();
+        } else if (unique != null) {
+            name = unique.displayName();
         } else if (set != null) {
             name = Text.tr("item.set_name", set.displayName(), baseName);
         } else if (rarity == Rarity.LEGENDARY) {
@@ -728,6 +768,13 @@ public final class Loot {
             lore.add(mythic.description().withStyle(ChatFormatting.DARK_PURPLE));
             mythic.markOn(stack);
         }
+        if (unique != null) {
+            lore.add(Component.empty());
+            lore.add(Component.literal("✦ ").append(unique.displayName()).withStyle(ChatFormatting.RED));
+            lore.add(unique.description().withStyle(ChatFormatting.GOLD));
+            lore.add(Text.tr("lore.unique_source", unique.source.displayName()).withStyle(ChatFormatting.DARK_GRAY));
+            unique.markOn(stack);
+        }
         if (set != null) {
             MutableComponent pieceNames = Component.empty();
             for (ItemSet.Piece setPiece : set.pieces) {
@@ -743,7 +790,7 @@ public final class Loot {
             lore.add(Text.tr("lore.wear_jewelry").withStyle(ChatFormatting.DARK_GRAY));
         }
         stack.set(DataComponents.LORE, new ItemLore(lore));
-        if (rarity == Rarity.LEGENDARY || rarity == Rarity.SET || rarity == Rarity.MYTHIC) {
+        if (rarity == Rarity.LEGENDARY || rarity == Rarity.SET || rarity == Rarity.UNIQUE || rarity == Rarity.MYTHIC) {
             stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
         }
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
