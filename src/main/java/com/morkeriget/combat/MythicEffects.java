@@ -10,6 +10,7 @@ import com.morkeriget.elite.Bosses;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.loot.MythicItem;
 import com.morkeriget.skill.Minions;
+import com.morkeriget.skill.PaladinSkills;
 import com.morkeriget.skill.Skills;
 
 import net.minecraft.ChatFormatting;
@@ -362,11 +363,7 @@ public final class MythicEffects {
         if (!(event.getDamageSource().getEntity() instanceof LivingEntity attacker) || !Minions.isEnemy(attacker)) {
             return;
         }
-        ServerLevel level = player.serverLevel();
-        for (double y = 0; y < 4; y += 0.25) {
-            level.sendParticles(ParticleTypes.END_ROD, attacker.getX(), attacker.getY() + y, attacker.getZ(), 1, 0.15, 0, 0.15, 0);
-        }
-        level.playSound(null, attacker.blockPosition(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8f, 1.6f);
+        PaladinSkills.dawnguardStrike(player, attacker.position());
         hurtAll(player, List.of(attacker), (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * DAWNGUARD_DAMAGE);
     }
 }

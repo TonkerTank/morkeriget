@@ -5,9 +5,11 @@ import java.util.Locale;
 
 import com.morkeriget.Text;
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.progress.PlayerClass;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -17,17 +19,23 @@ import net.minecraft.world.item.component.CustomData;
 // A set item is a normal piece of loot with the SET rarity and the set and piece saved on it
 public enum ItemSet {
     // Names and bonuses are in the language files, under set.<name>
-    GUARDIAN(List.of(Piece.HELMET, Piece.CHEST, Piece.LEGS, Piece.BOOTS)),
+    GUARDIAN(List.of(Piece.HELMET, Piece.CHEST, Piece.LEGS, Piece.BOOTS), null),
     // A caster's set, so its weapon is a staff. Swords from before that still count as the fourth piece
-    STORMCALLER(List.of(Piece.HELMET, Piece.STAFF, Piece.RING, Piece.AMULET)),
-    BLOODHUNTER(List.of(Piece.WEAPON, Piece.CHEST, Piece.BOOTS, Piece.RING));
+    STORMCALLER(List.of(Piece.HELMET, Piece.STAFF, Piece.RING, Piece.AMULET), null),
+    BLOODHUNTER(List.of(Piece.WEAPON, Piece.CHEST, Piece.BOOTS, Piece.RING), null),
+    // One for each class. Their four piece bonus makes one of the class's skills stronger
+    WARLORD(List.of(Piece.HELMET, Piece.CHEST, Piece.AXE, Piece.BOOTS), PlayerClass.BARBARIAN),
+    FROSTWEAVER(List.of(Piece.HELMET, Piece.STAFF, Piece.LEGS, Piece.AMULET), PlayerClass.SORCERER),
+    WINDRUNNER(List.of(Piece.HELMET, Piece.BOW, Piece.BOOTS, Piece.RING), PlayerClass.RANGER),
+    BONELORD(List.of(Piece.HELMET, Piece.STAFF, Piece.CHEST, Piece.RING), PlayerClass.NECROMANCER),
+    CRUSADER(List.of(Piece.HELMET, Piece.CHEST, Piece.LEGS, Piece.SHIELD), PlayerClass.PALADIN);
 
     private static final String SET_TAG = "morkeriget_set";
     private static final String PIECE_TAG = "morkeriget_set_piece";
 
     // A place a set piece is worn. The base item gets better with the item level, like normal loot
     public enum Piece {
-        HELMET, CHEST, LEGS, BOOTS, WEAPON, STAFF, RING, AMULET;
+        HELMET, CHEST, LEGS, BOOTS, WEAPON, STAFF, RING, AMULET, AXE, BOW, SHIELD;
 
         public MutableComponent displayName() {
             return Text.tr("piece." + name().toLowerCase(Locale.ROOT));
@@ -43,6 +51,9 @@ public enum ItemSet {
                 case STAFF -> tier(itemLevel, Staffs.OAK.get(), Staffs.BLAZE.get(), Staffs.STORM.get(), Staffs.STAR.get());
                 case RING -> Jewelry.RING.get();
                 case AMULET -> Jewelry.AMULET.get();
+                case AXE -> tier(itemLevel, Items.STONE_AXE, Items.IRON_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE);
+                case BOW -> Items.BOW;
+                case SHIELD -> Items.SHIELD;
             };
         }
 
@@ -52,10 +63,28 @@ public enum ItemSet {
         }
     }
 
-    public final List<Piece> pieces;
+    // How often a set piece is from the finder's own class set, when they have a class
+    private static final double OWN_CLASS_CHANCE = 0.5;
 
-    ItemSet(List<Piece> pieces) {
+    public final List<Piece> pieces;
+    // null for the sets every class can use
+    public final PlayerClass playerClass;
+
+    ItemSet(List<Piece> pieces, PlayerClass playerClass) {
         this.pieces = pieces;
+        this.playerClass = playerClass;
+    }
+
+    // Half the time the set of the finder's class, otherwise any set
+    public static ItemSet roll(RandomSource random, PlayerClass forClass) {
+        if (forClass != null && random.nextDouble() < OWN_CLASS_CHANCE) {
+            for (ItemSet set : values()) {
+                if (set.playerClass == forClass) {
+                    return set;
+                }
+            }
+        }
+        return values()[random.nextInt(values().length)];
     }
 
     // E.g. "Guardian's", which goes in front of the piece's name

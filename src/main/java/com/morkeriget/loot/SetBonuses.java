@@ -154,8 +154,8 @@ public final class SetBonuses {
         return worn.size();
     }
 
-    // Armour on the body, a weapon or staff in the main hand and the jewelry slots. Other things in the hand don't count,
-    // and nor do worn-out items, see Durability
+    // Armour on the body, a weapon, staff or bow in the main hand, a shield in the off hand and the jewelry slots. Other
+    // things in the hand don't count, and nor do worn-out items, see Durability
     private static List<ItemStack> wornItems(Player player) {
         List<ItemStack> items = new ArrayList<>();
         for (ItemStack armor : player.getArmorSlots()) {
@@ -163,8 +163,12 @@ public final class SetBonuses {
                 items.add(armor);
             }
         }
-        if (ItemKind.of(player.getMainHandItem()) == ItemKind.MELEE) {
+        ItemKind held = ItemKind.of(player.getMainHandItem());
+        if (held == ItemKind.MELEE || held == ItemKind.RANGED) {
             items.add(player.getMainHandItem());
+        }
+        if (ItemKind.of(player.getOffhandItem()) == ItemKind.SHIELD) {
+            items.add(player.getOffhandItem());
         }
         items.addAll(Jewelry.worn(player));
         items.removeIf(Durability::isBroken);
@@ -191,6 +195,18 @@ public final class SetBonuses {
                 }
                 case STORMCALLER -> {
                     // Mana and cooldowns, see Mana and Skills
+                }
+                // The class sets' four piece bonuses are in the skills themselves
+                case WARLORD -> modifier(player, Attributes.MAX_HEALTH, set, 2, 8, AttributeModifier.Operation.ADD_VALUE, two);
+                case FROSTWEAVER -> modifier(player, Attributes.ATTACK_DAMAGE, set, 2, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, two);
+                case WINDRUNNER -> modifier(player, Attributes.MOVEMENT_SPEED, set, 2, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_BASE, two);
+                case BONELORD -> {
+                    modifier(player, Attributes.ARMOR, set, 2, 3, AttributeModifier.Operation.ADD_VALUE, two);
+                    modifier(player, Attributes.MAX_HEALTH, set, 2, 4, AttributeModifier.Operation.ADD_VALUE, two);
+                }
+                case CRUSADER -> {
+                    modifier(player, Attributes.ARMOR, set, 2, 4, AttributeModifier.Operation.ADD_VALUE, two);
+                    modifier(player, Attributes.ARMOR_TOUGHNESS, set, 2, 2, AttributeModifier.Operation.ADD_VALUE, two);
                 }
             }
         }

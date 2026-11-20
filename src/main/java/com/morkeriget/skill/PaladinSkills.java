@@ -9,7 +9,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.LegendaryPower;
+import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
@@ -40,7 +42,7 @@ import org.joml.Quaternionf;
 // The paladin's skills: Holy Hammer, Shield Bash, Holy Aura, Holy Light, Consecration, Spear of Judgement and the big
 // one, Heaven's Judgement. Also the class bonus (less damage taken with enemies close by) and Retribution. The paladin
 // holds the line and keeps the group alive rather than hitting hardest. Server only, called from Skills.use
-final class PaladinSkills {
+public final class PaladinSkills {
     // 20 ticks is one second. Holy Hammer: the hammer spirals out from you, three turns in HAMMER_TICKS. It can hit the
     // same enemy again after HAMMER_REHIT ticks, so one that stays close is hit on each pass
     private static final int HAMMER_TICKS = 40;
@@ -206,8 +208,10 @@ final class PaladinSkills {
     // A hammer of light that spirals out from you and hits everything it passes. Hammerfall throws three at once
     static boolean holyHammer(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        float damage = damage(player, 0.6, Upgrade.HOLY_HAMMER);
-        int hammers = LegendaryPower.has(player, LegendaryPower.HAMMERFALL) ? 3 : 1;
+        // Crusader 4 pieces: twice the damage and two hammers more
+        boolean crusader = SetBonuses.has(player, ItemSet.CRUSADER, 4);
+        float damage = damage(player, 0.6, Upgrade.HOLY_HAMMER) * (crusader ? 2 : 1);
+        int hammers = (LegendaryPower.has(player, LegendaryPower.HAMMERFALL) ? 3 : 1) + (crusader ? 2 : 0);
         double start = Math.toRadians(player.getYRot() + 90);
         for (int i = 0; i < hammers; i++) {
             add(player, new Effect(Kind.HAMMER, player.position(), damage, start + Math.PI * 2 * i / hammers, HAMMER_TICKS, level.getGameTime()));
@@ -568,6 +572,15 @@ final class PaladinSkills {
 
     private static void pillar(ServerLevel level, Vec3 spot) {
         pillar(level, spot, 1.6f, (float) PILLAR_HEIGHT, (float) PILLAR_RADIUS);
+    }
+
+    // Dawnguard: the same pillar of light as Heaven's Judgement comes down on the one who was blocked, and a golden
+    // spiral goes up around the player who blocked it, like Holy Light's heal
+    public static void dawnguardStrike(ServerPlayer player, Vec3 spot) {
+        ServerLevel level = player.serverLevel();
+        pillar(level, spot, 1.4f, 10f, 1.6f);
+        SkillVisuals.spiral(level, player.position(), 0.6, 2.0, 1.5, 14, SkillVisuals.GOLD);
+        level.playSound(null, spot.x, spot.y, spot.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8f, 1.6f);
     }
 
     // A pillar of light shooting down from the sky onto the spot: it comes down in a moment, swells, and thins out to

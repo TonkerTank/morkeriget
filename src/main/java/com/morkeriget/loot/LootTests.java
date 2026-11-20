@@ -5,14 +5,19 @@ import java.util.List;
 import java.util.Map;
 
 import com.morkeriget.Morkeriget;
+import com.morkeriget.gametest.TestPlayers;
 import com.morkeriget.jewelry.Jewelry;
+import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.smithy.Smithy;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
@@ -198,5 +203,40 @@ public final class LootTests {
         worn.add(amulet1);
         worn.add(amulet2);
         LootTooltips.setWornJewelry(worn);
+    }
+
+    // The class sets: a bow in the hand and a shield in the off hand count as set pieces, so all four can be worn
+    @GameTest(template = "empty")
+    public static void bowAndShieldCountAsSetPieces(GameTestHelper helper) {
+        RandomSource random = RandomSource.create(7);
+        ServerPlayer ranger = TestPlayers.survivor(helper, new BlockPos(1, 2, 1));
+        ranger.setItemSlot(EquipmentSlot.HEAD, Loot.createSet(random, 30, ItemSet.WINDRUNNER, ItemSet.Piece.HELMET));
+        ranger.setItemSlot(EquipmentSlot.FEET, Loot.createSet(random, 30, ItemSet.WINDRUNNER, ItemSet.Piece.BOOTS));
+        ranger.setItemSlot(EquipmentSlot.MAINHAND, Loot.createSet(random, 30, ItemSet.WINDRUNNER, ItemSet.Piece.BOW));
+        helper.assertTrue(SetBonuses.has(ranger, ItemSet.WINDRUNNER, 3), "Buen talte ikke som en del af Vindløberens sæt");
+        ServerPlayer paladin = TestPlayers.survivor(helper, new BlockPos(3, 2, 1));
+        paladin.setItemSlot(EquipmentSlot.HEAD, Loot.createSet(random, 30, ItemSet.CRUSADER, ItemSet.Piece.HELMET));
+        paladin.setItemSlot(EquipmentSlot.CHEST, Loot.createSet(random, 30, ItemSet.CRUSADER, ItemSet.Piece.CHEST));
+        paladin.setItemSlot(EquipmentSlot.LEGS, Loot.createSet(random, 30, ItemSet.CRUSADER, ItemSet.Piece.LEGS));
+        paladin.setItemSlot(EquipmentSlot.OFFHAND, Loot.createSet(random, 30, ItemSet.CRUSADER, ItemSet.Piece.SHIELD));
+        helper.assertTrue(SetBonuses.has(paladin, ItemSet.CRUSADER, 4), "Skjoldet talte ikke som den fjerde del af Korsridderens sæt");
+        TestPlayers.remove(ranger);
+        TestPlayers.remove(paladin);
+        helper.succeed();
+    }
+
+    // Half the set pieces a class finds are from its own set
+    @GameTest(template = "empty")
+    public static void setDropsFavourOwnClass(GameTestHelper helper) {
+        RandomSource random = RandomSource.create(11);
+        int own = 0;
+        for (int i = 0; i < 400; i++) {
+            if (ItemSet.roll(random, PlayerClass.NECROMANCER) == ItemSet.BONELORD) {
+                own++;
+            }
+        }
+        // 50% plus an eighth of the rest, about 225 of 400
+        helper.assertTrue(own > 180 && own < 270, own + " af 400 sætdele var Benherrens");
+        helper.succeed();
     }
 }

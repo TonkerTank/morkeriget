@@ -49,6 +49,8 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 // Skills the player can use. They run on the server so monsters really take the damage
 public final class Skills {
     private static final double WHIRLWIND_RADIUS = 4.0;
+    // Warlord 4 pieces: health back for each enemy Whirlwind hits
+    private static final float WARLORD_HEAL = 0.02f;
     private static final double FROST_NOVA_RADIUS = 5.0;
     // 20 ticks is one second
     private static final int FROST_NOVA_DURATION = 3 * 20;
@@ -195,6 +197,10 @@ public final class Skills {
         if (crown) {
             manaCost *= 0.75f;
         }
+        // Bonelord 4 pieces: Bone Spear costs half
+        if (skill == Skill.BONE_SPEAR && SetBonuses.has(player, ItemSet.BONELORD, 4)) {
+            manaCost *= 0.5f;
+        }
         // Arcane Rhythm: every third skill in a row is free and ready again at once
         boolean rhythm = !skill.isPotion() && Progression.has(player, Upgrade.ARCANE_RHYTHM)
                 && player.getPersistentData().getInt(RHYTHM_TAG) >= RHYTHM_EVERY - 1;
@@ -279,6 +285,9 @@ public final class Skills {
                 if (upgrade != null) {
                     cooldownScale *= Upgrade.cooldownScale(Progression.rank(player, upgrade));
                 }
+                if (skill == Skill.FROST_NOVA && SetBonuses.has(player, ItemSet.FROSTWEAVER, 4)) {
+                    cooldownScale *= 0.5f;
+                }
                 // Light on Your Feet: Leap is ready sooner
                 if (skill == Skill.LEAP && Progression.has(player, Upgrade.LEAP_LIGHT)) {
                     cooldownScale *= LIGHT_FEET_COOLDOWN;
@@ -304,13 +313,18 @@ public final class Skills {
         boolean maelstrom = LegendaryPower.has(player, LegendaryPower.MAELSTROM);
         // Each Whirlwind upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.WHIRLWIND);
-        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.1 * upgrade * (maelstrom ? 1.3 : 1));
+        // Warlord 4 pieces: twice the damage, and every enemy hit heals a little
+        boolean warlord = SetBonuses.has(player, ItemSet.WARLORD, 4);
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.1 * upgrade * (maelstrom ? 1.3 : 1) * (warlord ? 2 : 1));
         // Wide Whirl reaches further, and Bleeding Wounds keep hurting
         double radius = Progression.has(player, Upgrade.WHIRLWIND_WIDE) ? WHIRLWIND_RADIUS * WIDE_WHIRL : WHIRLWIND_RADIUS;
         boolean bleed = Progression.has(player, Upgrade.WHIRLWIND_BLEED);
         for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(radius),
                 entity -> Minions.isEnemy(entity))) {
             target.hurt(player.damageSources().playerAttack(player), damage);
+            if (warlord) {
+                player.heal(player.getMaxHealth() * WARLORD_HEAL);
+            }
             if (bleed) {
                 DamageOverTime.add(player, target, damage * BarbarianSkills.BLEED_PER_SECOND, BarbarianSkills.BLEED_SECONDS, SkillVisuals.BLOOD);
             }
@@ -363,7 +377,8 @@ public final class Skills {
         int rank = Upgrade.utility(Progression.rank(player, Upgrade.FROST_NOVA));
         double radius = FROST_NOVA_RADIUS + rank * 0.5;
         int duration = FROST_NOVA_DURATION + rank * 10;
-        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5);
+        // Frostweaver 4 pieces: four times the damage, and the cooldown is halved in use()
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5 * (SetBonuses.has(player, ItemSet.FROSTWEAVER, 4) ? 4 : 1));
         List<LivingEntity> hit = level.getEntitiesOfClass(LivingEntity.class, new AABB(center, center.add(0, player.getBbHeight(), 0)).inflate(radius),
                 entity -> Minions.isEnemy(entity));
         // Before the damage, so Deep Freeze already counts for the nova itself

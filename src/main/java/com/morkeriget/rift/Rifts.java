@@ -649,7 +649,7 @@ public final class Rifts {
             List<ItemStack> rewards = new ArrayList<>();
             // A set piece, one normal item more for every third tier (at least rare from tier V), more essence per tier,
             // and a stone for the next tier
-            rewards.add(Loot.createSet(random, monsterLevel));
+            rewards.add(Loot.createSet(random, monsterLevel, Progression.playerClass(player)));
             // Each affix gives an item more and 25% more essence, XP and chance of a mythic
             double affixBonus = 1 + RiftAffix.REWARD_PER_AFFIX * affixes.size();
             // Higher tiers have a better chance of a mythic item

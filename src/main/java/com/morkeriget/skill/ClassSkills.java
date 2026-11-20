@@ -9,8 +9,10 @@ import java.util.UUID;
 import com.morkeriget.Config;
 import com.morkeriget.Morkeriget;
 import com.morkeriget.loot.ItemKind;
+import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.Loot;
+import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.mixin.ArrowAccessor;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
@@ -273,9 +275,11 @@ final class ClassSkills {
     static boolean multishot(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         // Each Multishot upgrade rank adds 15% damage
-        double damage = ARROW_DAMAGE * (1 + 0.15 * Progression.rank(player, Upgrade.MULTISHOT));
+        // Windrunner 4 pieces: twice as many arrows, each 50% stronger
+        boolean windrunner = SetBonuses.has(player, ItemSet.WINDRUNNER, 4);
+        double damage = ARROW_DAMAGE * (1 + 0.15 * Progression.rank(player, Upgrade.MULTISHOT)) * (windrunner ? 1.5 : 1);
         boolean storm = LegendaryPower.has(player, LegendaryPower.ARROW_STORM);
-        int side = storm ? 4 : 2;
+        int side = (storm ? 4 : 2) * (windrunner ? 2 : 1);
         float spread = storm ? 6 : 8;
         boolean pierce = Progression.has(player, Upgrade.MULTISHOT_PIERCE);
         boolean poison = Progression.has(player, Upgrade.MULTISHOT_POISON);

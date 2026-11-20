@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.function.Function;
 
 import com.morkeriget.Text;
@@ -16,6 +18,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -30,6 +33,7 @@ import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 // Client only
 public final class LootTooltips {
     private static final int GREATER_COLOR = 0xFF9F1C;
+    private static final String SET_PIECES_KEY = "morkeriget.lore.set_pieces";
 
     private record Stat(Holder<Attribute> attribute, AttributeModifier.Operation operation) {
     }
@@ -77,6 +81,7 @@ public final class LootTooltips {
             event.getToolTip().add(at, Text.tr(greater.size() > 1 ? "tooltip.greater_many" : "tooltip.greater_one").withColor(GREATER_COLOR));
             event.getToolTip().addAll(at + 1, greater);
         }
+        setLines(player, stack, event.getToolTip());
         ItemStack worn;
         if (ItemKind.of(stack) == ItemKind.JEWELRY) {
             worn = weakestWorn(stack);
@@ -173,5 +178,68 @@ public final class LootTooltips {
         }
         String number = (change > 0 ? "+" : "") + ItemAttributeModifiers.ATTRIBUTE_MODIFIER_FORMAT.format(change);
         lines.add(text.apply(number).withStyle(change > 0 ? ChatFormatting.GREEN : ChatFormatting.RED));
+    }
+
+    // The set part of the lore is written when the item drops. Here it is swapped for one that shows the class the set
+    // is for, which pieces you wear (✔) and which you are missing (✗), and the bonuses you have in green
+    private static void setLines(Player player, ItemStack stack, List<Component> lines) {
+        ItemSet set = ItemSet.of(stack);
+        if (set == null) {
+            return;
+        }
+        int at = -1;
+        for (int i = 0; i < lines.size(); i++) {
+            if (lines.get(i).getContents() instanceof TranslatableContents contents && contents.getKey().equals(SET_PIECES_KEY)) {
+                at = i;
+                break;
+            }
+        }
+        // The piece list and the two bonus lines under it
+        if (at < 0 || at + 2 >= lines.size()) {
+            return;
+        }
+        Set<ItemSet.Piece> worn = wornPieces(player, set);
+        int count = (int) set.pieces.stream().filter(worn::contains).count();
+        List<Component> replacement = new ArrayList<>();
+        MutableComponent header = set.playerClass != null
+                ? Text.tr("tooltip.set_class", set.displayName(), set.playerClass.displayName(), count, set.pieces.size())
+                : Text.tr("tooltip.set", set.displayName(), count, set.pieces.size());
+        replacement.add(header.withStyle(ChatFormatting.DARK_GREEN));
+        for (ItemSet.Piece piece : set.pieces) {
+            boolean has = worn.contains(piece);
+            replacement.add(Component.literal(has ? "  ✔ " : "  ✗ ").append(piece.displayName())
+                    .withStyle(has ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
+        }
+        replacement.add(Component.literal("(2) ").append(set.twoPieceBonus()).withStyle(count >= 2 ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+        replacement.add(Component.literal("(4) ").append(set.fourPieceBonus()).withStyle(count >= 4 ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+        for (int i = 0; i < 3; i++) {
+            lines.remove(at);
+        }
+        lines.addAll(at, replacement);
+    }
+
+    // The same pieces SetBonuses counts on the server, but with the jewelry the client was told about
+    private static Set<ItemSet.Piece> wornPieces(Player player, ItemSet set) {
+        List<ItemStack> items = new ArrayList<>();
+        for (ItemStack armor : player.getArmorSlots()) {
+            if (ItemKind.of(armor) == ItemKind.ARMOR) {
+                items.add(armor);
+            }
+        }
+        ItemKind held = ItemKind.of(player.getMainHandItem());
+        if (held == ItemKind.MELEE || held == ItemKind.RANGED) {
+            items.add(player.getMainHandItem());
+        }
+        if (ItemKind.of(player.getOffhandItem()) == ItemKind.SHIELD) {
+            items.add(player.getOffhandItem());
+        }
+        items.addAll(wornJewelry);
+        Set<ItemSet.Piece> pieces = EnumSet.noneOf(ItemSet.Piece.class);
+        for (ItemStack item : items) {
+            if (!Durability.isBroken(item) && ItemSet.of(item) == set && ItemSet.piece(item) != null) {
+                pieces.add(ItemSet.piece(item));
+            }
+        }
+        return pieces;
     }
 }

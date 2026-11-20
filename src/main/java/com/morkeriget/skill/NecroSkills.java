@@ -8,8 +8,10 @@ import com.morkeriget.Morkeriget;
 import com.morkeriget.Text;
 import com.morkeriget.elite.Elites;
 import com.morkeriget.combat.MythicEffects;
+import com.morkeriget.loot.ItemSet;
 import com.morkeriget.loot.LegendaryPower;
 import com.morkeriget.loot.MythicItem;
+import com.morkeriget.loot.SetBonuses;
 import com.morkeriget.progress.PlayerClass;
 import com.morkeriget.progress.Progression;
 import com.morkeriget.progress.Upgrade;
@@ -92,7 +94,8 @@ final class NecroSkills {
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player)).getLocation();
         // Each Bone Spear upgrade rank adds 20% damage
         double upgrade = 1 + 0.2 * Progression.rank(player, Upgrade.BONE_SPEAR);
-        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.2 * upgrade);
+        // Bonelord 4 pieces: twice the damage, and half the mana in Skills.use()
+        float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * 2.2 * upgrade * (SetBonuses.has(player, ItemSet.BONELORD, 4) ? 2 : 1));
         List<LivingEntity> hit = new ArrayList<>();
         boolean pierce = Progression.has(player, Upgrade.BONE_SPEAR_PIERCE);
         double distance = end.distanceTo(eyes);

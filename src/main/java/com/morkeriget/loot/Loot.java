@@ -286,7 +286,7 @@ public final class Loot {
                 continue;
             }
             ItemStack stack = switch (rarity) {
-                case SET -> createSet(random, itemLevel);
+                case SET -> createSet(random, itemLevel, killerClass);
                 case MYTHIC -> createMythic(random, itemLevel, killerClass);
                 default -> create(random, rarity, itemLevel, killerClass);
             };
@@ -533,9 +533,9 @@ public final class Loot {
         return rarity == Rarity.LEGENDARY ? LegendaryPower.roll(random, forClass) : null;
     }
 
-    // A random piece from a random set
-    public static ItemStack createSet(RandomSource random, int itemLevel) {
-        ItemSet set = ItemSet.values()[random.nextInt(ItemSet.values().length)];
+    // A random piece from a random set, often the set of the finder's class. forClass may be null
+    public static ItemStack createSet(RandomSource random, int itemLevel, PlayerClass forClass) {
+        ItemSet set = ItemSet.roll(random, forClass);
         return createSet(random, itemLevel, set, set.pieces.get(random.nextInt(set.pieces.size())));
     }
 
